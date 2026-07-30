@@ -46,23 +46,29 @@ async function supabaseFetch(endpoint, options = {}) {
   }
 }
 
-// 1. Initialize LIFF Application
+// 1. Initialize LIFF Application with Auto-Login
 async function initLiff() {
   console.log("[BOSS LIFF] Initializing LIFF with ID:", CONFIG.LIFF_ID);
   try {
     if (window.liff) {
       await liff.init({ liffId: CONFIG.LIFF_ID });
-      if (liff.isLoggedIn()) {
-        const profile = await liff.getProfile();
-        currentUser.userId = profile.userId;
-        currentUser.displayName = profile.displayName;
-        if (profile.pictureUrl) currentUser.pictureUrl = profile.pictureUrl;
-        currentUser.isAuthenticated = true;
-
-        // Check if user is Admin / Shop Owner
-        const dNameLower = (profile.displayName || "").toLowerCase().trim();
-        currentUser.isAdmin = CONFIG.ADMIN_NAMES.some(name => dNameLower.includes(name));
+      
+      if (!liff.isLoggedIn()) {
+        console.log("[BOSS LIFF] User not logged in to new LIFF ID yet. Triggering liff.login()...");
+        liff.login();
+        return;
       }
+
+      // Fetch Logged In User Profile
+      const profile = await liff.getProfile();
+      currentUser.userId = profile.userId;
+      currentUser.displayName = profile.displayName;
+      if (profile.pictureUrl) currentUser.pictureUrl = profile.pictureUrl;
+      currentUser.isAuthenticated = true;
+
+      // Check if user is Admin / Shop Owner
+      const dNameLower = (profile.displayName || "").toLowerCase().trim();
+      currentUser.isAdmin = CONFIG.ADMIN_NAMES.some(name => dNameLower.includes(name));
     }
   } catch (err) {
     console.warn("[BOSS LIFF] LIFF init info:", err.message);
