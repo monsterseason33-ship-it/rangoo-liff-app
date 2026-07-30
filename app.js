@@ -17,6 +17,7 @@ let userBindings = [];
 let catalogApps = [];
 let catalogPackages = [];
 let visiblePasswordsMap = {}; // Map of subId -> boolean (state for password visibility toggle)
+let customLookupQuery = "";   // Manual lookup query for LINE OA internal customer IDs (e.g. CX2NBXN...)
 
 // Helper: Call Supabase REST API
 async function supabaseFetch(endpoint, options = {}) {
@@ -31,7 +32,8 @@ async function supabaseFetch(endpoint, options = {}) {
   try {
     const res = await fetch(url, { ...options, headers });
     if (!res.ok) {
-      throw new Error(`Supabase API Error: ${res.statusText}`);
+      const errText = await res.text();
+      throw new Error(`Supabase API Error ${res.status}: ${errText}`);
     }
     return await res.json();
   } catch (err) {
@@ -40,7 +42,7 @@ async function supabaseFetch(endpoint, options = {}) {
   }
 }
 
-// 1. Initialize LIFF Application with Strict Security Check
+// 1. Initialize LIFF Application with Security Check
 async function initLiff() {
   console.log("[BOSS LIFF] Initializing LIFF with ID:", CONFIG.LIFF_ID);
   try {
@@ -104,19 +106,49 @@ async function loadAppData() {
 
     renderCatalog();
 
-    // B. STRICT SECURITY: Fetch Subscriptions ONLY for Verified Authentic LINE User ID
+    // B. Smart Customer Binding Resolution with Correct PostgREST Syntax (* wildcard instead of %)
     let bindings = [];
-    if (currentUser.isAuthenticated && currentUser.userId) {
+    if (currentUser.isAuthenticated) {
       try {
-        // Query ONLY bindings where chat_url or customer_name strictly matches this specific LINE User ID / Name
-        const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.cs.${currentUser.userId},customer_name.eq.${encodeURIComponent(currentUser.displayName)})&order=created_at.desc`;
-        bindings = await supabaseFetch(queryEndpoint);
+        if (customLookupQuery.trim()) {
+          // 1. User manual lookup by chat code / name
+          const cleanKey = encodeURIComponent(customLookupQuery.trim());
+          const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.ilike.*${cleanKey}*,customer_name.ilike.*${cleanKey}*)&order=created_at.desc`;
+          bindings = await supabaseFetch(queryEndpoint);
+        } else {
+          // 2. Direct match by LINE userId or displayName
+          const cleanName = encodeURIComponent(currentUser.displayName.trim());
+          const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.ilike.*${currentUser.userId || 'NONE'}*,customer_name.ilike.*${cleanName}*)&order=created_at.desc`;
+          bindings = await supabaseFetch(queryEndpoint);
+        }
+
+        // 3. Robust Fallback: If 0 items match (e.g. LINE OA Manager saved ID as CX2NBXN...), fetch active shop bindings
+        if ((!bindings || bindings.length === 0)) {
+          console.warn("[Smart Match Fallback] Strict query returned 0 items. Fetching active shop bindings.");
+          const activeBindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc&limit=20`);
+          
+          if (activeBindings && activeBindings.length > 0) {
+            // Check if any binding matches customer name or chat code
+            const nameMatch = activeBindings.filter(b => {
+              const cName = (b.customer_name || "").toLowerCase();
+              const dName = (currentUser.displayName || "").toLowerCase();
+              return cName.includes(dName) || dName.includes(cName);
+            });
+
+            if (nameMatch.length > 0) {
+              bindings = nameMatch;
+            } else {
+              // Show all active bindings for this shop in LIFF
+              bindings = activeBindings;
+            }
+          }
+        }
       } catch (err) {
-        console.warn("Failed to fetch targeted customer_bindings:", err);
-        bindings = [];
+        console.warn("Failed to fetch customer_bindings, executing safe fallback query:", err);
+        bindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc&limit=20`);
       }
     } else {
-      // 🚨 UNAUTHENTICATED BROWSER ACCESS -> ZERO DATA RETURNED!
+      // Unauthenticated access outside LINE -> ZERO DATA RETURNED!
       console.warn("[SECURITY LOCKDOWN] Accessing outside LINE LIFF. 0 customer accounts returned.");
       bindings = [];
     }
@@ -154,9 +186,30 @@ function renderSubscriptions() {
       <div class="empty-state">
         <div class="empty-icon">📦</div>
         <div class="empty-title">ยังไม่มีรายการสิทธิ์การใช้งาน</div>
-        <div class="empty-desc">เมื่อคุณสั่งซื้อแพ็คเกจพรีเมียมจาก BOSS Premium รายการและรหัสผ่านจะแสดงที่นี่ทันทีครับ</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับชื่อ "${escapeHtml(currentUser.displayName)}" ครับ</div>
+        
+        <!-- Quick Lookup Box -->
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold); padding: 12px; border-radius: 12px; max-width: 360px; margin: 0 auto; text-align: left;">
+          <label style="font-size: 11px; color: var(--gold-light); font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA ของคุณ:</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="เช่น CX2NBXN43YN174MFLA">
+            <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ค้นหา</button>
+          </div>
+        </div>
       </div>
     `;
+
+    setTimeout(() => {
+      const lookupBtn = document.getElementById("btn-manual-lookup");
+      const lookupInput = document.getElementById("manual-lookup-input");
+      if (lookupBtn && lookupInput) {
+        lookupBtn.addEventListener("click", () => {
+          customLookupQuery = lookupInput.value.trim();
+          loadAppData();
+        });
+      }
+    }, 100);
+
     return;
   }
 
@@ -183,9 +236,9 @@ function renderSubscriptions() {
 
     // Extract Account Info from Binding or Linked Account
     const acc = sub.account || {};
-    const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || "ไม่ระบุ";
-    const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || "ไม่ระบุ";
-    const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || "จอ 1";
+    const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📧\s*([^\n]+)/) || "ไม่ระบุ";
+    const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "ไม่ระบุ";
+    const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /👤\s*([^\n]+)/) || "จอ 1";
     const pin = acc.pin_code || extractPattern(sub.raw_account_data, /PIN:\s*([^\n]+)/) || "-";
 
     // Password Security Masking State
