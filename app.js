@@ -80,6 +80,9 @@ async function initLiff() {
     document.getElementById("user-avatar").src = currentUser.pictureUrl;
   }
 
+  // Render LINE User ID Inspector Bar
+  renderUserIdInspector();
+
   // Render Admin Badge if logged in as Admin
   renderAdminBadge();
 
@@ -87,10 +90,45 @@ async function initLiff() {
   await loadAppData();
 }
 
+// Render LINE User ID Debug Inspector Bar
+function renderUserIdInspector() {
+  let inspector = document.getElementById("user-id-inspector");
+  if (!inspector) {
+    inspector = document.createElement("div");
+    inspector.id = "user-id-inspector";
+    inspector.style.marginBottom = "14px";
+    inspector.style.background = "rgba(2, 132, 199, 0.12)";
+    inspector.style.border = "1px solid var(--border-blue, #0284c7)";
+    inspector.style.borderRadius = "12px";
+    inspector.style.padding = "8px 12px";
+    
+    const banner = document.querySelector(".welcome-banner");
+    if (banner && banner.parentNode) {
+      banner.parentNode.insertBefore(inspector, banner.nextSibling);
+    } else {
+      const container = document.querySelector(".container");
+      if (container) container.insertBefore(inspector, container.firstChild);
+    }
+  }
+
+  const idText = currentUser.userId || "ยังไม่ได้รับ ID (เปิดนอกแอป LINE)";
+  inspector.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+      <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0;">
+        <span style="font-size: 14px;">🆔</span>
+        <div style="display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 9.5px; color: var(--text-muted, #94a3b8);">LINE User ID สำหรับทดสอบระบุตัวตน:</span>
+          <span style="font-size: 11px; font-weight: bold; color: var(--blue-bright, #38bdf8); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(idText)}</span>
+        </div>
+      </div>
+      ${currentUser.userId ? `<button class="copy-btn" onclick="copyToClipboard('${escapeHtml(currentUser.userId)}')" style="white-space: nowrap; margin-left: 8px; padding: 3px 8px; font-size: 10px;">คัดลอก ID</button>` : ''}
+    </div>
+  `;
+}
+
 function renderAdminBadge() {
   let badge = document.getElementById("admin-mode-badge");
 
-  // Dynamically inject admin badge into DOM if not present in index.html
   if (!badge) {
     badge = document.createElement("div");
     badge.id = "admin-mode-badge";
@@ -99,14 +137,15 @@ function renderAdminBadge() {
     badge.style.border = "1px solid var(--border-gold, #d4af37)";
     badge.style.borderRadius = "12px";
     badge.style.padding = "8px 12px";
-    badge.style.alignItems = "center";
     
-    const banner = document.querySelector(".welcome-banner");
-    if (banner && banner.parentNode) {
-      banner.parentNode.insertBefore(badge, banner.nextSibling);
+    const inspector = document.getElementById("user-id-inspector");
+    if (inspector && inspector.parentNode) {
+      inspector.parentNode.insertBefore(badge, inspector.nextSibling);
     } else {
-      const container = document.querySelector(".container");
-      if (container) container.insertBefore(badge, container.firstChild);
+      const banner = document.querySelector(".welcome-banner");
+      if (banner && banner.parentNode) {
+        banner.parentNode.insertBefore(badge, banner.nextSibling);
+      }
     }
   }
 
@@ -134,6 +173,13 @@ function renderAdminBadge() {
   } else {
     badge.style.display = "none";
   }
+}
+
+// Helper: Extract Chat ID from chat_url
+function extractChatId(url) {
+  if (!url) return "";
+  const match = url.match(/\/chat\/([^\/\?]+)/);
+  return match ? match[1] : "";
 }
 
 // 2. Load Data from Supabase (Apps, Packages, Subscriptions)
@@ -249,6 +295,7 @@ function renderSubscriptions() {
     const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "ไม่ระบุ";
     const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /👤\s*([^\n]+)/) || "จอ 1";
     const pin = acc.pin_code || extractPattern(sub.raw_account_data, /PIN:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📌\s*PIN:\s*([^\n]+)/) || "-";
+    const chatId = extractChatId(sub.chat_url);
 
     // Password Security Masking State
     const isPasswordVisible = !!visiblePasswordsMap[sub.id];
@@ -275,6 +322,14 @@ function renderSubscriptions() {
         <div class="detail-row">
           <span class="detail-label">แพ็คเกจ:</span>
           <span class="detail-value">${escapeHtml(sub.package_name || "แพ็คเกจปกติ")} (${sub.days || 30} วัน)</span>
+        </div>
+
+        <div class="detail-row">
+          <span class="detail-label">🆔 รหัสแชทผูกสิทธิ์:</span>
+          <span class="detail-value" style="font-family: monospace; color: #38bdf8; font-size: 10.5px;">
+            ${escapeHtml(chatId || sub.customer_name)}
+            ${chatId ? `<button class="copy-btn" onclick="copyToClipboard('${escapeHtml(chatId)}')">คัดลอก</button>` : ''}
+          </span>
         </div>
 
         <div class="detail-row">
