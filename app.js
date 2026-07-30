@@ -68,6 +68,12 @@ async function initLiff() {
     console.warn("[BOSS LIFF] LIFF init info:", err.message);
   }
 
+  // Fallback Admin Check for Boss
+  const currentNameLower = (currentUser.displayName || "").toLowerCase().trim();
+  if (CONFIG.ADMIN_NAMES.some(name => currentNameLower.includes(name))) {
+    currentUser.isAdmin = true;
+  }
+
   // Update Profile UI Header
   document.getElementById("user-name").textContent = currentUser.displayName;
   if (currentUser.pictureUrl) {
@@ -82,15 +88,34 @@ async function initLiff() {
 }
 
 function renderAdminBadge() {
-  const badge = document.getElementById("admin-mode-badge");
-  if (!badge) return;
+  let badge = document.getElementById("admin-mode-badge");
+
+  // Dynamically inject admin badge into DOM if not present in index.html
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.id = "admin-mode-badge";
+    badge.style.marginBottom = "14px";
+    badge.style.background = "rgba(212, 175, 55, 0.15)";
+    badge.style.border = "1px solid var(--border-gold, #d4af37)";
+    badge.style.borderRadius = "12px";
+    badge.style.padding = "8px 12px";
+    badge.style.alignItems = "center";
+    
+    const banner = document.querySelector(".welcome-banner");
+    if (banner && banner.parentNode) {
+      banner.parentNode.insertBefore(badge, banner.nextSibling);
+    } else {
+      const container = document.querySelector(".container");
+      if (container) container.insertBefore(badge, container.firstChild);
+    }
+  }
 
   if (currentUser.isAdmin) {
     badge.style.display = "flex";
     badge.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <span style="font-size: 11px; font-weight: bold; color: var(--gold-light);">👑 โหมดผู้ดูแลระบบ (Admin)</span>
-        <select id="admin-view-toggle" style="background: #050b18; border: 1px solid var(--border-gold); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 6px; outline: none;">
+        <span style="font-size: 11px; font-weight: bold; color: #fef08a;">👑 โหมดผู้ดูแลระบบ (Admin)</span>
+        <select id="admin-view-toggle" style="background: #050b18; border: 1px solid #d4af37; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 6px; outline: none; cursor: pointer;">
           <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>แสดงทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
           <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้าเฉพาะบุคคล</option>
         </select>
@@ -143,7 +168,7 @@ async function loadAppData() {
         const cUrl = (b.chat_url || "").toLowerCase();
         const uId = (currentUser.userId || "").toLowerCase();
 
-        return (uId && cUrl.includes(uId)) || cName.includes(lowerKeyword) || lowerKeyword.includes(cName);
+        return (uId && cUrl.includes(uId)) || (lowerKeyword && cName.includes(lowerKeyword)) || (cName && lowerKeyword.includes(cName));
       });
     }
 
@@ -173,8 +198,8 @@ function renderSubscriptions() {
         <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับชื่อ "${escapeHtml(currentUser.displayName)}" ครับ</div>
         
         <!-- Quick Lookup Box for Customers -->
-        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold); padding: 12px; border-radius: 12px; max-width: 360px; margin: 0 auto; text-align: left;">
-          <label style="font-size: 11px; color: var(--gold-light); font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA ของคุณ (เช่น CX2NBXN...):</label>
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold, #d4af37); padding: 12px; border-radius: 12px; max-width: 360px; margin: 0 auto; text-align: left;">
+          <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA ของคุณ (เช่น CX2NBXN...):</label>
           <div style="display: flex; gap: 6px;">
             <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอกรหัสแชท LINE OA">
             <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ค้นหา</button>
@@ -240,7 +265,7 @@ function renderSubscriptions() {
           <div class="app-icon-box" style="background: ${themeColor};">${(sub.app_name || "A")[0]}</div>
           <div>
             <div class="app-name-text">${escapeHtml(sub.app_name)}</div>
-            ${currentUser.isAdmin ? `<span style="font-size: 9.5px; color: var(--gold-light);">👤 ลูกค้า: ${escapeHtml(sub.customer_name)}</span>` : ''}
+            ${currentUser.isAdmin ? `<span style="font-size: 9.5px; color: #fef08a;">👤 ลูกค้า: ${escapeHtml(sub.customer_name)}</span>` : ''}
           </div>
         </div>
         <span class="expiry-badge ${expiryBadgeClass}">⏰ ${expiryText}</span>
