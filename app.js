@@ -46,6 +46,40 @@ async function supabaseFetch(endpoint, options = {}) {
   }
 }
 
+// Auto-Bind function: Links logged in LINE User ID & display name to a customer binding row in Supabase
+async function bindUserToCustomerBinding(bindingId) {
+  if (!bindingId || !currentUser.userId) return;
+  try {
+    const binding = allShopBindings.find(b => b.id === bindingId);
+    if (!binding) return;
+
+    // Append LIFF User ID into chat_url if not already present
+    let updatedChatUrl = binding.chat_url || "";
+    if (!updatedChatUrl.includes(currentUser.userId)) {
+      updatedChatUrl = updatedChatUrl ? `${updatedChatUrl}#${currentUser.userId}` : currentUser.userId;
+    }
+
+    // Update customer_name to include current display name if it's currently an internal code like CX2NBXN...
+    let updatedCustomerName = binding.customer_name || "";
+    if (!updatedCustomerName.includes(currentUser.displayName)) {
+      updatedCustomerName = `${updatedCustomerName} (${currentUser.displayName})`;
+    }
+
+    console.log(`[Auto-Bind] Linking LINE User ID ${currentUser.userId} to binding ${bindingId}...`);
+    await supabaseFetch(`customer_bindings?id=eq.${bindingId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        chat_url: updatedChatUrl,
+        customer_name: updatedCustomerName
+      })
+    });
+
+    console.log("[Auto-Bind] Binding successfully linked in Supabase!");
+  } catch (err) {
+    console.warn("[Auto-Bind Failed]", err);
+  }
+}
+
 // 1. Initialize LIFF Application with Auto-Login
 async function initLiff() {
   console.log("[BOSS LIFF] Initializing LIFF with ID:", CONFIG.LIFF_ID);
@@ -218,7 +252,12 @@ async function loadAppData() {
 
         // 1. Manual User Search (Lookup input)
         if (lookupTerm) {
-          return cUrl.includes(lookupTerm) || cName.includes(lookupTerm);
+          const match = cUrl.includes(lookupTerm) || cName.includes(lookupTerm);
+          if (match && currentUser.userId) {
+            // Auto-bind on manual lookup success!
+            bindUserToCustomerBinding(b.id);
+          }
+          return match;
         }
 
         // 2. Strict User ID matching from LINE LIFF
@@ -228,6 +267,7 @@ async function loadAppData() {
 
         // 3. Customer Name matching (if cName is set and not empty)
         if (cName && dName && (cName === dName || cName.includes(dName) || dName.includes(cName))) {
+          if (currentUser.userId) bindUserToCustomerBinding(b.id);
           return true;
         }
 
@@ -257,15 +297,15 @@ function renderSubscriptions() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📦</div>
-        <div class="empty-title">ไม่พบรายการสิทธิ์ที่ผูกกับบัญชีของคุณ</div>
-        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ตรงกับรหัส LINE ของคุณ ("${escapeHtml(currentUser.displayName)}") ครับ</div>
+        <div class="empty-title">ยังไม่มีรายการสิทธิ์ที่ผูกกับบัญชีนี้</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">หากคุณเคยสั่งซื้อสินค้าแล้ว กรอกรหัสแชท LINE OA ด้านล่างเพื่อผูกสิทธิ์เข้ากับบัญชีนี้ได้ทันทีครับ</div>
         
-        <!-- Quick Lookup Box for Customers & Admins -->
+        <!-- Quick Lookup & Auto-Bind Box -->
         <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold, #d4af37); padding: 12px; border-radius: 12px; max-width: 380px; margin: 0 auto; text-align: left;">
-          <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA หรือ LINE User ID ของคุณ:</label>
+          <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔗 ผูกสิทธิ์เข้ากับบัญชี LINE ของคุณ:</label>
           <div style="display: flex; gap: 6px;">
             <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอกรหัสแชท (เช่น CX2NBXN... หรือ U31f...)">
-            <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ค้นหา</button>
+            <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ผูกสิทธิ์ทันที</button>
           </div>
         </div>
       </div>
@@ -275,9 +315,11 @@ function renderSubscriptions() {
       const lookupBtn = document.getElementById("btn-manual-lookup");
       const lookupInput = document.getElementById("manual-lookup-input");
       if (lookupBtn && lookupInput) {
-        lookupBtn.addEventListener("click", () => {
-          customLookupQuery = lookupInput.value.trim();
-          loadAppData();
+        lookupBtn.addEventListener("click", async () => {
+          const val = lookupInput.value.trim();
+          if (!val) return;
+          customLookupQuery = val;
+          await loadAppData();
         });
       }
     }, 100);
