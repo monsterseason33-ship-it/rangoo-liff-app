@@ -20,7 +20,7 @@ let allShopBindings = [];
 let catalogApps = [];
 let catalogPackages = [];
 let visiblePasswordsMap = {}; // Map of subId -> boolean (state for password visibility toggle)
-let customLookupQuery = "";   // Manual lookup query for LINE OA internal customer IDs (e.g. CX2NBXN...)
+let customLookupQuery = "";   // Manual lookup query for LINE OA internal customer IDs or LINE User IDs
 let adminViewMode = "all";    // Admin view toggle: "all" (all shop accounts) or "customer" (specific customer view)
 
 // Helper: Call Supabase REST API
@@ -201,7 +201,7 @@ async function loadAppData() {
       // 👑 ADMIN MODE: Show all active shop bindings
       bindings = allShopBindings;
     } else {
-      // 👤 CUSTOMER MODE: Filter strictly by customer identity
+      // 👤 CUSTOMER MODE: Filter strictly by customer identity or LINE User ID
       const searchKeyword = customLookupQuery.trim() || currentUser.displayName.trim();
       const lowerKeyword = searchKeyword.toLowerCase();
 
@@ -210,7 +210,10 @@ async function loadAppData() {
         const cUrl = (b.chat_url || "").toLowerCase();
         const uId = (currentUser.userId || "").toLowerCase();
 
-        return (uId && cUrl.includes(uId)) || (lowerKeyword && cName.includes(lowerKeyword)) || (cName && lowerKeyword.includes(cName));
+        return (uId && cUrl.includes(uId)) ||
+               (lowerKeyword && cUrl.includes(lowerKeyword)) ||
+               (lowerKeyword && cName.includes(lowerKeyword)) ||
+               (cName && lowerKeyword.includes(cName));
       });
     }
 
@@ -237,13 +240,13 @@ function renderSubscriptions() {
       <div class="empty-state">
         <div class="empty-icon">📦</div>
         <div class="empty-title">ยังไม่มีรายการสิทธิ์การใช้งาน</div>
-        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับชื่อ "${escapeHtml(currentUser.displayName)}" ครับ</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับบัญชี "${escapeHtml(currentUser.displayName)}" ครับ</div>
         
-        <!-- Quick Lookup Box for Customers -->
-        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold, #d4af37); padding: 12px; border-radius: 12px; max-width: 360px; margin: 0 auto; text-align: left;">
-          <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA ของคุณ (เช่น CX2NBXN...):</label>
+        <!-- Quick Lookup Box for Customers & Admins -->
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold, #d4af37); padding: 12px; border-radius: 12px; max-width: 380px; margin: 0 auto; text-align: left;">
+          <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA หรือ LINE User ID ของคุณ:</label>
           <div style="display: flex; gap: 6px;">
-            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอกรหัสแชท LINE OA">
+            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอก LINE User ID (U...) หรือรหัสแชท (CX...)">
             <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ค้นหา</button>
           </div>
         </div>
@@ -321,7 +324,7 @@ function renderSubscriptions() {
         </div>
 
         <div class="detail-row">
-          <span class="detail-label">🆔 รหัสแชทผูกสิทธิ์:</span>
+          <span class="detail-label">🆔 รหัสแชท/LINE User ID:</span>
           <span class="detail-value" style="font-family: monospace; color: #38bdf8; font-size: 10.5px;">
             ${escapeHtml(chatId || sub.customer_name)}
             ${chatId ? `<button class="copy-btn" onclick="copyToClipboard('${escapeHtml(chatId)}')">คัดลอก</button>` : ''}
