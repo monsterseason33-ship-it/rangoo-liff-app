@@ -1,6 +1,6 @@
 // ⚡ BOSS Premium (shop_rangoo) LIFF Customer Web App Core Logic
 const CONFIG = {
-  LIFF_ID: "2010908177-hdxRe9r5",
+  LIFF_ID: "2010909658-zc9CaFLN",
   SUPABASE_URL: "https://teeporxvxrwzwmnsnjyw.supabase.co",
   SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk",
   ADMIN_NAMES: ["boss", "ร้านกู", "admin", "เจ้าของร้าน"] // Auto-detect admin users

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,6 +9,7 @@
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
   <!-- Top App Header -->
@@ -19,15 +21,19 @@
         <p>บริการแอปพรีเมียม 24 ชม.</p>
       </div>
     </div>
-    
+
     <!-- User Profile Badge with Integrated User ID Inspector -->
-    <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;" title="แตะเพื่อคัดลอก LINE User ID">
+    <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;"
+      title="แตะเพื่อคัดลอก LINE User ID">
       <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/30?text=U" alt="Profile">
       <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
         <span id="user-name" class="user-name">กำลังโหลด...</span>
-        <span id="user-id-subtext" style="font-size: 8.5px; color: var(--blue-bright, #38bdf8); font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ID: Loading...</span>
+        <span id="user-id-subtext"
+          style="font-size: 8.5px; color: var(--blue-bright, #38bdf8); font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ID:
+          Loading...</span>
       </div>
-      <button id="user-id-copy-btn" class="copy-btn" style="padding: 2px 5px; font-size: 9px; margin-left: 2px;" title="คัดลอก LINE User ID">📋</button>
+      <button id="user-id-copy-btn" class="copy-btn" style="padding: 2px 5px; font-size: 9px; margin-left: 2px;"
+        title="คัดลอก LINE User ID">📋</button>
     </div>
   </header>
 
@@ -41,10 +47,14 @@
     </div>
 
     <!-- Admin Mode Badge Container -->
-    <div id="admin-mode-badge" style="display:none; margin-bottom: 14px; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--border-gold); border-radius: 12px; padding: 8px 12px; align-items: center;"></div>
+    <div id="admin-mode-badge"
+      style="display:none; margin-bottom: 14px; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--border-gold); border-radius: 12px; padding: 8px 12px; align-items: center;">
+    </div>
 
     <!-- Security Unauthenticated Banner -->
-    <div id="security-auth-banner" style="display:none; margin-bottom: 16px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 10px 14px; align-items: center;"></div>
+    <div id="security-auth-banner"
+      style="display:none; margin-bottom: 16px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 10px 14px; align-items: center;">
+    </div>
 
     <!-- Search Input -->
     <div class="search-box">
@@ -167,7 +177,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
-          <textarea id="modal-note-input" class="form-textarea" placeholder="เช่น รหัสผ่านผิดเมื่อเวลา 20:30 น."></textarea>
+          <textarea id="modal-note-input" class="form-textarea"
+            placeholder="เช่น รหัสผ่านผิดเมื่อเวลา 20:30 น."></textarea>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 ส่งข้อมูลเข้าแชท LINE OA</button>
       </form>
@@ -176,4 +187,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>
