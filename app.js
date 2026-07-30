@@ -21,7 +21,7 @@ let catalogApps = [];
 let catalogPackages = [];
 let visiblePasswordsMap = {}; // Map of subId -> boolean (state for password visibility toggle)
 let customLookupQuery = "";   // Manual lookup query for LINE OA internal customer IDs or LINE User IDs
-let adminViewMode = "customer"; // Default view mode is STRICT CUSTOMER FILTERED VIEW!
+let adminViewMode = "customer"; // Default view mode is CUSTOMER VIEW!
 
 // Helper: Call Supabase REST API
 async function supabaseFetch(endpoint, options = {}) {
@@ -43,40 +43,6 @@ async function supabaseFetch(endpoint, options = {}) {
   } catch (err) {
     console.error("[Supabase Fetch Error]", err);
     throw err;
-  }
-}
-
-// Auto-Bind function: Links logged in LINE User ID & display name to a customer binding row in Supabase
-async function bindUserToCustomerBinding(bindingId) {
-  if (!bindingId || !currentUser.userId) return;
-  try {
-    const binding = allShopBindings.find(b => b.id === bindingId);
-    if (!binding) return;
-
-    // Append LIFF User ID into chat_url if not already present
-    let updatedChatUrl = binding.chat_url || "";
-    if (!updatedChatUrl.includes(currentUser.userId)) {
-      updatedChatUrl = updatedChatUrl ? `${updatedChatUrl}#${currentUser.userId}` : currentUser.userId;
-    }
-
-    // Update customer_name to include current display name if it's currently an internal code like CX2NBXN...
-    let updatedCustomerName = binding.customer_name || "";
-    if (!updatedCustomerName.includes(currentUser.displayName)) {
-      updatedCustomerName = `${updatedCustomerName} (${currentUser.displayName})`;
-    }
-
-    console.log(`[Auto-Bind] Linking LINE User ID ${currentUser.userId} to binding ${bindingId}...`);
-    await supabaseFetch(`customer_bindings?id=eq.${bindingId}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        chat_url: updatedChatUrl,
-        customer_name: updatedCustomerName
-      })
-    });
-
-    console.log("[Auto-Bind] Binding successfully linked in Supabase!");
-  } catch (err) {
-    console.warn("[Auto-Bind Failed]", err);
   }
 }
 
@@ -191,7 +157,7 @@ function renderAdminBadge() {
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
         <span style="font-size: 11px; font-weight: bold; color: #fef08a;">👑 โหมดผู้ดูแลระบบ (Admin)</span>
         <select id="admin-view-toggle" style="background: #050b18; border: 1px solid #d4af37; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 6px; outline: none; cursor: pointer;">
-          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้าเฉพาะบุคคล (กรองเข้มงวด)</option>
+          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้า (ค้นหาอัตโนมัติ)</option>
           <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>ดูทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
         </select>
       </div>
@@ -241,7 +207,7 @@ async function loadAppData() {
       // 👑 ADMIN UNRESTRICTED VIEW (Manually selected by Admin)
       bindings = allShopBindings;
     } else {
-      // 👤 STRICT CUSTOMER FILTERED VIEW (Default for everyone)
+      // ⚡ ZERO-CLICK AUTO-MATCHING FOR CUSTOMERS
       const lookupTerm = customLookupQuery.trim().toLowerCase();
       const uId = (currentUser.userId || "").toLowerCase().trim();
       const dName = (currentUser.displayName || "").toLowerCase().trim();
@@ -250,29 +216,28 @@ async function loadAppData() {
         const cName = (b.customer_name || "").toLowerCase().trim();
         const cUrl = (b.chat_url || "").toLowerCase().trim();
 
-        // 1. Manual User Search (Lookup input)
+        // 1. Manual User Search (If typed explicitly)
         if (lookupTerm) {
-          const match = cUrl.includes(lookupTerm) || cName.includes(lookupTerm);
-          if (match && currentUser.userId) {
-            // Auto-bind on manual lookup success!
-            bindUserToCustomerBinding(b.id);
-          }
-          return match;
+          return cUrl.includes(lookupTerm) || cName.includes(lookupTerm);
         }
 
-        // 2. Strict User ID matching from LINE LIFF
+        // 2. LINE User ID match in chat_url
         if (uId && uId.length > 5 && cUrl.includes(uId)) {
           return true;
         }
 
-        // 3. Customer Name matching (if cName is set and not empty)
-        if (cName && dName && (cName === dName || cName.includes(dName) || dName.includes(cName))) {
-          if (currentUser.userId) bindUserToCustomerBinding(b.id);
-          return true;
+        // 3. Smart Name Matching (Matches "Boss", customer name, or profile name)
+        if (dName && dName !== "ลูกค้า boss premium") {
+          if (cName.includes(dName) || dName.includes(cName)) return true;
         }
 
         return false;
       });
+
+      // Seamless Fallback for Admin Boss: If no items match personal name "Boss", display active shop items for easy testing
+      if (bindings.length === 0 && currentUser.isAdmin && !customLookupQuery) {
+        bindings = allShopBindings;
+      }
     }
 
     userBindings = bindings || [];
@@ -297,33 +262,10 @@ function renderSubscriptions() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📦</div>
-        <div class="empty-title">ยังไม่มีรายการสิทธิ์ที่ผูกกับบัญชีนี้</div>
-        <div class="empty-desc" style="margin-bottom: 12px;">หากคุณเคยสั่งซื้อสินค้าแล้ว กรอกรหัสแชท LINE OA ด้านล่างเพื่อผูกสิทธิ์เข้ากับบัญชีนี้ได้ทันทีครับ</div>
-        
-        <!-- Quick Lookup & Auto-Bind Box -->
-        <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold, #d4af37); padding: 12px; border-radius: 12px; max-width: 380px; margin: 0 auto; text-align: left;">
-          <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔗 ผูกสิทธิ์เข้ากับบัญชี LINE ของคุณ:</label>
-          <div style="display: flex; gap: 6px;">
-            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอกรหัสแชท (เช่น CX2NBXN... หรือ U31f...)">
-            <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ผูกสิทธิ์ทันที</button>
-          </div>
-        </div>
+        <div class="empty-title">ยังไม่มีรายการสิทธิ์ใช้งาน</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">เมื่อคุณสั่งซื้อแพ็คเกจพรีเมียม รายการและรหัสผ่านจะขึ้นที่นี่ทันทีครับ</div>
       </div>
     `;
-
-    setTimeout(() => {
-      const lookupBtn = document.getElementById("btn-manual-lookup");
-      const lookupInput = document.getElementById("manual-lookup-input");
-      if (lookupBtn && lookupInput) {
-        lookupBtn.addEventListener("click", async () => {
-          const val = lookupInput.value.trim();
-          if (!val) return;
-          customLookupQuery = val;
-          await loadAppData();
-        });
-      }
-    }, 100);
-
     return;
   }
 
@@ -381,14 +323,6 @@ function renderSubscriptions() {
         <div class="detail-row">
           <span class="detail-label">แพ็คเกจ:</span>
           <span class="detail-value">${escapeHtml(sub.package_name || "แพ็คเกจปกติ")} (${sub.days || 30} วัน)</span>
-        </div>
-
-        <div class="detail-row">
-          <span class="detail-label">🆔 รหัสแชท/LINE User ID:</span>
-          <span class="detail-value" style="font-family: monospace; color: #38bdf8; font-size: 10.5px;">
-            ${escapeHtml(chatId || sub.customer_name)}
-            ${chatId ? `<button class="copy-btn" onclick="copyToClipboard('${escapeHtml(chatId)}')">คัดลอก</button>` : ''}
-          </span>
         </div>
 
         <div class="detail-row">
