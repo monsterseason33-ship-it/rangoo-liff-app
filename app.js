@@ -21,7 +21,7 @@ let catalogApps = [];
 let catalogPackages = [];
 let visiblePasswordsMap = {}; // Map of subId -> boolean (state for password visibility toggle)
 let customLookupQuery = "";   // Manual lookup query for LINE OA internal customer IDs or LINE User IDs
-let adminViewMode = "all";    // Admin view toggle: "all" (all shop accounts) or "customer" (specific customer view)
+let adminViewMode = "customer"; // Default view mode is STRICT CUSTOMER FILTERED VIEW!
 
 // Helper: Call Supabase REST API
 async function supabaseFetch(endpoint, options = {}) {
@@ -54,7 +54,7 @@ async function initLiff() {
       await liff.init({ liffId: CONFIG.LIFF_ID });
       
       if (!liff.isLoggedIn()) {
-        console.log("[BOSS LIFF] User not logged in to new LIFF ID yet. Triggering liff.login()...");
+        console.log("[BOSS LIFF] User not logged in to LIFF ID yet. Triggering liff.login()...");
         liff.login();
         return;
       }
@@ -157,8 +157,8 @@ function renderAdminBadge() {
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
         <span style="font-size: 11px; font-weight: bold; color: #fef08a;">👑 โหมดผู้ดูแลระบบ (Admin)</span>
         <select id="admin-view-toggle" style="background: #050b18; border: 1px solid #d4af37; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 6px; outline: none; cursor: pointer;">
-          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>แสดงทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
-          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้าเฉพาะบุคคล</option>
+          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้าเฉพาะบุคคล (กรองเข้มงวด)</option>
+          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>ดูทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
         </select>
       </div>
     `;
@@ -204,22 +204,34 @@ async function loadAppData() {
     let bindings = [];
 
     if (currentUser.isAdmin && adminViewMode === "all") {
-      // 👑 ADMIN MODE: Show all active shop bindings
+      // 👑 ADMIN UNRESTRICTED VIEW (Manually selected by Admin)
       bindings = allShopBindings;
     } else {
-      // 👤 CUSTOMER MODE: Filter strictly by customer identity or LINE User ID
-      const searchKeyword = customLookupQuery.trim() || currentUser.displayName.trim();
-      const lowerKeyword = searchKeyword.toLowerCase();
+      // 👤 STRICT CUSTOMER FILTERED VIEW (Default for everyone)
+      const lookupTerm = customLookupQuery.trim().toLowerCase();
+      const uId = (currentUser.userId || "").toLowerCase().trim();
+      const dName = (currentUser.displayName || "").toLowerCase().trim();
 
       bindings = allShopBindings.filter(b => {
-        const cName = (b.customer_name || "").toLowerCase();
-        const cUrl = (b.chat_url || "").toLowerCase();
-        const uId = (currentUser.userId || "").toLowerCase();
+        const cName = (b.customer_name || "").toLowerCase().trim();
+        const cUrl = (b.chat_url || "").toLowerCase().trim();
 
-        return (uId && cUrl.includes(uId)) ||
-               (lowerKeyword && cUrl.includes(lowerKeyword)) ||
-               (lowerKeyword && cName.includes(lowerKeyword)) ||
-               (cName && lowerKeyword.includes(cName));
+        // 1. Manual User Search (Lookup input)
+        if (lookupTerm) {
+          return cUrl.includes(lookupTerm) || cName.includes(lookupTerm);
+        }
+
+        // 2. Strict User ID matching from LINE LIFF
+        if (uId && uId.length > 5 && cUrl.includes(uId)) {
+          return true;
+        }
+
+        // 3. Customer Name matching (if cName is set and not empty)
+        if (cName && dName && (cName === dName || cName.includes(dName) || dName.includes(cName))) {
+          return true;
+        }
+
+        return false;
       });
     }
 
@@ -245,14 +257,14 @@ function renderSubscriptions() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📦</div>
-        <div class="empty-title">ยังไม่มีรายการสิทธิ์การใช้งาน</div>
-        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับบัญชี "${escapeHtml(currentUser.displayName)}" ครับ</div>
+        <div class="empty-title">ไม่พบรายการสิทธิ์ที่ผูกกับบัญชีของคุณ</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ตรงกับรหัส LINE ของคุณ ("${escapeHtml(currentUser.displayName)}") ครับ</div>
         
         <!-- Quick Lookup Box for Customers & Admins -->
         <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold, #d4af37); padding: 12px; border-radius: 12px; max-width: 380px; margin: 0 auto; text-align: left;">
           <label style="font-size: 11px; color: #fef08a; font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA หรือ LINE User ID ของคุณ:</label>
           <div style="display: flex; gap: 6px;">
-            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอก LINE User ID (U...) หรือรหัสแชท (CX...)">
+            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอกรหัสแชท (เช่น CX2NBXN... หรือ U31f...)">
             <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ค้นหา</button>
           </div>
         </div>
