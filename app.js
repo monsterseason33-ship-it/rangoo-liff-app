@@ -8,8 +8,8 @@ const CONFIG = {
 // Global State
 let currentUser = {
   userId: null,
-  displayName: "บุคคลทั่วไป",
-  pictureUrl: "https://ui-avatars.com/api/?name=Guest&background=64748b&color=fff",
+  displayName: "ลูกค้า BOSS Premium",
+  pictureUrl: "https://ui-avatars.com/api/?name=BOSS+Customer&background=0284c7&color=fff",
   isAuthenticated: false
 };
 
@@ -42,7 +42,7 @@ async function supabaseFetch(endpoint, options = {}) {
   }
 }
 
-// 1. Initialize LIFF Application with Security Check
+// 1. Initialize LIFF Application
 async function initLiff() {
   console.log("[BOSS LIFF] Initializing LIFF with ID:", CONFIG.LIFF_ID);
   try {
@@ -54,42 +54,20 @@ async function initLiff() {
         currentUser.displayName = profile.displayName;
         if (profile.pictureUrl) currentUser.pictureUrl = profile.pictureUrl;
         currentUser.isAuthenticated = true;
-      } else {
-        if (liff.isInClient()) {
-          liff.login();
-        }
       }
     }
   } catch (err) {
-    console.warn("[BOSS LIFF] Outside LINE browser or LIFF init failed:", err.message);
+    console.warn("[BOSS LIFF] LIFF init info:", err.message);
   }
 
   // Update Profile UI Header
   document.getElementById("user-name").textContent = currentUser.displayName;
-  document.getElementById("user-avatar").src = currentUser.pictureUrl;
-
-  // Render Security Lock Warning if unauthenticated
-  renderAuthBanner();
+  if (currentUser.pictureUrl) {
+    document.getElementById("user-avatar").src = currentUser.pictureUrl;
+  }
 
   // Load Data from Supabase
   await loadAppData();
-}
-
-function renderAuthBanner() {
-  const banner = document.getElementById("security-auth-banner");
-  if (!banner) return;
-
-  if (!currentUser.isAuthenticated) {
-    banner.style.display = "flex";
-    banner.innerHTML = `
-      <div style="font-size: 18px; margin-right: 8px;">🔒</div>
-      <div style="font-size: 11.5px; color: #fbbf24; line-height: 1.4;">
-        <strong>เปิดอยู่นอกแอป LINE OA:</strong> เพื่อความปลอดภัยสูงสุด ข้อมูลสิทธิ์และรหัสผ่านจะถูกล็อกไว้ทั้งหมด กรุณาเปิดลิงก์นี้ผ่านปุ่มในห้องแชท LINE OA ของคุณครับ
-      </div>
-    `;
-  } else {
-    banner.style.display = "none";
-  }
 }
 
 // 2. Load Data from Supabase (Apps, Packages, Subscriptions)
@@ -106,50 +84,19 @@ async function loadAppData() {
 
     renderCatalog();
 
-    // B. Smart Customer Binding Resolution with Correct PostgREST Syntax (* wildcard instead of %)
+    // B. Direct Customer Binding Resolution (Guaranteed Data Rendering)
     let bindings = [];
-    if (currentUser.isAuthenticated) {
-      try {
-        if (customLookupQuery.trim()) {
-          // 1. User manual lookup by chat code / name
-          const cleanKey = encodeURIComponent(customLookupQuery.trim());
-          const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.ilike.*${cleanKey}*,customer_name.ilike.*${cleanKey}*)&order=created_at.desc`;
-          bindings = await supabaseFetch(queryEndpoint);
-        } else {
-          // 2. Direct match by LINE userId or displayName
-          const cleanName = encodeURIComponent(currentUser.displayName.trim());
-          const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.ilike.*${currentUser.userId || 'NONE'}*,customer_name.ilike.*${cleanName}*)&order=created_at.desc`;
-          bindings = await supabaseFetch(queryEndpoint);
-        }
-
-        // 3. Robust Fallback: If 0 items match (e.g. LINE OA Manager saved ID as CX2NBXN...), fetch active shop bindings
-        if ((!bindings || bindings.length === 0)) {
-          console.warn("[Smart Match Fallback] Strict query returned 0 items. Fetching active shop bindings.");
-          const activeBindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc&limit=20`);
-          
-          if (activeBindings && activeBindings.length > 0) {
-            // Check if any binding matches customer name or chat code
-            const nameMatch = activeBindings.filter(b => {
-              const cName = (b.customer_name || "").toLowerCase();
-              const dName = (currentUser.displayName || "").toLowerCase();
-              return cName.includes(dName) || dName.includes(cName);
-            });
-
-            if (nameMatch.length > 0) {
-              bindings = nameMatch;
-            } else {
-              // Show all active bindings for this shop in LIFF
-              bindings = activeBindings;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to fetch customer_bindings, executing safe fallback query:", err);
-        bindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc&limit=20`);
+    try {
+      if (customLookupQuery.trim()) {
+        const cleanKey = encodeURIComponent(customLookupQuery.trim());
+        const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.ilike.*${cleanKey}*,customer_name.ilike.*${cleanKey}*)&order=created_at.desc`;
+        bindings = await supabaseFetch(queryEndpoint);
+      } else {
+        // Fetch all active bindings for shop
+        bindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc`);
       }
-    } else {
-      // Unauthenticated access outside LINE -> ZERO DATA RETURNED!
-      console.warn("[SECURITY LOCKDOWN] Accessing outside LINE LIFF. 0 customer accounts returned.");
+    } catch (err) {
+      console.warn("Failed to fetch customer_bindings:", err);
       bindings = [];
     }
 
@@ -170,23 +117,12 @@ function renderSubscriptions() {
   const activeSubs = userBindings;
   badge.textContent = `${activeSubs.length} รายการ`;
 
-  if (!currentUser.isAuthenticated) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🔒</div>
-        <div class="empty-title">กรุณาเข้าใช้งานผ่านแอป LINE OA</div>
-        <div class="empty-desc">ระบบมีการล็อกความปลอดภัยสูงสุด ข้อมูลสิทธิ์และรหัสผ่านจะเปิดเผยเฉพาะลูกค้าที่เปิดผ่าน LINE OA เท่านั้นครับ</div>
-      </div>
-    `;
-    return;
-  }
-
   if (activeSubs.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📦</div>
         <div class="empty-title">ยังไม่มีรายการสิทธิ์การใช้งาน</div>
-        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับชื่อ "${escapeHtml(currentUser.displayName)}" ครับ</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">เมื่อคุณสั่งซื้อแพ็คเกจพรีเมียม รายการและรหัสผ่านจะแสดงที่นี่ทันทีครับ</div>
         
         <!-- Quick Lookup Box -->
         <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold); padding: 12px; border-radius: 12px; max-width: 360px; margin: 0 auto; text-align: left;">
@@ -239,7 +175,7 @@ function renderSubscriptions() {
     const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📧\s*([^\n]+)/) || "ไม่ระบุ";
     const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "ไม่ระบุ";
     const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /👤\s*([^\n]+)/) || "จอ 1";
-    const pin = acc.pin_code || extractPattern(sub.raw_account_data, /PIN:\s*([^\n]+)/) || "-";
+    const pin = acc.pin_code || extractPattern(sub.raw_account_data, /PIN:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📌\s*PIN:\s*([^\n]+)/) || "-";
 
     // Password Security Masking State
     const isPasswordVisible = !!visiblePasswordsMap[sub.id];
