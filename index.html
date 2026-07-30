@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BOSS Premium (ร้านกู) - Customer Portal</title>
+  <!-- LINE LIFF SDK -->
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="brand-info">
+      <img src="logo.png" alt="BOSS Logo" class="brand-logo-img">
+      <div class="brand-title">
+        <h1>BOSS Premium</h1>
+        <p>บริการแอปพรีเมียม 24 ชม.</p>
+      </div>
+    </div>
+    <div class="user-profile-badge">
+      <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/30?text=U" alt="Profile">
+      <span id="user-name" class="user-name">กำลังโหลด...</span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+      <h2>👑 ยินดีต้อนรับสู่ <span class="gold-text">BOSS Premium</span> 👋</h2>
+      <p>จัดการสิทธิ์ ดูรหัสผ่าน ขอ OTP Disney+ และสั่งซื้อแอปพรีเมียมได้ครบจบในที่เดียวผ่าน LINE OA ครับ</p>
+    </div>
+
+    <!-- Security Unauthenticated Banner -->
+    <div id="security-auth-banner" style="display:none; margin-bottom: 16px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 10px 14px; align-items: center;"></div>
+
+    <!-- Search Input -->
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" class="search-input" placeholder="ค้นหาแอปของคุณ หรือค้นหาแพ็คเกจ...">
+    </div>
+
+    <!-- ================= TAB 1: MY SUBSCRIPTIONS ================= -->
+    <div id="tab-subscriptions-pane" class="tab-pane active">
+      <div class="section-header">
+        <div class="section-title">
+          <span>📦 สิทธิ์การใช้งานของฉัน</span>
+          <span id="sub-count-badge" class="section-badge">0 รายการ</span>
+        </div>
+        <button id="btn-refresh-subs" class="copy-btn">🔄 รีเฟรช</button>
+      </div>
+
+      <div id="subscriptions-container" class="cards-grid">
+        <!-- Skeleton Loading -->
+        <div class="sub-card skeleton" style="height: 140px;"></div>
+        <div class="sub-card skeleton" style="height: 140px;"></div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 2: STORE CATALOG ================= -->
+    <div id="tab-catalog-pane" class="tab-pane" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <span>🛍️ รายการแอป & แพ็คเกจพรีเมียม</span>
+          <span id="catalog-count-badge" class="section-badge">พร้อมจำหน่าย</span>
+        </div>
+      </div>
+
+      <div id="catalog-container" class="catalog-grid">
+        <!-- Skeleton Loading -->
+        <div class="catalog-card skeleton" style="height: 120px;"></div>
+        <div class="catalog-card skeleton" style="height: 120px;"></div>
+        <div class="catalog-card skeleton" style="height: 120px;"></div>
+        <div class="catalog-card skeleton" style="height: 120px;"></div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 3: HELP & SUPPORT ================= -->
+    <div id="tab-support-pane" class="tab-pane" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <span>💬 ศูนย์ช่วยเหลือ & แจ้งปัญหา</span>
+        </div>
+      </div>
+
+      <div class="cards-grid">
+        <div class="sub-card">
+          <div class="sub-card-header">
+            <div class="app-pill">
+              <div class="app-icon-box" style="background: #0063e5;">🏰</div>
+              <div class="app-name-text">ขอรหัส OTP Disney+</div>
+            </div>
+            <span class="expiry-badge expiry-active">อัตโนมัติ</span>
+          </div>
+          <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
+            เมื่อเข้าใช้งาน Disney+ และอยู่หน้ากรอกรหัส OTP สามารถกดขอรหัสผ่านระบบนี้เพื่อให้แอดมินส่งรหัสให้ทันที
+          </p>
+          <button id="btn-open-otp-modal" class="btn btn-primary">📱 กดขอรหัส OTP</button>
+        </div>
+
+        <div class="sub-card">
+          <div class="sub-card-header">
+            <div class="app-pill">
+              <div class="app-icon-box" style="background: #f59e0b;">⚠️</div>
+              <div class="app-name-text">แจ้งปัญหาการใช้งาน</div>
+            </div>
+            <span class="expiry-badge expiry-warning">ดูแล 24 ชม.</span>
+          </div>
+          <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
+            พบปัญหาจอชน, รหัสผ่านไม่ถูกต้อง หรือเข้าใช้งานไม่ได้ สามารถแจ้งเรื่องย้อนหลังไปยังระบบได้ทันที
+          </p>
+          <button id="btn-open-issue-modal" class="btn btn-secondary">🛠️ แจ้งปัญหาแอดมิน</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="tab-bar">
+    <div id="nav-subs" class="tab-item active">
+      <span class="tab-icon">📦</span>
+      <span>สิทธิ์ของฉัน</span>
+    </div>
+    <div id="nav-catalog" class="tab-item">
+      <span class="tab-icon">🛍️</span>
+      <span>ร้านค้า</span>
+    </div>
+    <div id="nav-support" class="tab-item">
+      <span class="tab-icon">💬</span>
+      <span>ช่วยเหลือ</span>
+    </div>
+  </nav>
+
+  <!-- Modal: Problem & OTP Modal -->
+  <div id="action-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title" class="modal-title">ส่งคำร้อง</h3>
+        <button id="modal-close-btn" class="modal-close">✕</button>
+      </div>
+      <form id="action-form">
+        <div class="form-group">
+          <label class="form-label">เลือกสิทธิ์/แอปที่มีปัญหา</label>
+          <select id="modal-app-select" class="form-input"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ประเภทคำร้อง</label>
+          <select id="modal-type-select" class="form-input">
+            <option value="otp_needed">ขอรหัส OTP (Disney+)</option>
+            <option value="screen_full">จอชน / อุปกรณ์เกิน</option>
+            <option value="wrong_password">รหัสผ่านไม่ถูกต้อง</option>
+            <option value="other">ปัญหาอื่นๆ</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+          <textarea id="modal-note-input" class="form-textarea" placeholder="เช่น รหัสผ่านผิดเมื่อเวลา 20:30 น."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 ส่งข้อมูลเข้าแชท LINE OA</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
