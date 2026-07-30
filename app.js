@@ -2,7 +2,8 @@
 const CONFIG = {
   LIFF_ID: "2010908177-hdxRe9r5",
   SUPABASE_URL: "https://teeporxvxrwzwmnsnjyw.supabase.co",
-  SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk"
+  SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk",
+  ADMIN_NAMES: ["boss", "ร้านกู", "admin", "เจ้าของร้าน"] // Auto-detect admin users
 };
 
 // Global State
@@ -10,14 +11,17 @@ let currentUser = {
   userId: null,
   displayName: "ลูกค้า BOSS Premium",
   pictureUrl: "https://ui-avatars.com/api/?name=BOSS+Customer&background=0284c7&color=fff",
-  isAuthenticated: false
+  isAuthenticated: false,
+  isAdmin: false
 };
 
 let userBindings = [];
+let allShopBindings = [];
 let catalogApps = [];
 let catalogPackages = [];
 let visiblePasswordsMap = {}; // Map of subId -> boolean (state for password visibility toggle)
 let customLookupQuery = "";   // Manual lookup query for LINE OA internal customer IDs (e.g. CX2NBXN...)
+let adminViewMode = "all";    // Admin view toggle: "all" (all shop accounts) or "customer" (specific customer view)
 
 // Helper: Call Supabase REST API
 async function supabaseFetch(endpoint, options = {}) {
@@ -54,6 +58,10 @@ async function initLiff() {
         currentUser.displayName = profile.displayName;
         if (profile.pictureUrl) currentUser.pictureUrl = profile.pictureUrl;
         currentUser.isAuthenticated = true;
+
+        // Check if user is Admin / Shop Owner
+        const dNameLower = (profile.displayName || "").toLowerCase().trim();
+        currentUser.isAdmin = CONFIG.ADMIN_NAMES.some(name => dNameLower.includes(name));
       }
     }
   } catch (err) {
@@ -66,8 +74,41 @@ async function initLiff() {
     document.getElementById("user-avatar").src = currentUser.pictureUrl;
   }
 
+  // Render Admin Badge if logged in as Admin
+  renderAdminBadge();
+
   // Load Data from Supabase
   await loadAppData();
+}
+
+function renderAdminBadge() {
+  const badge = document.getElementById("admin-mode-badge");
+  if (!badge) return;
+
+  if (currentUser.isAdmin) {
+    badge.style.display = "flex";
+    badge.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <span style="font-size: 11px; font-weight: bold; color: var(--gold-light);">👑 โหมดผู้ดูแลระบบ (Admin)</span>
+        <select id="admin-view-toggle" style="background: #050b18; border: 1px solid var(--border-gold); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 6px; outline: none;">
+          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>แสดงทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
+          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้าเฉพาะบุคคล</option>
+        </select>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const toggle = document.getElementById("admin-view-toggle");
+      if (toggle) {
+        toggle.addEventListener("change", (e) => {
+          adminViewMode = e.target.value;
+          loadAppData();
+        });
+      }
+    }, 100);
+  } else {
+    badge.style.display = "none";
+  }
 }
 
 // 2. Load Data from Supabase (Apps, Packages, Subscriptions)
@@ -84,23 +125,30 @@ async function loadAppData() {
 
     renderCatalog();
 
-    // B. Direct Customer Binding Resolution (Guaranteed Data Rendering)
+    // B. Fetch Subscriptions from Supabase
+    allShopBindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc`) || [];
+
     let bindings = [];
-    try {
-      if (customLookupQuery.trim()) {
-        const cleanKey = encodeURIComponent(customLookupQuery.trim());
-        const queryEndpoint = `customer_bindings?select=*,account:accounts(*)&reverted=eq.false&or=(chat_url.ilike.*${cleanKey}*,customer_name.ilike.*${cleanKey}*)&order=created_at.desc`;
-        bindings = await supabaseFetch(queryEndpoint);
-      } else {
-        // Fetch all active bindings for shop
-        bindings = await supabaseFetch(`customer_bindings?select=*,account:accounts(*)&reverted=eq.false&order=created_at.desc`);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch customer_bindings:", err);
-      bindings = [];
+
+    if (currentUser.isAdmin && adminViewMode === "all") {
+      // 👑 ADMIN MODE: Show all active shop bindings
+      bindings = allShopBindings;
+    } else {
+      // 👤 CUSTOMER MODE: Filter strictly by customer identity
+      const searchKeyword = customLookupQuery.trim() || currentUser.displayName.trim();
+      const lowerKeyword = searchKeyword.toLowerCase();
+
+      bindings = allShopBindings.filter(b => {
+        const cName = (b.customer_name || "").toLowerCase();
+        const cUrl = (b.chat_url || "").toLowerCase();
+        const uId = (currentUser.userId || "").toLowerCase();
+
+        return (uId && cUrl.includes(uId)) || cName.includes(lowerKeyword) || lowerKeyword.includes(cName);
+      });
     }
 
     userBindings = bindings || [];
+    renderAdminBadge();
     renderSubscriptions();
   } catch (err) {
     console.error("Failed to load app data:", err);
@@ -122,13 +170,13 @@ function renderSubscriptions() {
       <div class="empty-state">
         <div class="empty-icon">📦</div>
         <div class="empty-title">ยังไม่มีรายการสิทธิ์การใช้งาน</div>
-        <div class="empty-desc" style="margin-bottom: 12px;">เมื่อคุณสั่งซื้อแพ็คเกจพรีเมียม รายการและรหัสผ่านจะแสดงที่นี่ทันทีครับ</div>
+        <div class="empty-desc" style="margin-bottom: 12px;">ไม่พบรายการสิทธิ์ที่ผูกกับชื่อ "${escapeHtml(currentUser.displayName)}" ครับ</div>
         
-        <!-- Quick Lookup Box -->
+        <!-- Quick Lookup Box for Customers -->
         <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-gold); padding: 12px; border-radius: 12px; max-width: 360px; margin: 0 auto; text-align: left;">
-          <label style="font-size: 11px; color: var(--gold-light); font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA ของคุณ:</label>
+          <label style="font-size: 11px; color: var(--gold-light); font-weight: bold; display: block; margin-bottom: 6px;">🔍 ค้นหารหัสแชท LINE OA ของคุณ (เช่น CX2NBXN...):</label>
           <div style="display: flex; gap: 6px;">
-            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="เช่น CX2NBXN43YN174MFLA">
+            <input type="text" id="manual-lookup-input" class="form-input" style="height: 32px; font-size: 11.5px;" placeholder="กรอกรหัสแชท LINE OA">
             <button id="btn-manual-lookup" class="btn btn-gold" style="white-space: nowrap; height: 32px; padding: 0 12px; font-size: 11px;">ค้นหา</button>
           </div>
         </div>
@@ -190,7 +238,10 @@ function renderSubscriptions() {
       <div class="sub-card-header">
         <div class="app-pill">
           <div class="app-icon-box" style="background: ${themeColor};">${(sub.app_name || "A")[0]}</div>
-          <div class="app-name-text">${escapeHtml(sub.app_name)}</div>
+          <div>
+            <div class="app-name-text">${escapeHtml(sub.app_name)}</div>
+            ${currentUser.isAdmin ? `<span style="font-size: 9.5px; color: var(--gold-light);">👤 ลูกค้า: ${escapeHtml(sub.customer_name)}</span>` : ''}
+          </div>
         </div>
         <span class="expiry-badge ${expiryBadgeClass}">⏰ ${expiryText}</span>
       </div>
