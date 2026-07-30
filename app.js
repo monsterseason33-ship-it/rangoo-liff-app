@@ -80,7 +80,7 @@ async function initLiff() {
     document.getElementById("user-avatar").src = currentUser.pictureUrl;
   }
 
-  // Render LINE User ID Inspector Bar
+  // Render LINE User ID Inspector in Profile Badge (Top Right)
   renderUserIdInspector();
 
   // Render Admin Badge if logged in as Admin
@@ -90,40 +90,37 @@ async function initLiff() {
   await loadAppData();
 }
 
-// Render LINE User ID Debug Inspector Bar
+// Render LINE User ID in Profile Badge (Top Right)
 function renderUserIdInspector() {
-  let inspector = document.getElementById("user-id-inspector");
-  if (!inspector) {
-    inspector = document.createElement("div");
-    inspector.id = "user-id-inspector";
-    inspector.style.marginBottom = "14px";
-    inspector.style.background = "rgba(2, 132, 199, 0.12)";
-    inspector.style.border = "1px solid var(--border-blue, #0284c7)";
-    inspector.style.borderRadius = "12px";
-    inspector.style.padding = "8px 12px";
-    
-    const banner = document.querySelector(".welcome-banner");
-    if (banner && banner.parentNode) {
-      banner.parentNode.insertBefore(inspector, banner.nextSibling);
-    } else {
-      const container = document.querySelector(".container");
-      if (container) container.insertBefore(inspector, container.firstChild);
-    }
+  const subtextEl = document.getElementById("user-id-subtext");
+  const copyBtn = document.getElementById("user-id-copy-btn");
+  const badgeEl = document.getElementById("user-profile-badge");
+
+  const idText = currentUser.userId ? `ID: ${currentUser.userId}` : "ID: เปิดนอกแอป";
+
+  if (subtextEl) {
+    subtextEl.textContent = idText;
+    subtextEl.title = currentUser.userId || "เปิดอยู่นอกแอป LINE";
   }
 
-  const idText = currentUser.userId || "ยังไม่ได้รับ ID (เปิดนอกแอป LINE)";
-  inspector.innerHTML = `
-    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-      <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0;">
-        <span style="font-size: 14px;">🆔</span>
-        <div style="display: flex; flex-direction: column; min-width: 0;">
-          <span style="font-size: 9.5px; color: var(--text-muted, #94a3b8);">LINE User ID สำหรับทดสอบระบุตัวตน:</span>
-          <span style="font-size: 11px; font-weight: bold; color: var(--blue-bright, #38bdf8); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(idText)}</span>
-        </div>
-      </div>
-      ${currentUser.userId ? `<button class="copy-btn" onclick="copyToClipboard('${escapeHtml(currentUser.userId)}')" style="white-space: nowrap; margin-left: 8px; padding: 3px 8px; font-size: 10px;">คัดลอก ID</button>` : ''}
-    </div>
-  `;
+  if (badgeEl) {
+    badgeEl.onclick = () => {
+      if (currentUser.userId) {
+        copyToClipboard(currentUser.userId);
+      }
+    };
+  }
+
+  if (copyBtn) {
+    copyBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (currentUser.userId) {
+        copyToClipboard(currentUser.userId);
+      } else {
+        alert("🔒 ยังไม่ได้รับ LINE User ID (เปิดอยู่นอกแอป LINE)");
+      }
+    };
+  }
 }
 
 function renderAdminBadge() {
@@ -137,15 +134,14 @@ function renderAdminBadge() {
     badge.style.border = "1px solid var(--border-gold, #d4af37)";
     badge.style.borderRadius = "12px";
     badge.style.padding = "8px 12px";
+    badge.style.alignItems = "center";
     
-    const inspector = document.getElementById("user-id-inspector");
-    if (inspector && inspector.parentNode) {
-      inspector.parentNode.insertBefore(badge, inspector.nextSibling);
+    const banner = document.querySelector(".welcome-banner");
+    if (banner && banner.parentNode) {
+      banner.parentNode.insertBefore(badge, banner.nextSibling);
     } else {
-      const banner = document.querySelector(".welcome-banner");
-      if (banner && banner.parentNode) {
-        banner.parentNode.insertBefore(badge, banner.nextSibling);
-      }
+      const container = document.querySelector(".container");
+      if (container) container.insertBefore(badge, container.firstChild);
     }
   }
 

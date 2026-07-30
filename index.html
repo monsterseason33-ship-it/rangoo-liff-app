@@ -19,9 +19,15 @@
         <p>บริการแอปพรีเมียม 24 ชม.</p>
       </div>
     </div>
-    <div class="user-profile-badge">
+    
+    <!-- User Profile Badge with Integrated User ID Inspector -->
+    <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;" title="แตะเพื่อคัดลอก LINE User ID">
       <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/30?text=U" alt="Profile">
-      <span id="user-name" class="user-name">กำลังโหลด...</span>
+      <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
+        <span id="user-name" class="user-name">กำลังโหลด...</span>
+        <span id="user-id-subtext" style="font-size: 8.5px; color: var(--blue-bright, #38bdf8); font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ID: Loading...</span>
+      </div>
+      <button id="user-id-copy-btn" class="copy-btn" style="padding: 2px 5px; font-size: 9px; margin-left: 2px;" title="คัดลอก LINE User ID">📋</button>
     </div>
   </header>
 
