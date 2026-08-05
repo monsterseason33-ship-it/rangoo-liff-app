@@ -208,7 +208,9 @@ async function syncLineProfile() {
   // Check if logged in to LIFF
   if (!liff.isLoggedIn()) {
     console.log("[LINE Sync] User not logged in to LIFF. Redirecting to LINE Login...");
-    liff.login({ redirectUri: window.location.href });
+    // Use origin + pathname without query params to avoid LINE OAuth invalid redirect URI 400 error
+    const cleanRedirectUrl = window.location.origin + window.location.pathname;
+    liff.login({ redirectUri: cleanRedirectUrl });
     return;
   }
 
