@@ -1912,8 +1912,6 @@ function editPromoItem(promoId) {
   document.getElementById("promo-form-title").textContent = "แก้ไขโปรโมชั่น";
   document.getElementById("admin-promo-form").style.display = "block";
 }
-  document.getElementById("admin-promo-form").style.display = "block";
-}
 
 async function deletePromoItem(promoId) {
   if (!confirm("คุณต้องการลบโปรโมชั่นนี้ใช่หรือไม่?")) return;
