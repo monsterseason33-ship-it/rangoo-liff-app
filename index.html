@@ -5,12 +5,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BOSS Premium (ร้านกู) - Customer Portal</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>">
   <!-- LINE LIFF SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <!-- Top App Header -->
   <header class="app-header">
@@ -24,16 +28,20 @@
 
     <!-- User Profile Badge with Integrated User ID Inspector -->
     <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;"
-      title="แตะเพื่อคัดลอก LINE User ID">
-      <img id="user-avatar" class="user-avatar" src="https://via.placeholder.com/30?text=U" alt="Profile">
+      title="แตะเพื่อดูและตั้งค่าโปรไฟล์">
+      <img id="user-avatar" class="user-avatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='%230284c7'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-8 3-8 5v1h16v-1c0-2-1.9-5-8-5z'/></svg>" alt="Profile">
       <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
         <span id="user-name" class="user-name">กำลังโหลด...</span>
         <span id="user-id-subtext"
           style="font-size: 8.5px; color: var(--blue-bright, #38bdf8); font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ID:
           Loading...</span>
       </div>
-      <button id="user-id-copy-btn" class="copy-btn" style="padding: 2px 5px; font-size: 9px; margin-left: 2px;"
-        title="คัดลอก LINE User ID">📋</button>
+      <button id="user-id-copy-btn" class="btn-user-id-copy" title="คัดลอกรหัสอ้างอิง">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </button>
     </div>
   </header>
 
@@ -42,7 +50,13 @@
 
     <!-- Welcome Banner -->
     <div class="welcome-banner">
-      <h2>👑 ยินดีต้อนรับสู่ <span class="gold-text">BOSS Premium</span> 👋</h2>
+      <h2>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold-light)" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" style="vertical-align: sub; margin-right: 4px;">
+          <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path>
+        </svg>
+        ยินดีต้อนรับสู่ <span class="gold-text">BOSS Premium</span>
+      </h2>
       <p>จัดการสิทธิ์ ดูรหัสผ่าน ขอ OTP Disney+ และสั่งซื้อแอปพรีเมียมได้ครบจบในที่เดียวผ่าน LINE OA ครับ</p>
     </div>
 
@@ -58,18 +72,67 @@
 
     <!-- Search Input -->
     <div class="search-box">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="search-input" class="search-input" placeholder="ค้นหาแอปของคุณ หรือค้นหาแพ็คเกจ...">
+      <span class="search-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </span>
+      <input type="text" id="search-input" class="search-input" placeholder="วางรหัสอ้างอิงลูกค้า หรือค้นหาแอป...">
     </div>
 
     <!-- ================= TAB 1: MY SUBSCRIPTIONS ================= -->
     <div id="tab-subscriptions-pane" class="tab-pane active">
+
+      <!-- Promos & Offers Carousel Section -->
+      <div id="promotions-section" class="promotions-section" style="margin-bottom: 20px;">
+        <div class="section-header" style="margin-bottom: 10px;">
+          <div class="section-title">
+            <span style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              โปรโมชั่นเด็ด & แฟลชเซลล์
+            </span>
+            <span id="promo-badge-count" class="section-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">พิเศษสำหรับคุณ</span>
+          </div>
+          <!-- Admin Manage Promos Button (Only visible for admin) -->
+          <button id="btn-admin-manage-promos" class="btn-glass-pill" style="display: none; color: var(--gold-light); border-color: var(--border-gold);">
+            ⚙️ จัดการโปร
+          </button>
+        </div>
+
+        <!-- Promotions Slider Container -->
+        <div id="promotions-container" class="promo-cards-slider">
+          <div class="promo-card skeleton" style="min-width: 260px; height: 130px; border-radius: 16px;"></div>
+        </div>
+      </div>
+
       <div class="section-header">
         <div class="section-title">
-          <span>📦 สิทธิ์การใช้งานของฉัน</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+              </path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            สิทธิ์การใช้งานของฉัน
+          </span>
           <span id="sub-count-badge" class="section-badge">0 รายการ</span>
         </div>
-        <button id="btn-refresh-subs" class="copy-btn">🔄 รีเฟรช</button>
+        <button id="btn-refresh-subs" class="btn-glass-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          รีเฟรช
+        </button>
       </div>
 
       <div id="subscriptions-container" class="cards-grid">
@@ -79,13 +142,64 @@
       </div>
     </div>
 
-    <!-- ================= TAB 2: STORE CATALOG ================= -->
-    <div id="tab-catalog-pane" class="tab-pane" style="display: none;">
+    <!-- ================= TAB 2: STORE CATALOG (DISABLED FOR NOW) ================= -->
+    <div id="tab-catalog-pane" class="tab-pane" style="display: none !important;">
       <div class="section-header">
         <div class="section-title">
-          <span>🛍️ รายการแอป & แพ็คเกจพรีเมียม</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            รายการแอป & แพ็คเกจพรีเมียม
+          </span>
           <span id="catalog-count-badge" class="section-badge">พร้อมจำหน่าย</span>
         </div>
+      </div>
+
+      <!-- Store Promo Banner -->
+      <div class="store-promo-banner">
+        <div class="promo-content">
+          <span class="promo-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 2px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+            HOT PROMO
+          </span>
+          <h3>โปรโมชั่นพิเศษต้อนรับเดือนนี้</h3>
+          <p>สั่งซื้อแพ็คเกจพรีเมียม การันตีประกันสิทธิ์ตลอดอายุการใช้งาน ดูแล 24 ชม.</p>
+        </div>
+      </div>
+
+      <!-- Catalog Category Filter Chips -->
+      <div id="catalog-category-filters" class="filter-chips-container">
+        <button class="filter-chip active" data-category="all">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"></path></svg>
+          ทั้งหมด
+        </button>
+        <button class="filter-chip" data-category="movie">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+          หนัง & ซีรีส์
+        </button>
+        <button class="filter-chip" data-category="music">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+          ฟังเพลง
+        </button>
+        <button class="filter-chip" data-category="hot">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          แพ็คเกจยอดฮิต
+        </button>
+      </div>
+
+      <!-- Catalog Control Bar (Search & Sort) -->
+      <div class="catalog-control-bar">
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 500;">จัดเรียงตาม:</div>
+        <select id="catalog-sort-select" class="sort-select">
+          <option value="default">✨ แนะนำ / ยอดนิยม</option>
+          <option value="price_asc">฿ ราคาต่ำ ➔ สูง</option>
+          <option value="price_desc">฿ ราคาสูง ➔ ต่ำ</option>
+          <option value="name_asc">🔤 ชื่อแอป A-Z</option>
+        </select>
       </div>
 
       <div id="catalog-container" class="catalog-grid">
@@ -101,7 +215,13 @@
     <div id="tab-support-pane" class="tab-pane" style="display: none;">
       <div class="section-header">
         <div class="section-title">
-          <span>💬 ศูนย์ช่วยเหลือ & แจ้งปัญหา</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            ศูนย์ช่วยเหลือ & แจ้งปัญหา
+          </span>
         </div>
       </div>
 
@@ -109,21 +229,15 @@
         <div class="sub-card">
           <div class="sub-card-header">
             <div class="app-pill">
-              <div class="app-icon-box" style="background: #0063e5;">🏰</div>
-              <div class="app-name-text">ขอรหัส OTP Disney+</div>
-            </div>
-            <span class="expiry-badge expiry-active">อัตโนมัติ</span>
-          </div>
-          <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
-            เมื่อเข้าใช้งาน Disney+ และอยู่หน้ากรอกรหัส OTP สามารถกดขอรหัสผ่านระบบนี้เพื่อให้แอดมินส่งรหัสให้ทันที
-          </p>
-          <button id="btn-open-otp-modal" class="btn btn-primary">📱 กดขอรหัส OTP</button>
-        </div>
-
-        <div class="sub-card">
-          <div class="sub-card-header">
-            <div class="app-pill">
-              <div class="app-icon-box" style="background: #f59e0b;">⚠️</div>
+              <div class="app-icon-box" style="background: #f59e0b;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                  </path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
               <div class="app-name-text">แจ้งปัญหาการใช้งาน</div>
             </div>
             <span class="expiry-badge expiry-warning">ดูแล 24 ชม.</span>
@@ -131,8 +245,68 @@
           <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
             พบปัญหาจอชน, รหัสผ่านไม่ถูกต้อง หรือเข้าใช้งานไม่ได้ สามารถแจ้งเรื่องย้อนหลังไปยังระบบได้ทันที
           </p>
-          <button id="btn-open-issue-modal" class="btn btn-secondary">🛠️ แจ้งปัญหาแอดมิน</button>
+          <button id="btn-open-issue-modal" class="btn btn-secondary"
+            style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
+              </path>
+            </svg>
+            แจ้งปัญหาแอดมิน
+          </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 4: ORDER HISTORY & SPENDING SUMMARY ================= -->
+    <div id="tab-history-pane" class="tab-pane" style="display: none;">
+      <div class="section-header">
+        <div class="section-title">
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            ประวัติการสั่งซื้อ & สรุปค่าบริการ
+          </span>
+        </div>
+        <button id="btn-refresh-history" class="btn-glass-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          รีเฟรช
+        </button>
+      </div>
+
+      <!-- Spending Summary Metrics Card -->
+      <div class="spending-metrics-card">
+        <div class="metric-box">
+          <span class="metric-label">ยอดรวมสั่งซื้อสะสม</span>
+          <span id="summary-total-amount" class="metric-value gold-text">฿0</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-box">
+          <span class="metric-label">แอปที่เปิดใช้งาน</span>
+          <span id="summary-active-count" class="metric-value blue-text">0 แอป</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-box">
+          <span class="metric-label">ประหยัดได้ประมาณ</span>
+          <span id="summary-saved-amount" class="metric-value green-text">฿0</span>
+        </div>
+      </div>
+
+      <!-- History List -->
+      <div id="history-container" class="cards-grid" style="margin-top: 14px;">
+        <div class="sub-card skeleton" style="height: 100px;"></div>
       </div>
     </div>
 
@@ -140,17 +314,52 @@
 
   <!-- Bottom Navigation Bar -->
   <nav class="tab-bar">
-    <div id="nav-subs" class="tab-item active">
-      <span class="tab-icon">📦</span>
-      <span>สิทธิ์ของฉัน</span>
-    </div>
-    <div id="nav-catalog" class="tab-item">
-      <span class="tab-icon">🛍️</span>
-      <span>ร้านค้า</span>
-    </div>
-    <div id="nav-support" class="tab-item">
-      <span class="tab-icon">💬</span>
-      <span>ช่วยเหลือ</span>
+    <div class="tab-bar-inner">
+      <div id="nav-subs" class="tab-item active">
+        <span class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+            </path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </span>
+        <span>สิทธิ์ของฉัน</span>
+      </div>
+      <div id="nav-catalog" class="tab-item" style="display: none !important;">
+        <span class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+        </span>
+        <span>ร้านค้า</span>
+      </div>
+      <div id="nav-history" class="tab-item">
+        <span class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </span>
+        <span>ประวัติสั่งซื้อ</span>
+      </div>
+      <div id="nav-support" class="tab-item">
+        <span class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </span>
+        <span>ช่วยเหลือ</span>
+      </div>
     </div>
   </nav>
 
@@ -180,8 +389,372 @@
           <textarea id="modal-note-input" class="form-textarea"
             placeholder="เช่น รหัสผ่านผิดเมื่อเวลา 20:30 น."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 ส่งข้อมูลเข้าแชท LINE OA</button>
+        <button type="submit" class="btn btn-primary"
+          style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+          ส่งข้อมูลเข้าแชท LINE OA
+        </button>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Profile Settings -->
+  <div id="profile-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          จัดการโปรไฟล์ผู้ใช้งาน
+        </h3>
+        <button id="profile-modal-close-btn" class="modal-close">✕</button>
+      </div>
+
+      <form id="profile-form">
+        <!-- Customer Reference Code Display -->
+        <div
+          style="background: rgba(2, 132, 199, 0.12); border: 1px solid var(--border-blue); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-size: 10.5px; color: var(--blue-bright); font-weight: bold;">รหัสอ้างอิงลูกค้า (Customer
+              Code):</div>
+            <div id="profile-modal-code-display"
+              style="font-size: 13px; font-weight: bold; color: var(--gold-light); font-family: monospace;">-</div>
+          </div>
+          <button type="button" id="btn-copy-profile-code" class="copy-btn"
+            style="padding: 4px 8px; font-size: 10px; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            คัดลอกรหัส
+          </button>
+        </div>
+
+        <!-- LINE Account Connection Card -->
+        <div id="line-account-sync-card"
+          style="background: rgba(6, 199, 85, 0.1); border: 1px solid rgba(6, 199, 85, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#06C755">
+                <path
+                  d="M12 2C6.48 2 2 5.92 2 10.75c0 4.31 3.52 7.91 8.27 8.61.32.07.76.22.87.5.1.25.07.65.03.9-.06.4-.28 1.45-.31 1.76-.05.51.24.7.5.38.35-.43 3.82-4.5 5.22-6.58A9.7 9.7 0 0 0 22 10.75C22 5.92 17.52 2 12 2z" />
+              </svg>
+              <div>
+                <div style="font-size: 12px; font-weight: bold; color: #06C755;">เชื่อมต่อกับบัญชี LINE</div>
+                <div id="line-sync-status-text" style="font-size: 10px; color: var(--text-muted);">ดึงชื่อ, รูปโปรไฟล์
+                  และ User ID จาก LINE เพื่อผูกบัญชี</div>
+              </div>
+            </div>
+            <span id="line-sync-badge" class="expiry-badge"
+              style="background: rgba(6, 199, 85, 0.18); color: #06C755; border: 1px solid rgba(6, 199, 85, 0.4); font-size: 10px;">ยังไม่ผูก</span>
+          </div>
+
+          <button type="button" id="btn-sync-line-profile" class="btn"
+            style="width: 100%; background: #06C755; color: #fff; border: none; font-weight: bold; border-radius: 10px; padding: 9px 12px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff">
+              <path
+                d="M12 2C6.48 2 2 5.92 2 10.75c0 4.31 3.52 7.91 8.27 8.61.32.07.76.22.87.5.1.25.07.65.03.9-.06.4-.28 1.45-.31 1.76-.05.51.24.7.5.38.35-.43 3.82-4.5 5.22-6.58A9.7 9.7 0 0 0 22 10.75C22 5.92 17.52 2 12 2z" />
+            </svg>
+            <span id="btn-sync-line-text">ดึงข้อมูลโปรไฟล์จาก LINE (LINE Login)</span>
+          </button>
+        </div>
+
+        <!-- Display Name -->
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            ชื่อที่ต้องการแสดงบน WebApp
+          </label>
+          <input type="text" id="profile-display-name-input" class="form-input" placeholder="เช่น คุณสมชาย สายเทค"
+            maxlength="50">
+        </div>
+
+        <!-- Gender & Age Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label class="form-label" style="display: flex; align-items: center; gap: 4px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright)" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              เพศ
+            </label>
+            <select id="profile-gender-select" class="form-input"
+              style="background: var(--bg-card); color: var(--text-main);">
+              <option value="unspecified">ไม่ระบุ</option>
+              <option value="male">ชาย</option>
+              <option value="female">หญิง</option>
+              <option value="other">อื่นๆ</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label" style="display: flex; align-items: center; gap: 4px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"></path>
+                <path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"></path>
+                <line x1="2" y1="21" x2="22" y2="21"></line>
+                <line x1="7" y1="8" x2="7" y2="11"></line>
+                <line x1="12" y1="8" x2="12" y2="11"></line>
+                <line x1="17" y1="8" x2="17" y2="11"></line>
+              </svg>
+              อายุ (ปี)
+            </label>
+            <input type="number" id="profile-age-input" class="form-input" placeholder="ระบุอายุ" min="1" max="120">
+          </div>
+        </div>
+
+        <!-- Birthdate -->
+        <div class="form-group">
+          <label class="form-label" style="display: flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            วัน / เดือน / ปีเกิด
+          </label>
+          <input type="date" id="profile-birthdate-input" class="form-input"
+            style="background: var(--bg-card); color: var(--text-main);">
+        </div>
+
+        <button type="submit" class="btn btn-primary"
+          style="width: 100%; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Package Purchase Checkout Modal -->
+  <div id="purchase-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="purchase-app-title" class="modal-title" style="display: inline-flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          เลือกแพ็คเกจสั่งซื้อ
+        </h3>
+        <button id="purchase-modal-close-btn" class="modal-close">✕</button>
+      </div>
+
+      <div id="purchase-app-info" style="margin-bottom: 14px; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-color);">
+      </div>
+
+      <!-- Order Type Switcher (New vs Renewal) -->
+      <div class="form-group">
+        <label class="form-label">ประเภทคำสั่งซื้อ</label>
+        <div class="order-type-container">
+          <button type="button" id="btn-order-type-new" class="order-type-btn active" onclick="setOrderType('new')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+            เปิดบัญชีใหม่
+          </button>
+          <button type="button" id="btn-order-type-renew" class="order-type-btn" onclick="setOrderType('renew')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            ต่ออายุโปรไฟล์เดิม
+          </button>
+        </div>
+      </div>
+
+      <!-- Renew Profile Reference Input -->
+      <div id="renew-profile-field" class="form-group" style="display: none;">
+        <label class="form-label">ชื่อโปรไฟล์ / อีเมลเดิมที่ต้องการต่ออายุ</label>
+        <input type="text" id="purchase-renew-input" class="form-input" placeholder="เช่น จอ 1 (somchai@gmail.com)">
+      </div>
+
+      <!-- Device Type Selector -->
+      <div class="form-group">
+        <label class="form-label">ประเภทอุปกรณ์ที่ต้องการใช้งาน</label>
+        <div class="device-type-grid">
+          <button type="button" id="btn-device-mobile" class="device-type-pill active" onclick="setDeviceType('mobile')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            มือถือ / แท็บเล็ต / PC
+          </button>
+          <button type="button" id="btn-device-tv" class="device-type-pill" onclick="setDeviceType('tv')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+            สมาร์ททีวี (Smart TV)
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">เลือกระยะเวลาการใช้งาน</label>
+        <div id="package-options-list" class="package-options-grid">
+        </div>
+      </div>
+
+      <!-- Shop Payment Account Info Card -->
+      <div class="payment-info-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--gold-light); display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            ช่องทางชำระเงินร้านค้า (PromptPay)
+          </span>
+          <button type="button" class="copy-btn" onclick="copyToClipboard('0829999999', 'เลขพร้อมเพย์ร้าน')" style="font-size: 9.5px; padding: 2px 6px;">คัดลอกพร้อมเพย์</button>
+        </div>
+        <div style="font-size: 12px; font-family: monospace; color: var(--blue-bright); font-weight: bold;">พร้อมเพย์: 082-999-9999 (BOSS Premium)</div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">กสิกรไทย (KBank) • ชำระเงินแล้วแนบสลิปผ่านทาง LINE OA ได้เลยครับ</div>
+      </div>
+
+      <div style="background: rgba(6, 199, 85, 0.1); border: 1px solid rgba(6, 199, 85, 0.3); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 11.5px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06C755" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><line x1="12" y1="17" x2="12.01" y2="17"></line><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"></path></svg>
+        <span>สั่งซื้อผ่านระบบจะส่งรายการสั่งซื้อไปยัง LINE OA ทันที พร้อมระบบรับประกันเปลี่ยนจอให้ฟรีตลอดอายุการใช้งาน</span>
+      </div>
+
+      <button type="button" id="btn-confirm-purchase" class="btn btn-primary" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        ยืนยันสั่งซื้อผ่าน LINE OA
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Order Checkout Success Receipt Modal -->
+  <div id="order-checkout-success-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          ใบสรุปคำสั่งซื้อ
+        </h3>
+        <button id="success-modal-close-btn" class="modal-close">✕</button>
+      </div>
+
+      <!-- Receipt Card Container -->
+      <div id="checkout-receipt-card" class="receipt-summary-card">
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+        <button type="button" id="btn-open-line-oa" class="btn" style="width: 100%; background: #06C755; color: #fff; font-weight: bold; border: none; padding: 12px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 5.92 2 10.75c0 4.31 3.52 7.91 8.27 8.61.32.07.76.22.87.5.1.25.07.65.03.9-.06.4-.28 1.45-.31 1.76-.05.51.24.7.5.38.35-.43 3.82-4.5 5.22-6.58A9.7 9.7 0 0 0 22 10.75C22 5.92 17.52 2 12 2z"/></svg>
+          <span>เปิดแชท LINE OA เพื่อส่งสลิปชำระเงิน</span>
+        </button>
+        <button type="button" id="btn-copy-receipt-summary" class="btn btn-secondary" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          คัดลอกรายละเอียดคำสั่งซื้อ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Admin Promotion Manager Modal -->
+  <div id="admin-promo-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          จัดการโปรโมชั่น (Admin Config)
+        </h3>
+        <button id="admin-promo-modal-close-btn" class="modal-close">✕</button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 2px;">
+        <!-- Top Action / Add New Promo Button -->
+        <button type="button" id="btn-admin-add-promo" class="btn" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: #fff; font-weight: bold; border: none; padding: 10px; border-radius: 12px; font-size: 12.5px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 14px; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          สร้างการ์ดโปรโมชั่นใหม่
+        </button>
+
+        <!-- Edit/Create Promo Form Container (Hidden by default until Add/Edit is clicked) -->
+        <form id="admin-promo-form" style="display: none; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-gold); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+          <div style="font-size: 12px; font-weight: bold; color: var(--gold-light); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span id="promo-form-title">➕ สร้างโปรโมชั่นใหม่</span>
+            <button type="button" id="btn-cancel-promo-form" style="background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer;">ยกเลิก</button>
+          </div>
+
+          <input type="hidden" id="promo-edit-id" value="">
+
+          <div class="form-group">
+            <label class="form-label">หัวข้อโปรโมชั่น (Title)</label>
+            <input type="text" id="promo-input-title" class="form-input" placeholder="เช่น ⚡ FLASH SALE! Netflix 4K 30 วัน" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">รายละเอียดเงื่อนไข (Description)</label>
+            <textarea id="promo-input-desc" class="form-textarea" rows="2" placeholder="เช่น จอส่วนตัวพรีเมียม ประกัน 30 วัน"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label">ประเภทโปรโมชั่น</label>
+              <select id="promo-input-type" class="form-input">
+                <option value="flash_sale">⚡ Flash Sale (โปรเด็ด)</option>
+                <option value="bundle">👥 โปรซื้อคู่ (Bundle)</option>
+                <option value="clearance">📦 จอโล๊ะ (Clearance)</option>
+                <option value="general">✨ โปรโมชั่นทั่วไป</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ข้อความ Badge ป้ายกำกับ</label>
+              <input type="text" id="promo-input-badge-text" class="form-input" placeholder="เช่น FLASH SALE ลด 20%">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label">ราคาเดิม (บาท)</label>
+              <input type="number" id="promo-input-original-price" class="form-input" placeholder="เช่น 150">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ราคาโปรโมชั่น (บาท)</label>
+              <input type="number" id="promo-input-promo-price" class="form-input" placeholder="เช่น 119" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ข้อความเสนอขายที่จะส่งเข้า LINE OA (Action Payload)</label>
+            <textarea id="promo-input-action-payload" class="form-textarea" rows="2" placeholder="เช่น สนใจโปรโมชั่น ⚡ FLASH SALE! Netflix 4K ราคา 119 บาท ครับ"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label">ลำดับการเรียง (Order)</label>
+              <input type="number" id="promo-input-order" class="form-input" value="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">สถานะการแสดงผล</label>
+              <select id="promo-input-active" class="form-input">
+                <option value="true">เปิดใช้งาน (Active)</option>
+                <option value="false">ปิดการแสดงผล (Inactive)</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+            💾 บันทึกโปรโมชั่น
+          </button>
+        </form>
+
+        <!-- Admin Promos List -->
+        <div style="font-size: 11px; font-weight: bold; color: var(--text-muted); margin-bottom: 8px;">รายการโปรโมชั่นทั้งหมดในระบบ:</div>
+        <div id="admin-promos-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Items will be loaded here -->
+        </div>
+      </div>
     </div>
   </div>
 
