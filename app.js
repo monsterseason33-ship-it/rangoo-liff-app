@@ -58,9 +58,31 @@ async function supabaseFetch(endpoint, options = {}) {
   }
 }
 
+// Real-Time Flash Sale Digital Countdown Timer
+let flashSaleTimerInterval = null;
+function startFlashSaleCountdown() {
+  if (flashSaleTimerInterval) return;
+  let totalSeconds = 3 * 3600 + 45 * 60 + 18;
+  flashSaleTimerInterval = setInterval(() => {
+    if (totalSeconds <= 0) totalSeconds = 12 * 3600;
+    totalSeconds--;
+    const hh = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+    const ss = String(totalSeconds % 60).padStart(2, '0');
+
+    const elHH = document.getElementById("flash-timer-hh");
+    const elMM = document.getElementById("flash-timer-mm");
+    const elSS = document.getElementById("flash-timer-ss");
+    if (elHH) elHH.textContent = hh;
+    if (elMM) elMM.textContent = mm;
+    if (elSS) elSS.textContent = ss;
+  }, 1000);
+}
+
 // 1. Initialize Application with Optional LIFF Login & Direct Customer Code Routing
 async function initLiff() {
   console.log("[BOSS App] Initializing WebApp Core...");
+  startFlashSaleCountdown();
 
   // Extract Customer Code / ID / CID from URL (Supports ?id=, ?code=, ?c=, ?name=, ?cid=, ?chat_id=, #hash, or /path)
   const urlParams = new URLSearchParams(window.location.search);

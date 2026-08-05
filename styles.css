@@ -2101,6 +2101,87 @@ body {
 /* ================= PROMOTIONS & BANNER SLIDER STYLES (SHOPEE / LAZADA FLASH SALE E-COMMERCE STYLE) ================= */
 .promotions-section {
   width: 100%;
+  position: relative;
+  background: linear-gradient(135deg, rgba(245, 61, 45, 0.16) 0%, rgba(15, 23, 42, 0.85) 45%, rgba(8, 14, 28, 0.95) 100%);
+  border: 1.5px solid rgba(245, 61, 45, 0.45);
+  border-radius: 22px;
+  padding: 14px 14px 12px 14px;
+  box-shadow: 0 12px 35px rgba(245, 61, 45, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+/* Ambient Neon Glow Aura behind section */
+.promotions-section::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(245, 61, 45, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Header Live Countdown Styling */
+.flash-sale-live-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flash-title-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14.5px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.flash-title-text {
+  background: linear-gradient(90deg, #ffffff 0%, #ff8a7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+  filter: drop-shadow(0 2px 4px rgba(245, 61, 45, 0.5));
+}
+
+.flash-countdown-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(245, 61, 45, 0.5);
+  padding: 3px 9px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.flash-timer-label {
+  font-size: 9.5px;
+  color: #cbd5e1;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.flash-timer-digits {
+  font-family: 'Outfit', monospace, sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.flash-timer-digits span {
+  background: #f53d2d;
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  box-shadow: 0 2px 6px rgba(245, 61, 45, 0.5);
 }
 
 .promo-cards-slider {
@@ -2112,6 +2193,8 @@ body {
   padding: 4px 2px 14px 2px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  position: relative;
+  z-index: 2;
 }
 
 .promo-cards-slider::-webkit-scrollbar {
@@ -2124,7 +2207,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 4px;
+  position: relative;
+  z-index: 2;
 }
 
 .promo-dot {
@@ -2140,7 +2225,7 @@ body {
   width: 22px;
   border-radius: 10px;
   background: linear-gradient(90deg, #ff6433 0%, #f53d2d 100%);
-  box-shadow: 0 0 10px rgba(245, 61, 45, 0.5);
+  box-shadow: 0 0 10px rgba(245, 61, 45, 0.6);
 }
 
 .promo-card {
@@ -2157,13 +2242,38 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
-  transition: all 0.3s ease;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Card Shimmer Sweep Light Animation */
+.promo-card::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 100%
+  );
+  transform: rotate(25deg);
+  animation: cardShimmer 4s infinite;
+  pointer-events: none;
+}
+
+@keyframes cardShimmer {
+  0% { left: -60%; }
+  35% { left: 140%; }
+  100% { left: 140%; }
 }
 
 .promo-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px) scale(1.01);
   border-color: #f53d2d;
-  box-shadow: 0 12px 30px rgba(245, 61, 45, 0.3);
+  box-shadow: 0 14px 35px rgba(245, 61, 45, 0.45);
 }
 
 /* Shopee Top Flash Header */
