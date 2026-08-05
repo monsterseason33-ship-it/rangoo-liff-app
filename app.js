@@ -1716,72 +1716,69 @@ async function fetchAndRenderPromotions() {
     if (badgeCount) badgeCount.textContent = `${activePromos.length} รายการเด็ด`;
 
     let html = "";
-    activePromos.forEach(promo => {
-      const typeClass = promo.promo_type === 'flash_sale' ? 'promo-card-flash' :
-                        promo.promo_type === 'bundle' ? 'promo-card-bundle' :
-                        promo.promo_type === 'clearance' ? 'promo-card-clearance' : '';
-      
-      const badgeColor = promo.badge_color || (promo.promo_type === 'flash_sale' ? 'rgba(239, 68, 68, 0.88)' : promo.promo_type === 'bundle' ? 'rgba(168, 85, 247, 0.88)' : 'rgba(245, 158, 11, 0.88)');
-      const badgeText = promo.badge_text || (promo.promo_type === 'flash_sale' ? 'FLASH SALE' : promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก');
+    activePromos.forEach((promo, idx) => {
+      const badgeText = promo.badge_text || (
+        promo.promo_type === 'flash_sale' ? 'FLASH SALE ⚡' :
+        promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า 👥' : 'เคลียร์สต๊อก 📦'
+      );
 
-      // Hero Banner Image
-      const heroBgImg = promo.banner_image || (
+      // Hero Banner Image / Product Thumb
+      const thumbImg = promo.banner_image || (
         promo.promo_type === 'flash_sale' ? 'promo_flash.png' :
         promo.promo_type === 'bundle' ? 'promo_bundle.png' :
         'promo_clearance.png'
       );
 
-      // Calculate Savings
-      let savingsHtml = '';
+      // Calculate Discount %
+      let discountTagHtml = '';
       if (promo.original_price && promo.original_price > promo.promo_price) {
-        const diff = promo.original_price - promo.promo_price;
-        savingsHtml = `<span class="promo-savings-pill">ประหยัด ฿${diff}</span>`;
+        const pct = Math.round(((promo.original_price - promo.promo_price) / promo.original_price) * 100);
+        discountTagHtml = `<div class="shopee-discount-tag">-${pct}%</div>`;
       }
 
-      // App Brand Icon Auto Detection
-      const titleLower = promo.title.toLowerCase();
-      let brandIconHtml = '';
-      if (titleLower.includes('netflix') && titleLower.includes('disney')) {
-        brandIconHtml = `<div class="promo-brand-icon-box" style="background: linear-gradient(135deg, #E50914 0%, #0063e5 100%); color: #fff; font-size: 10px;">N+D</div>`;
-      } else if (titleLower.includes('netflix')) {
-        brandIconHtml = `<div class="promo-brand-icon-box" style="background: #E50914; color: #fff;">N</div>`;
-      } else if (titleLower.includes('disney')) {
-        brandIconHtml = `<div class="promo-brand-icon-box" style="background: #0063e5; color: #fff;">D+</div>`;
-      } else if (titleLower.includes('hbo')) {
-        brandIconHtml = `<div class="promo-brand-icon-box" style="background: #000000; color: #fff; border: 1px solid rgba(255,255,255,0.2);">HBO</div>`;
-      } else {
-        brandIconHtml = `<div class="promo-brand-icon-box" style="background: rgba(212,175,55,0.2); color: var(--gold-light);">🎬</div>`;
-      }
+      // Stock Progress Bar Text & %
+      const progressPct = idx === 0 ? 85 : idx === 1 ? 92 : 65;
+      const progressLabel = idx === 0 ? '🔥 ขายไปแล้ว 85%' : idx === 1 ? '⚡ เหลือ 2 ชุดสุดท้าย' : '📦 เคลียร์สต๊อก 65%';
 
       html += `
-        <div class="promo-card ${typeClass}">
-          <div class="promo-card-hero-bg" style="background-image: url('${heroBgImg}');"></div>
-          <div class="promo-card-overlay"></div>
-
-          <div class="promo-card-header">
-            <span class="promo-tag-badge" style="background: ${badgeColor};">
-              <span class="promo-pulsing-dot"></span>
-              ${badgeText}
-            </span>
-            ${brandIconHtml}
-          </div>
-
-          <div class="promo-card-body">
-            <div class="promo-card-title">${escapeHtml(promo.title)}</div>
-            <div class="promo-card-desc">${escapeHtml(promo.description || '')}</div>
-          </div>
-
-          <div class="promo-card-footer">
-            <div class="promo-price-group">
-              <div class="promo-price-meta">
-                ${promo.original_price ? `<span class="promo-original-price">฿${promo.original_price}</span>` : ''}
-                ${savingsHtml}
-              </div>
-              <span class="promo-final-price">฿${promo.promo_price}</span>
+        <div class="promo-card">
+          <!-- Shopee Header Banner -->
+          <div class="shopee-flash-header">
+            <div class="shopee-flash-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#ffe100"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>${badgeText}</span>
             </div>
-            <button type="button" class="btn-promo-action" onclick="handlePromoAction('${promo.id}')">
-              <span>กดรับสิทธิ์</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            <div class="shopee-timer-badge">⏳ เวลาจำกัด</div>
+          </div>
+
+          <!-- Shopee Card Body -->
+          <div class="shopee-card-body">
+            <div class="shopee-product-row">
+              <div class="shopee-product-thumb" style="background-image: url('${thumbImg}');">
+                ${discountTagHtml}
+              </div>
+              <div class="shopee-product-details">
+                <div class="promo-card-title">${escapeHtml(promo.title)}</div>
+                <div class="promo-card-desc">${escapeHtml(promo.description || '')}</div>
+              </div>
+            </div>
+
+            <!-- Shopee Sales Progress Bar -->
+            <div class="shopee-progress-bar-container">
+              <div class="shopee-progress-fill" style="width: ${progressPct}%;"></div>
+              <div class="shopee-progress-text">${progressLabel}</div>
+            </div>
+          </div>
+
+          <!-- Shopee Card Footer -->
+          <div class="shopee-card-footer">
+            <div class="shopee-price-box">
+              ${promo.original_price ? `<span class="promo-original-price">฿${promo.original_price}</span>` : ''}
+              <span class="shopee-flash-price">฿${promo.promo_price}</span>
+            </div>
+            <button type="button" class="btn-shopee-buy" onclick="handlePromoAction('${promo.id}')">
+              <span>ซื้อเลย</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
         </div>
