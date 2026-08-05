@@ -47,7 +47,9 @@ async function supabaseFetch(endpoint, options = {}) {
       const errText = await res.text();
       throw new Error(`Supabase API Error ${res.status}: ${errText}`);
     }
-    return await res.json();
+    if (res.status === 204) return null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   } catch (err) {
     console.error("[Supabase Fetch Error]", err);
     throw err;
