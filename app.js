@@ -1718,8 +1718,8 @@ async function fetchAndRenderPromotions() {
     let html = "";
     activePromos.forEach((promo, idx) => {
       const badgeText = promo.badge_text || (
-        promo.promo_type === 'flash_sale' ? 'FLASH SALE ⚡' :
-        promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า 👥' : 'เคลียร์สต๊อก 📦'
+        promo.promo_type === 'flash_sale' ? 'FLASH SALE' :
+        promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก'
       );
 
       // Hero Banner Image / Product Thumb
@@ -1736,9 +1736,11 @@ async function fetchAndRenderPromotions() {
         discountTagHtml = `<div class="shopee-discount-tag">-${pct}%</div>`;
       }
 
-      // Stock Progress Bar Text & %
+      // Stock Progress Bar Text & % with SVG Icons
       const progressPct = idx === 0 ? 85 : idx === 1 ? 92 : 65;
-      const progressLabel = idx === 0 ? '🔥 ขายไปแล้ว 85%' : idx === 1 ? '⚡ เหลือ 2 ชุดสุดท้าย' : '📦 เคลียร์สต๊อก 65%';
+      const progressLabel = idx === 0 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6433" style="vertical-align: -1px; margin-right: 3px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>ขายแล้ว 85%` :
+                            idx === 1 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffe100" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>เหลือเพียง 2 ชุดสุดท้าย` :
+                            `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffe100" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>เคลียร์สต๊อก 65%`;
 
       html += `
         <div class="promo-card">
@@ -1748,7 +1750,10 @@ async function fetchAndRenderPromotions() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="#ffe100"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
               <span>${badgeText}</span>
             </div>
-            <div class="shopee-timer-badge">⏳ เวลาจำกัด</div>
+            <div class="shopee-timer-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>เวลาจำกัด</span>
+            </div>
           </div>
 
           <!-- Shopee Card Body -->
@@ -1848,8 +1853,12 @@ function renderAdminPromosList() {
             <input type="checkbox" ${isChecked} onchange="togglePromoActiveStatus('${item.id}', this.checked)">
             <span class="slider-toggle"></span>
           </label>
-          <button type="button" class="btn-admin-icon" onclick="editPromoItem('${item.id}')" title="แก้ไข">✏️</button>
-          <button type="button" class="btn-admin-icon delete" onclick="deletePromoItem('${item.id}')" title="ลบ">🗑️</button>
+          <button type="button" class="btn-admin-icon" onclick="editPromoItem('${item.id}')" title="แก้ไข">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button type="button" class="btn-admin-icon delete" onclick="deletePromoItem('${item.id}')" title="ลบ">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
         </div>
       </div>
     `;
@@ -1882,7 +1891,7 @@ function resetPromoForm() {
   document.getElementById("promo-input-action-payload").value = "";
   document.getElementById("promo-input-order").value = "1";
   document.getElementById("promo-input-active").value = "true";
-  document.getElementById("promo-form-title").textContent = "➕ สร้างโปรโมชั่นใหม่";
+  document.getElementById("promo-form-title").textContent = "สร้างโปรโมชั่นใหม่";
 }
 
 function editPromoItem(promoId) {
@@ -1900,7 +1909,9 @@ function editPromoItem(promoId) {
   document.getElementById("promo-input-order").value = item.display_order || 1;
   document.getElementById("promo-input-active").value = item.is_active !== false ? "true" : "false";
 
-  document.getElementById("promo-form-title").textContent = "✏️ แก้ไขโปรโมชั่น";
+  document.getElementById("promo-form-title").textContent = "แก้ไขโปรโมชั่น";
+  document.getElementById("admin-promo-form").style.display = "block";
+}
   document.getElementById("admin-promo-form").style.display = "block";
 }
 

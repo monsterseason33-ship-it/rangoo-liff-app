@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>">
   <!-- LINE LIFF SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <link rel="stylesheet" href="styles.css?v=2.1">
+  <link rel="stylesheet" href="styles.css?v=2.2">
 </head>
 
 <body>
@@ -98,8 +98,9 @@
             <span id="promo-badge-count" class="section-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">พิเศษสำหรับคุณ</span>
           </div>
           <!-- Admin Manage Promos Button (Only visible for admin) -->
-          <button id="btn-admin-manage-promos" class="btn-glass-pill" style="display: none; color: var(--gold-light); border-color: var(--border-gold);">
-            ⚙️ จัดการโปร
+          <button id="btn-admin-manage-promos" class="btn-glass-pill" style="display: none; color: var(--gold-light); border-color: var(--border-gold); align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>จัดการโปร</span>
           </button>
         </div>
 
@@ -682,7 +683,7 @@
         <!-- Edit/Create Promo Form Container (Hidden by default until Add/Edit is clicked) -->
         <form id="admin-promo-form" style="display: none; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-gold); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
           <div style="font-size: 12px; font-weight: bold; color: var(--gold-light); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-            <span id="promo-form-title">➕ สร้างโปรโมชั่นใหม่</span>
+            <span id="promo-form-title">สร้างโปรโมชั่นใหม่</span>
             <button type="button" id="btn-cancel-promo-form" style="background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer;">ยกเลิก</button>
           </div>
 
@@ -690,7 +691,7 @@
 
           <div class="form-group">
             <label class="form-label">หัวข้อโปรโมชั่น (Title)</label>
-            <input type="text" id="promo-input-title" class="form-input" placeholder="เช่น ⚡ FLASH SALE! Netflix 4K 30 วัน" required>
+            <input type="text" id="promo-input-title" class="form-input" placeholder="เช่น FLASH SALE! Netflix 4K 30 วัน" required>
           </div>
 
           <div class="form-group">
@@ -702,10 +703,10 @@
             <div class="form-group">
               <label class="form-label">ประเภทโปรโมชั่น</label>
               <select id="promo-input-type" class="form-input">
-                <option value="flash_sale">⚡ Flash Sale (โปรเด็ด)</option>
-                <option value="bundle">👥 โปรซื้อคู่ (Bundle)</option>
-                <option value="clearance">📦 จอโล๊ะ (Clearance)</option>
-                <option value="general">✨ โปรโมชั่นทั่วไป</option>
+                <option value="flash_sale">Flash Sale (โปรเด็ดจำกัดเวลา)</option>
+                <option value="bundle">โปรซื้อคู่ (Bundle Package)</option>
+                <option value="clearance">จอโล๊ะ (Clearance Sale)</option>
+                <option value="general">โปรโมชั่นทั่วไป</option>
               </select>
             </div>
             <div class="form-group">
@@ -758,7 +759,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.1"></script>
+  <script src="app.js?v=2.2"></script>
 </body>
 
 </html>
