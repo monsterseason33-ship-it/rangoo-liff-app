@@ -2098,7 +2098,7 @@ body {
   font-weight: 700;
 }
 
-/* ================= PROMOTIONS & BANNER SLIDER STYLES (PREMIUM REDESIGN) ================= */
+/* ================= PROMOTIONS & BANNER SLIDER STYLES (NEXT-GEN 2026 HERO REDESIGN) ================= */
 .promotions-section {
   width: 100%;
 }
@@ -2108,7 +2108,7 @@ body {
   gap: 14px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding: 6px 4px 16px 4px;
+  padding: 6px 4px 18px 4px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -2118,104 +2118,124 @@ body {
 }
 
 .promo-card {
-  flex: 0 0 calc(88% - 10px);
-  max-width: 325px;
-  min-width: 280px;
+  flex: 0 0 calc(90% - 8px);
+  max-width: 340px;
+  min-width: 290px;
+  height: 220px;
   scroll-snap-align: start;
-  background: linear-gradient(145deg, rgba(20, 29, 52, 0.95) 0%, rgba(10, 16, 32, 0.98) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 16px 18px;
+  background: #080f20;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 22px;
+  padding: 14px 16px;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Glass Gloss Shine Layer */
-.promo-card::before {
-  content: "";
+/* Hero Background Banner Cover */
+.promo-card-hero-bg {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 100%);
+  height: 120px;
+  background-size: cover;
+  background-position: center;
+  z-index: 1;
+  transition: transform 0.5s ease;
+}
+
+.promo-card:hover .promo-card-hero-bg {
+  transform: scale(1.06);
+}
+
+/* Gradient Fade Overlay on Top of Poster */
+.promo-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(8, 15, 32, 0.35) 0%, rgba(8, 15, 32, 0.82) 45%, rgba(8, 15, 32, 0.98) 80%, #080f20 100%);
+  z-index: 2;
   pointer-events: none;
 }
 
 .promo-card:hover {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  transform: translateY(-5px);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
 }
 
-/* Flash Sale Style */
+/* Flash Sale Cyberpunk Style */
 .promo-card-flash {
-  border: 1px solid rgba(239, 68, 68, 0.55);
-  background: linear-gradient(145deg, rgba(239, 68, 68, 0.16) 0%, rgba(15, 23, 42, 0.96) 50%, rgba(10, 15, 30, 0.98) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.65);
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.3);
   animation: flashPulse 2.5s infinite alternate;
 }
 
 @keyframes flashPulse {
   0% {
-    box-shadow: 0 6px 24px rgba(239, 68, 68, 0.25);
-    border-color: rgba(239, 68, 68, 0.45);
+    box-shadow: 0 6px 25px rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.5);
   }
   100% {
-    box-shadow: 0 10px 34px rgba(239, 68, 68, 0.55);
-    border-color: rgba(239, 68, 68, 0.9);
+    box-shadow: 0 12px 40px rgba(239, 68, 68, 0.65);
+    border-color: rgba(239, 68, 68, 0.95);
   }
 }
 
-/* Bundle Promotion Style */
+/* Bundle Style */
 .promo-card-bundle {
-  border: 1px solid rgba(168, 85, 247, 0.55);
-  background: linear-gradient(145deg, rgba(168, 85, 247, 0.18) 0%, rgba(15, 23, 42, 0.96) 50%, rgba(10, 15, 30, 0.98) 100%);
-  box-shadow: 0 8px 28px rgba(168, 85, 247, 0.3);
+  border: 1px solid rgba(168, 85, 247, 0.65);
+  box-shadow: 0 8px 30px rgba(168, 85, 247, 0.35);
 }
 
-/* Clearance Promotion Style */
+/* Clearance Style */
 .promo-card-clearance {
-  border: 1px solid rgba(245, 158, 11, 0.55);
-  background: linear-gradient(145deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.96) 50%, rgba(10, 15, 30, 0.98) 100%);
-  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.65);
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.35);
 }
 
 .promo-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   position: relative;
-  z-index: 2;
+  z-index: 3;
 }
 
 .promo-tag-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 .promo-pulsing-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   background-color: #ffffff;
   border-radius: 50%;
   display: inline-block;
   animation: pulseDot 1.2s infinite;
+  box-shadow: 0 0 6px #ffffff;
 }
 
 @keyframes pulseDot {
@@ -2225,57 +2245,61 @@ body {
 }
 
 .promo-brand-icon-box {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 800;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.promo-card-body {
+  position: relative;
+  z-index: 3;
+  margin-top: auto;
+  margin-bottom: 4px;
 }
 
 .promo-card-title {
-  font-size: 14.5px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   color: #ffffff;
-  margin-bottom: 6px;
-  line-height: 1.35;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-  position: relative;
-  z-index: 2;
+  margin-bottom: 4px;
+  line-height: 1.3;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
 }
 
 .promo-card-desc {
-  font-size: 11.5px;
-  color: #cbd5e1;
-  line-height: 1.45;
-  margin-bottom: 14px;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 8px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-weight: 400;
-  position: relative;
-  z-index: 2;
 }
 
 .promo-card-footer {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-top: auto;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
-  z-index: 2;
+  z-index: 3;
 }
 
 .promo-price-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .promo-price-meta {
@@ -2286,49 +2310,49 @@ body {
 
 .promo-original-price {
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
   text-decoration: line-through;
   font-weight: 500;
 }
 
 .promo-savings-pill {
-  background: rgba(34, 197, 94, 0.2);
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.22);
+  border: 1px solid rgba(34, 197, 94, 0.45);
   color: #4ade80;
   font-size: 9.5px;
   font-weight: 800;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 6px;
 }
 
 .promo-final-price {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--gold-light);
+  font-size: 22px;
+  font-weight: 900;
+  color: #fef08a;
   font-family: 'Outfit', sans-serif;
   line-height: 1.1;
-  text-shadow: 0 2px 10px rgba(212, 175, 55, 0.3);
+  text-shadow: 0 2px 12px rgba(253, 224, 71, 0.4);
 }
 
 .btn-promo-action {
-  background: var(--gold-gradient);
+  background: linear-gradient(135deg, #fef08a 0%, #d4af37 50%, #b38728 100%);
   color: #050b18;
   font-size: 11.5px;
   font-weight: 800;
-  padding: 8px 15px;
+  padding: 9px 16px;
   border-radius: 12px;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.38);
+  box-shadow: 0 4px 18px rgba(212, 175, 55, 0.45);
   transition: all 0.25s ease;
 }
 
 .btn-promo-action:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 22px rgba(212, 175, 55, 0.55);
+  transform: scale(1.06);
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.6);
 }
 
 /* ================= ADMIN PROMOTIONS MANAGER MODAL STYLES ================= */

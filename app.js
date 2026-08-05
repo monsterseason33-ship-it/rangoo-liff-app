@@ -1721,14 +1721,21 @@ async function fetchAndRenderPromotions() {
                         promo.promo_type === 'bundle' ? 'promo-card-bundle' :
                         promo.promo_type === 'clearance' ? 'promo-card-clearance' : '';
       
-      const badgeColor = promo.badge_color || (promo.promo_type === 'flash_sale' ? '#ef4444' : promo.promo_type === 'bundle' ? '#8b5cf6' : '#f59e0b');
+      const badgeColor = promo.badge_color || (promo.promo_type === 'flash_sale' ? 'rgba(239, 68, 68, 0.88)' : promo.promo_type === 'bundle' ? 'rgba(168, 85, 247, 0.88)' : 'rgba(245, 158, 11, 0.88)');
       const badgeText = promo.badge_text || (promo.promo_type === 'flash_sale' ? 'FLASH SALE' : promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก');
+
+      // Hero Banner Image
+      const heroBgImg = promo.banner_image || (
+        promo.promo_type === 'flash_sale' ? 'promo_flash.png' :
+        promo.promo_type === 'bundle' ? 'promo_bundle.png' :
+        'promo_clearance.png'
+      );
 
       // Calculate Savings
       let savingsHtml = '';
       if (promo.original_price && promo.original_price > promo.promo_price) {
         const diff = promo.original_price - promo.promo_price;
-        savingsHtml = `<span class="promo-savings-pill">ลด ฿${diff}</span>`;
+        savingsHtml = `<span class="promo-savings-pill">ประหยัด ฿${diff}</span>`;
       }
 
       // App Brand Icon Auto Detection
@@ -1748,17 +1755,22 @@ async function fetchAndRenderPromotions() {
 
       html += `
         <div class="promo-card ${typeClass}">
-          <div>
-            <div class="promo-card-header">
-              <span class="promo-tag-badge" style="background: ${badgeColor};">
-                <span class="promo-pulsing-dot"></span>
-                ${badgeText}
-              </span>
-              ${brandIconHtml}
-            </div>
+          <div class="promo-card-hero-bg" style="background-image: url('${heroBgImg}');"></div>
+          <div class="promo-card-overlay"></div>
+
+          <div class="promo-card-header">
+            <span class="promo-tag-badge" style="background: ${badgeColor};">
+              <span class="promo-pulsing-dot"></span>
+              ${badgeText}
+            </span>
+            ${brandIconHtml}
+          </div>
+
+          <div class="promo-card-body">
             <div class="promo-card-title">${escapeHtml(promo.title)}</div>
             <div class="promo-card-desc">${escapeHtml(promo.description || '')}</div>
           </div>
+
           <div class="promo-card-footer">
             <div class="promo-price-group">
               <div class="promo-price-meta">
@@ -1768,7 +1780,7 @@ async function fetchAndRenderPromotions() {
               <span class="promo-final-price">฿${promo.promo_price}</span>
             </div>
             <button type="button" class="btn-promo-action" onclick="handlePromoAction('${promo.id}')">
-              <span>สนใจโปรนี้</span>
+              <span>กดรับสิทธิ์</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
