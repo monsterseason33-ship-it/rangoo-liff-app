@@ -3,7 +3,9 @@ const CONFIG = {
   LIFF_ID: "2010909658-zc9CaFLN",
   SUPABASE_URL: "https://teeporxvxrwzwmnsnjyw.supabase.co",
   SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk",
-  ADMIN_NAMES: ["boss", "ร้านกู", "admin", "เจ้าของร้าน"] // Auto-detect admin users
+  ADMIN_NAMES: ["boss", "ร้านกู", "admin", "เจ้าของร้าน"], // Auto-detect admin users
+  LINE_OA_LINK: "https://line.me/R/ti/p/@676aljmg",
+  LINE_OA_HANDLE: "@676aljmg"
 };
 
 // Global State
@@ -1601,10 +1603,10 @@ document.addEventListener("DOMContentLoaded", () => {
           showToast("ส่งรายการสั่งซื้อเข้าแชท LINE OA เรียบร้อย!", "success");
           liff.closeWindow();
         }).catch(() => {
-          window.open("https://line.me/R/ti/p/@rangoo", "_blank");
+          window.open(CONFIG.LINE_OA_LINK, "_blank");
         });
       } else {
-        window.open("https://line.me/R/ti/p/@rangoo", "_blank");
+        window.open(CONFIG.LINE_OA_LINK, "_blank");
       }
     });
   }
@@ -1900,11 +1902,11 @@ function handlePromoAction(promoId) {
       })
       .catch(() => {
         const encoded = encodeURIComponent(msg);
-        window.open(`https://line.me/R/oaMessage/@rangoo/?${encoded}`, "_blank");
+        window.open(`https://line.me/R/oaMessage/${CONFIG.LINE_OA_HANDLE}/?${encoded}`, "_blank");
       });
   } else {
     copyToClipboard(msg, "ข้อความสนใจโปรโมชั่น");
-    window.open("https://line.me/R/ti/p/@rangoo", "_blank");
+    window.open(CONFIG.LINE_OA_LINK, "_blank");
   }
 }
 
