@@ -2108,6 +2108,7 @@ body {
   gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
   padding: 4px 2px 14px 2px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -2115,6 +2116,31 @@ body {
 
 .promo-cards-slider::-webkit-scrollbar {
   display: none;
+}
+
+/* Slider Pagination Dots */
+.promo-slider-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.promo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.promo-dot.active {
+  width: 22px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ff6433 0%, #f53d2d 100%);
+  box-shadow: 0 0 10px rgba(245, 61, 45, 0.5);
 }
 
 .promo-card {

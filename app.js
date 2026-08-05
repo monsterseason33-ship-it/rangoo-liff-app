@@ -1791,8 +1791,94 @@ async function fetchAndRenderPromotions() {
     });
 
     container.innerHTML = html;
+    initPromoAutoSlider(activePromos.length);
   } catch (err) {
     console.warn("[Promotions Load Error]", err);
+  }
+}
+
+// Auto Slide & Pagination Dots Core Logic
+let promoAutoSlideTimer = null;
+let currentPromoIndex = 0;
+
+function initPromoAutoSlider(activePromosCount) {
+  const container = document.getElementById("promotions-container");
+  const dotsContainer = document.getElementById("promo-slider-dots");
+  if (!container || activePromosCount <= 1) {
+    if (dotsContainer) dotsContainer.style.display = "none";
+    return;
+  }
+
+  if (dotsContainer) {
+    dotsContainer.style.display = "flex";
+    let dotsHtml = "";
+    for (let i = 0; i < activePromosCount; i++) {
+      dotsHtml += `<div class="promo-dot ${i === 0 ? 'active' : ''}" onclick="scrollToPromoCard(${i})"></div>`;
+    }
+    dotsContainer.innerHTML = dotsHtml;
+  }
+
+  if (promoAutoSlideTimer) clearInterval(promoAutoSlideTimer);
+
+  currentPromoIndex = 0;
+
+  promoAutoSlideTimer = setInterval(() => {
+    currentPromoIndex = (currentPromoIndex + 1) % activePromosCount;
+    scrollToPromoCard(currentPromoIndex);
+  }, 3500);
+
+  container.addEventListener("scroll", () => {
+    const cards = container.querySelectorAll(".promo-card");
+    if (!cards || cards.length === 0) return;
+    const cardWidth = cards[0].offsetWidth + 12;
+    const newIndex = Math.round(container.scrollLeft / cardWidth);
+    if (newIndex !== currentPromoIndex && newIndex >= 0 && newIndex < activePromosCount) {
+      currentPromoIndex = newIndex;
+      updatePromoActiveDot(currentPromoIndex);
+    }
+  }, { passive: true });
+
+  container.addEventListener("touchstart", pausePromoAutoSlider, { passive: true });
+  container.addEventListener("mouseenter", pausePromoAutoSlider, { passive: true });
+}
+
+function scrollToPromoCard(index) {
+  const container = document.getElementById("promotions-container");
+  if (!container) return;
+  const cards = container.querySelectorAll(".promo-card");
+  if (!cards || !cards[index]) return;
+
+  const cardWidth = cards[0].offsetWidth + 12;
+  container.scrollTo({
+    left: index * cardWidth,
+    behavior: "smooth"
+  });
+  updatePromoActiveDot(index);
+}
+
+function updatePromoActiveDot(index) {
+  const dots = document.querySelectorAll("#promo-slider-dots .promo-dot");
+  dots.forEach((dot, i) => {
+    if (i === index) {
+      dot.classList.add("active");
+    } else {
+      dot.classList.remove("active");
+    }
+  });
+}
+
+function pausePromoAutoSlider() {
+  if (promoAutoSlideTimer) {
+    clearInterval(promoAutoSlideTimer);
+    setTimeout(() => {
+      const activePromos = promotionsData.filter(p => p.is_active !== false);
+      if (activePromos.length > 1) {
+        promoAutoSlideTimer = setInterval(() => {
+          currentPromoIndex = (currentPromoIndex + 1) % activePromos.length;
+          scrollToPromoCard(currentPromoIndex);
+        }, 3500);
+      }
+    }, 6000);
   }
 }
 
