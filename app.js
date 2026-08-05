@@ -1639,6 +1639,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const editId = document.getElementById("promo-edit-id").value;
       const title = document.getElementById("promo-input-title").value.trim();
       const description = document.getElementById("promo-input-desc").value.trim();
+      const banner_image = document.getElementById("promo-input-banner-image") ? document.getElementById("promo-input-banner-image").value.trim() : "";
       const promo_type = document.getElementById("promo-input-type").value;
       const badge_text = document.getElementById("promo-input-badge-text").value.trim();
       const origPrice = document.getElementById("promo-input-original-price").value;
@@ -1650,6 +1651,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = {
         title,
         description: description || null,
+        banner_image: banner_image || null,
         promo_type,
         badge_text: badge_text || null,
         original_price: origPrice ? parseFloat(origPrice) : null,
@@ -1972,6 +1974,7 @@ function resetPromoForm() {
   document.getElementById("promo-edit-id").value = "";
   document.getElementById("promo-input-title").value = "";
   document.getElementById("promo-input-desc").value = "";
+  if (document.getElementById("promo-input-banner-image")) document.getElementById("promo-input-banner-image").value = "";
   document.getElementById("promo-input-type").value = "flash_sale";
   document.getElementById("promo-input-badge-text").value = "";
   document.getElementById("promo-input-original-price").value = "";
@@ -1989,6 +1992,7 @@ function editPromoItem(promoId) {
   document.getElementById("promo-edit-id").value = item.id;
   document.getElementById("promo-input-title").value = item.title || "";
   document.getElementById("promo-input-desc").value = item.description || "";
+  if (document.getElementById("promo-input-banner-image")) document.getElementById("promo-input-banner-image").value = item.banner_image || "";
   document.getElementById("promo-input-type").value = item.promo_type || "flash_sale";
   document.getElementById("promo-input-badge-text").value = item.badge_text || "";
   document.getElementById("promo-input-original-price").value = item.original_price || "";
