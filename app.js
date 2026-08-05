@@ -1454,17 +1454,26 @@ document.addEventListener("DOMContentLoaded", () => {
   initLiff();
 
   // Navigation Bar Tabs
-  document.getElementById("nav-subs").addEventListener("click", () => switchTab("subs"));
-  document.getElementById("nav-catalog").addEventListener("click", () => switchTab("catalog"));
+  const navSubs = document.getElementById("nav-subs");
+  if (navSubs) navSubs.addEventListener("click", () => switchTab("subs"));
+
+  const navCatalog = document.getElementById("nav-catalog");
+  if (navCatalog) navCatalog.addEventListener("click", () => switchTab("catalog"));
+
   const navHistory = document.getElementById("nav-history");
   if (navHistory) navHistory.addEventListener("click", () => switchTab("history"));
-  document.getElementById("nav-support").addEventListener("click", () => switchTab("support"));
+
+  const navSupport = document.getElementById("nav-support");
+  if (navSupport) navSupport.addEventListener("click", () => switchTab("support"));
 
   // Refresh Buttons
-  document.getElementById("btn-refresh-subs").addEventListener("click", () => {
-    loadAppData();
-    showToast("รีเฟรชข้อมูลสิทธิ์เรียบร้อยแล้ว", "success");
-  });
+  const refreshSubsBtn = document.getElementById("btn-refresh-subs");
+  if (refreshSubsBtn) {
+    refreshSubsBtn.addEventListener("click", () => {
+      loadAppData();
+      showToast("รีเฟรชข้อมูลสิทธิ์เรียบร้อยแล้ว", "success");
+    });
+  }
 
   const refreshHistoryBtn = document.getElementById("btn-refresh-history");
   if (refreshHistoryBtn) {
@@ -1475,41 +1484,59 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Open Support Modals
-  document.getElementById("btn-open-otp-modal").addEventListener("click", () => {
-    document.getElementById("modal-type-select").value = "otp_needed";
-    document.getElementById("action-modal").classList.add("active");
-  });
+  const openOtpBtn = document.getElementById("btn-open-otp-modal");
+  if (openOtpBtn) {
+    openOtpBtn.addEventListener("click", () => {
+      const typeSelect = document.getElementById("modal-type-select");
+      if (typeSelect) typeSelect.value = "otp_needed";
+      const actionModal = document.getElementById("action-modal");
+      if (actionModal) actionModal.classList.add("active");
+    });
+  }
 
-  document.getElementById("btn-open-issue-modal").addEventListener("click", () => {
-    document.getElementById("modal-type-select").value = "screen_full";
-    document.getElementById("action-modal").classList.add("active");
-  });
+  const openIssueBtn = document.getElementById("btn-open-issue-modal");
+  if (openIssueBtn) {
+    openIssueBtn.addEventListener("click", () => {
+      const typeSelect = document.getElementById("modal-type-select");
+      if (typeSelect) typeSelect.value = "screen_full";
+      const actionModal = document.getElementById("action-modal");
+      if (actionModal) actionModal.classList.add("active");
+    });
+  }
 
   // Modal Close Button
-  document.getElementById("modal-close-btn").addEventListener("click", () => {
-    document.getElementById("action-modal").classList.remove("active");
-  });
+  const modalCloseBtn = document.getElementById("modal-close-btn");
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener("click", () => {
+      const actionModal = document.getElementById("action-modal");
+      if (actionModal) actionModal.classList.remove("active");
+    });
+  }
 
   // Modal Form Submission
-  document.getElementById("action-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const type = document.getElementById("modal-type-select").value;
-    const note = document.getElementById("modal-note-input").value;
+  const actionForm = document.getElementById("action-form");
+  if (actionForm) {
+    actionForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const type = document.getElementById("modal-type-select")?.value || "";
+      const note = document.getElementById("modal-note-input")?.value || "";
 
-    alert("ส่งคำร้องสำเร็จ! แอดมิน BOSS Premium จะเร่งตรวจสอบและดำเนินการให้ทันทีครับ");
-    document.getElementById("action-modal").classList.remove("active");
+      alert("ส่งคำร้องสำเร็จ! แอดมิน BOSS Premium จะเร่งตรวจสอบและดำเนินการให้ทันทีครับ");
+      const actionModal = document.getElementById("action-modal");
+      if (actionModal) actionModal.classList.remove("active");
 
-    if (window.liff && liff.isInClient() && liff.sendMessages) {
-      liff.sendMessages([
-        {
-          type: 'text',
-          text: `[คำร้องลูกค้า] ${type === 'otp_needed' ? 'ขอรหัส OTP Disney+' : 'แจ้งปัญหาการใช้งาน'} ${note ? '(' + note + ')' : ''}`
-        }
-      ]).then(() => {
-        liff.closeWindow();
-      }).catch(() => { });
-    }
-  });
+      if (window.liff && liff.isInClient() && liff.sendMessages) {
+        liff.sendMessages([
+          {
+            type: 'text',
+            text: `[คำร้องลูกค้า] ${type === 'otp_needed' ? 'ขอรหัส OTP Disney+' : 'แจ้งปัญหาการใช้งาน'} ${note ? '(' + note + ')' : ''}`
+          }
+        ]).then(() => {
+          liff.closeWindow();
+        }).catch(() => { });
+      }
+    });
+  }
 
   // Catalog Sort Selector
   const sortSelect = document.getElementById("catalog-sort-select");
