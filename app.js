@@ -457,12 +457,12 @@ function renderAdminBadge() {
   let badge = document.getElementById("admin-mode-badge");
 
   if (!badge) {
-    const header = document.querySelector(".app-header");
-    if (header) {
-      badge = document.createElement("div");
-      badge.id = "admin-mode-badge";
-      badge.className = "header-admin-bar";
-      header.appendChild(badge);
+    badge = document.createElement("div");
+    badge.id = "admin-mode-badge";
+    badge.className = "admin-mode-badge-container";
+    const banner = document.querySelector(".welcome-banner");
+    if (banner && banner.parentNode) {
+      banner.parentNode.insertBefore(badge, banner.nextSibling);
     }
   }
 
@@ -470,13 +470,13 @@ function renderAdminBadge() {
     badge.style.display = "flex";
     badge.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <span style="font-size: 10.5px; font-weight: 700; color: var(--gold-light, #fef08a); display: inline-flex; align-items: center; gap: 4px;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>
-          โหมดผู้ดูแลระบบ
+        <span style="font-size: 11px; font-weight: 700; color: #fef08a; display: inline-flex; align-items: center; gap: 5px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>
+          โหมดผู้ดูแลระบบ (Admin)
         </span>
         <select id="admin-view-toggle" class="admin-select-pill">
-          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้า (100%)</option>
-          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>ดูทุกบัญชี (${allShopBindings.length} รายการ)</option>
+          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้า (ระบุตัวตนแม่นยำ 100%)</option>
+          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>ดูทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
         </select>
       </div>
     `;
