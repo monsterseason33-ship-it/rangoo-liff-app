@@ -457,35 +457,26 @@ function renderAdminBadge() {
   let badge = document.getElementById("admin-mode-badge");
 
   if (!badge) {
-    badge = document.createElement("div");
-    badge.id = "admin-mode-badge";
-    badge.style.marginBottom = "14px";
-    badge.style.background = "rgba(212, 175, 55, 0.15)";
-    badge.style.border = "1px solid var(--border-gold, #d4af37)";
-    badge.style.borderRadius = "12px";
-    badge.style.padding = "8px 12px";
-    badge.style.alignItems = "center";
-
-    const banner = document.querySelector(".welcome-banner");
-    if (banner && banner.parentNode) {
-      banner.parentNode.insertBefore(badge, banner.nextSibling);
-    } else {
-      const container = document.querySelector(".container");
-      if (container) container.insertBefore(badge, container.firstChild);
+    const header = document.querySelector(".app-header");
+    if (header) {
+      badge = document.createElement("div");
+      badge.id = "admin-mode-badge";
+      badge.className = "header-admin-bar";
+      header.appendChild(badge);
     }
   }
 
-  if (currentUser.isAdmin) {
+  if (badge && currentUser.isAdmin) {
     badge.style.display = "flex";
     badge.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-        <span style="font-size: 11px; font-weight: bold; color: #fef08a; display: inline-flex; align-items: center; gap: 4px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>
-          โหมดผู้ดูแลระบบ (Admin)
+        <span style="font-size: 10.5px; font-weight: 700; color: var(--gold-light, #fef08a); display: inline-flex; align-items: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>
+          โหมดผู้ดูแลระบบ
         </span>
-        <select id="admin-view-toggle" style="background: #050b18; border: 1px solid #d4af37; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 6px; outline: none; cursor: pointer;">
-          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้า (ระบุตัวตนแม่นยำ 100%)</option>
-          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>ดูทุกบัญชีในร้าน (${allShopBindings.length} รายการ)</option>
+        <select id="admin-view-toggle" class="admin-select-pill">
+          <option value="customer" ${adminViewMode === 'customer' ? 'selected' : ''}>มุมมองลูกค้า (100%)</option>
+          <option value="all" ${adminViewMode === 'all' ? 'selected' : ''}>ดูทุกบัญชี (${allShopBindings.length} รายการ)</option>
         </select>
       </div>
     `;
@@ -498,8 +489,8 @@ function renderAdminBadge() {
           loadAppData();
         });
       }
-    }, 100);
-  } else {
+    }, 50);
+  } else if (badge) {
     badge.style.display = "none";
   }
 
