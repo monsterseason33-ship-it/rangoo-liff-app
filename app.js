@@ -1770,21 +1770,15 @@ async function fetchAndRenderPromotions() {
                             idx === 1 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffe100" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>เหลือเพียง 2 ชุดสุดท้าย` :
                             `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffe100" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>เคลียร์สต๊อก 65%`;
 
+      // Clean up promo description: remove raw URLs and clean extra whitespace
+      let cleanDesc = (promo.description || '')
+        .replace(/https?:\/\/[^\s]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       html += `
         <div class="promo-card">
-          <!-- Shopee Header Banner -->
-          <div class="shopee-flash-header">
-            <div class="shopee-flash-badge">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="#ffe100"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              <span>${badgeText}</span>
-            </div>
-            <div class="shopee-timer-badge">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              <span>เวลาจำกัด</span>
-            </div>
-          </div>
-
-          <!-- Shopee Card Body -->
+          <!-- Card Body -->
           <div class="shopee-card-body">
             <div class="shopee-product-row">
               <div class="shopee-product-thumb" style="background-image: url('${thumbImg}');">
@@ -1792,18 +1786,18 @@ async function fetchAndRenderPromotions() {
               </div>
               <div class="shopee-product-details">
                 <div class="promo-card-title">${escapeHtml(promo.title)}</div>
-                <div class="promo-card-desc">${escapeHtml(promo.description || '')}</div>
+                <div class="promo-card-desc">${escapeHtml(cleanDesc)}</div>
               </div>
             </div>
 
-            <!-- Shopee Sales Progress Bar -->
+            <!-- Sales Progress Bar -->
             <div class="shopee-progress-bar-container">
               <div class="shopee-progress-fill" style="width: ${progressPct}%;"></div>
               <div class="shopee-progress-text">${progressLabel}</div>
             </div>
           </div>
 
-          <!-- Shopee Card Footer -->
+          <!-- Card Footer -->
           <div class="shopee-card-footer">
             <div class="shopee-price-box">
               ${promo.original_price ? `<span class="promo-original-price">฿${promo.original_price}</span>` : ''}
