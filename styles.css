@@ -1,31 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap');
 
 :root {
-  /* BOSS Royal Theme Color Palette */
-  --bg-primary: #050b18;
-  --bg-card: rgba(11, 22, 44, 0.75);
-  --bg-card-hover: rgba(18, 34, 66, 0.85);
+  /* Apple Dark Minimalist Color Palette */
+  --bg-primary: #08090d;
+  --bg-card: rgba(255, 255, 255, 0.035);
+  --bg-card-hover: rgba(255, 255, 255, 0.065);
   --border-color: rgba(255, 255, 255, 0.08);
-  --border-gold: rgba(212, 175, 55, 0.35);
-  --border-blue: rgba(2, 132, 199, 0.35);
+  --border-silver: rgba(255, 255, 255, 0.16);
+  --border-gold: rgba(255, 255, 255, 0.12);
+  --border-blue: rgba(255, 255, 255, 0.12);
 
-  /* Primary & Accent Colors from Logo */
-  --gold-primary: #d4af37;
-  --gold-light: #fef08a;
-  --gold-dark: #a16207;
-  --gold-gradient: linear-gradient(135deg, #bf953f 0%, #fcf6ba 30%, #b38728 70%, #aa771c 100%);
+  /* Apple Silver & White Accents */
+  --silver-primary: #ffffff;
+  --silver-muted: #cbd5e1;
+  --silver-dark: #64748b;
+  --silver-gradient: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+  --gold-gradient: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
 
-  --blue-primary: #0284c7;
-  --blue-bright: #38bdf8;
-  --blue-glow: rgba(2, 132, 199, 0.4);
-  --blue-gradient: linear-gradient(135deg, #0284c7, #0369a1);
+  --blue-primary: #38bdf8;
+  --blue-bright: #94a3b8;
+  --blue-glow: rgba(255, 255, 255, 0.05);
 
   --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-gold: #fef08a;
+  --text-muted: #8e9baa;
+  --text-gold: #ffffff;
 
   --radius-lg: 20px;
-  --radius-md: 14px;
+  --radius-md: 12px;
   --radius-sm: 8px;
 }
 
@@ -33,16 +34,15 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Kanit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Kanit', 'Segoe UI', sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--bg-primary);
   background-image:
-    radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.16) 0%, transparent 50%),
-    radial-gradient(circle at 90% 90%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 10% 80%, rgba(11, 22, 44, 0.9) 0%, transparent 60%);
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
   background-attachment: fixed;
   color: var(--text-main);
   min-height: 100vh;
@@ -1021,57 +1021,40 @@ body {
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
 }
 
-/* Netflix Card Theme */
+/* Apple Minimalist Subscription Card Themes */
 .sub-card.theme-netflix,
-.catalog-card.theme-netflix {
-  background: linear-gradient(135deg, rgba(35, 5, 8, 0.96) 0%, rgba(12, 10, 16, 0.96) 100%) !important;
-  border: 1px solid rgba(229, 9, 20, 0.45) !important;
-  box-shadow: 0 6px 24px rgba(229, 9, 20, 0.22), inset 0 0 20px rgba(229, 9, 20, 0.08) !important;
-}
-
-.sub-card.theme-netflix:hover {
-  border-color: rgba(229, 9, 20, 0.8) !important;
-  box-shadow: 0 8px 30px rgba(229, 9, 20, 0.35), inset 0 0 25px rgba(229, 9, 20, 0.12) !important;
-}
-
-/* Disney+ Card Theme */
+.catalog-card.theme-netflix,
 .sub-card.theme-disney,
-.catalog-card.theme-disney {
-  background: linear-gradient(135deg, rgba(4, 18, 50, 0.96) 0%, rgba(8, 12, 28, 0.96) 100%) !important;
-  border: 1px solid rgba(56, 189, 248, 0.45) !important;
-  box-shadow: 0 6px 24px rgba(2, 132, 199, 0.22), inset 0 0 20px rgba(2, 132, 199, 0.08) !important;
-}
-
-/* Prime Video Card Theme */
+.catalog-card.theme-disney,
 .sub-card.theme-prime,
-.catalog-card.theme-prime {
-  background: linear-gradient(135deg, rgba(2, 28, 44, 0.96) 0%, rgba(6, 15, 26, 0.96) 100%) !important;
-  border: 1px solid rgba(0, 168, 225, 0.45) !important;
-  box-shadow: 0 6px 24px rgba(0, 168, 225, 0.22), inset 0 0 20px rgba(0, 168, 225, 0.08) !important;
-}
-
-/* HBO Max Card Theme */
+.catalog-card.theme-prime,
 .sub-card.theme-hbo,
-.catalog-card.theme-hbo {
-  background: linear-gradient(135deg, rgba(24, 6, 42, 0.96) 0%, rgba(10, 4, 20, 0.96) 100%) !important;
-  border: 1px solid rgba(153, 51, 255, 0.45) !important;
-  box-shadow: 0 6px 24px rgba(153, 51, 255, 0.22), inset 0 0 20px rgba(153, 51, 255, 0.08) !important;
-}
-
-/* YouTube Card Theme */
+.catalog-card.theme-hbo,
 .sub-card.theme-youtube,
-.catalog-card.theme-youtube {
-  background: linear-gradient(135deg, rgba(35, 4, 4, 0.96) 0%, rgba(12, 6, 6, 0.96) 100%) !important;
-  border: 1px solid rgba(255, 0, 0, 0.45) !important;
-  box-shadow: 0 6px 24px rgba(255, 0, 0, 0.22) !important;
-}
-
-/* Spotify Card Theme */
+.catalog-card.theme-youtube,
 .sub-card.theme-spotify,
 .catalog-card.theme-spotify {
-  background: linear-gradient(135deg, rgba(4, 25, 11, 0.96) 0%, rgba(6, 12, 8, 0.96) 100%) !important;
-  border: 1px solid rgba(29, 185, 84, 0.45) !important;
-  box-shadow: 0 6px 24px rgba(29, 185, 84, 0.22) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+.sub-card.theme-netflix:hover,
+.catalog-card.theme-netflix:hover,
+.sub-card.theme-disney:hover,
+.catalog-card.theme-disney:hover,
+.sub-card.theme-prime:hover,
+.catalog-card.theme-prime:hover,
+.sub-card.theme-hbo:hover,
+.catalog-card.theme-hbo:hover,
+.sub-card.theme-youtube:hover,
+.catalog-card.theme-youtube:hover,
+.sub-card.theme-spotify:hover,
+.catalog-card.theme-spotify:hover {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* ================= TOAST NOTIFICATION SYSTEM ================= */
@@ -2167,30 +2150,30 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  background: rgba(245, 61, 45, 0.12);
-  border: 1px solid rgba(245, 61, 45, 0.35);
-  padding: 2px 8px;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 3px 9px;
+  border-radius: 12px;
 }
 
 .flash-timer-label {
   font-size: 9px;
-  color: #fca5a5;
-  font-weight: 700;
+  color: #94a3b8;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
 .flash-timer-digits {
   font-family: 'Outfit', monospace, sans-serif;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   color: #ffffff;
 }
 
 .flash-timer-digits span {
-  background: #f53d2d;
+  background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
   font-size: 10.5px;
 }
@@ -2231,8 +2214,8 @@ body {
 .promo-dot.active {
   width: 18px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #ff6433 0%, #f53d2d 100%);
-  box-shadow: 0 0 8px rgba(245, 61, 45, 0.5);
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
 .promo-card {
@@ -2240,22 +2223,24 @@ body {
   max-width: 100%;
   min-width: 270px;
   scroll-snap-align: start;
-  background: linear-gradient(145deg, rgba(20, 29, 52, 0.95) 0%, rgba(10, 16, 32, 0.98) 100%);
-  border: 1px solid rgba(245, 61, 45, 0.35);
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
   padding: 0;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   transition: all 0.3s ease;
 }
 
 .promo-card:hover {
   transform: translateY(-2px);
-  border-color: #f53d2d;
-  box-shadow: 0 10px 25px rgba(245, 61, 45, 0.35);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
 }
 
 /* Shopee Top Flash Header */
@@ -2365,7 +2350,7 @@ body {
 
 .shopee-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ff6433 0%, #f53d2d 100%);
+  background: linear-gradient(90deg, #64748b 0%, #cbd5e1 100%);
   border-radius: 8px;
 }
 
@@ -2379,14 +2364,14 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 8.5px;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 /* Shopee Card Footer */
 .shopee-card-footer {
-  background: rgba(10, 16, 32, 0.6);
+  background: rgba(255, 255, 255, 0.02);
   padding: 8px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
@@ -2407,31 +2392,32 @@ body {
 
 .shopee-flash-price {
   font-size: 18px;
-  font-weight: 900;
-  color: #f53d2d;
+  font-weight: 800;
+  color: #ffffff;
   font-family: 'Outfit', sans-serif;
   line-height: 1;
 }
 
 .btn-shopee-buy {
-  background: linear-gradient(135deg, #f53d2d 0%, #ff6433 100%);
-  color: #ffffff;
+  background: #ffffff;
+  color: #08090d;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: 20px;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 3px 10px rgba(245, 61, 45, 0.4);
+  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.15);
   transition: all 0.2s ease;
 }
 
 .btn-shopee-buy:hover {
-  transform: scale(1.04);
-  box-shadow: 0 4px 14px rgba(245, 61, 45, 0.55);
+  transform: scale(1.03);
+  background: #f1f5f9;
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.25);
 }
 
 /* ================= ADMIN PROMOTIONS MANAGER MODAL STYLES ================= */
