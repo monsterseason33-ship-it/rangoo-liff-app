@@ -2228,138 +2228,139 @@ body {
 }
 
 .promo-card {
-  flex: 0 0 100%;
-  max-width: 100%;
-  min-width: 270px;
+  flex: 0 0 270px;
+  max-width: 270px;
+  min-width: 260px;
   scroll-snap-align: start;
-  background: rgba(255, 255, 255, 0.035);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 18px;
+  background: rgba(18, 20, 29, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
   padding: 0;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  transition: all 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .promo-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
 
-/* Shopee Top Flash Header */
-.shopee-flash-header {
-  background: linear-gradient(90deg, #f53d2d 0%, #ff6433 100%);
+/* Card Banner Header */
+.card-banner-wrapper {
+  width: 100%;
+  height: 135px;
+  position: relative;
+  overflow: hidden;
+  background: #0f1117;
+}
+
+.card-banner-img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  transition: transform 0.4s ease;
+}
+
+.promo-card:hover .card-banner-img {
+  transform: scale(1.05);
+}
+
+.card-banner-img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(18, 20, 29, 0.95) 0%, rgba(18, 20, 29, 0.2) 60%, transparent 100%);
+}
+
+.card-badge-pill {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  padding: 5px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 12px;
   letter-spacing: 0.3px;
-}
-
-.shopee-flash-badge {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.shopee-timer-badge {
-  background: rgba(0, 0, 0, 0.25);
-  padding: 1px 7px;
-  border-radius: 10px;
-  font-size: 9px;
-  font-weight: 700;
+.shopee-discount-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  background: #ffe100;
+  color: #d0011b;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Card Body Content */
-.shopee-card-body {
-  padding: 10px 12px;
+.vertical-card-body {
+  padding: 12px 14px 6px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   flex: 1;
 }
 
-.shopee-product-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.shopee-product-thumb {
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
-  background-size: cover;
-  background-position: center;
-  flex-shrink: 0;
-  position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-}
-
-.shopee-discount-tag {
-  position: absolute;
-  top: -3px;
-  left: -3px;
-  background: #ffe100;
-  color: #d0011b;
-  font-size: 8.5px;
-  font-weight: 900;
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.shopee-product-details {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  flex: 1;
-}
-
-.promo-card-title {
-  font-size: 13px;
+.vertical-card-body .promo-card-title {
+  font-size: 13.5px;
   font-weight: 700;
   color: #ffffff;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.promo-card-desc {
-  font-size: 10.5px;
-  color: #94a3b8;
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  white-space: normal;
+  min-height: 35px;
+}
+
+.vertical-card-body .promo-card-desc {
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 28px;
 }
 
 /* Shopee Stock Sales Progress Bar */
 .shopee-progress-bar-container {
   width: 100%;
-  height: 14px;
+  height: 15px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   position: relative;
   overflow: hidden;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .shopee-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #64748b 0%, #cbd5e1 100%);
+  background: linear-gradient(90deg, #f53d2d 0%, #ff6433 100%);
   border-radius: 8px;
 }
 
@@ -2372,35 +2373,42 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* Shopee Card Footer */
-.shopee-card-footer {
-  background: rgba(255, 255, 255, 0.02);
-  padding: 8px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+/* Card Footer */
+.vertical-card-footer {
+  padding: 10px 14px 14px 14px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.vertical-price-row {
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
 }
 
 .shopee-price-box {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .promo-original-price {
-  font-size: 10px;
+  font-size: 11px;
   color: #64748b;
   text-decoration: line-through;
 }
 
 .shopee-flash-price {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 800;
   color: #ffffff;
   font-family: 'Outfit', sans-serif;
@@ -2421,6 +2429,25 @@ body {
   gap: 4px;
   box-shadow: 0 3px 12px rgba(255, 255, 255, 0.15);
   transition: all 0.2s ease;
+}
+
+.btn-full-width {
+  width: 100% !important;
+  justify-content: center;
+  padding: 10px 16px !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+  color: #0b0f19 !important;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2) !important;
+}
+
+.btn-full-width:hover {
+  background: #ffffff !important;
+  box-shadow: 0 6px 22px rgba(255, 255, 255, 0.4) !important;
+  transform: translateY(-1px);
 }
 
 .btn-shopee-buy:hover {

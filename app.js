@@ -1768,18 +1768,19 @@ async function fetchAndRenderPromotions() {
         .trim();
 
       html += `
-        <div class="promo-card">
-          <!-- Card Body -->
-          <div class="shopee-card-body">
-            <div class="shopee-product-row">
-              <div class="shopee-product-thumb" style="background-image: url('${thumbImg}');">
-                ${discountTagHtml}
-              </div>
-              <div class="shopee-product-details">
-                <div class="promo-card-title">${escapeHtml(promo.title)}</div>
-                <div class="promo-card-desc">${escapeHtml(cleanDesc)}</div>
-              </div>
+        <div class="promo-card vertical-card">
+          <!-- Card Banner Header -->
+          <div class="card-banner-wrapper">
+            <div class="card-banner-img" style="background-image: url('${thumbImg}');">
+              ${discountTagHtml}
+              <div class="card-badge-pill">${badgeText}</div>
             </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="vertical-card-body">
+            <div class="promo-card-title">${escapeHtml(promo.title)}</div>
+            <div class="promo-card-desc">${escapeHtml(cleanDesc)}</div>
 
             <!-- Sales Progress Bar -->
             <div class="shopee-progress-bar-container">
@@ -1789,14 +1790,16 @@ async function fetchAndRenderPromotions() {
           </div>
 
           <!-- Card Footer -->
-          <div class="shopee-card-footer">
-            <div class="shopee-price-box">
-              ${promo.original_price ? `<span class="promo-original-price">฿${promo.original_price}</span>` : ''}
-              <span class="shopee-flash-price">฿${promo.promo_price}</span>
+          <div class="vertical-card-footer">
+            <div class="vertical-price-row">
+              <div class="shopee-price-box">
+                ${promo.original_price ? `<span class="promo-original-price">฿${promo.original_price}</span>` : ''}
+                <span class="shopee-flash-price">฿${promo.promo_price}</span>
+              </div>
             </div>
-            <button type="button" class="btn-shopee-buy" onclick="handlePromoAction('${promo.id}')">
+            <button type="button" class="btn-shopee-buy btn-full-width" onclick="handlePromoAction('${promo.id}')">
               <span>ซื้อเลย</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
         </div>
