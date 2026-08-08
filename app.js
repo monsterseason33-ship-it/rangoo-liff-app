@@ -1252,14 +1252,28 @@ function renderHistoryTab() {
   const now = new Date();
 
   items.forEach(sub => {
-    let estCost = 199;
-    const nameLower = (sub.app_name || "").toLowerCase();
-    if (nameLower.includes("netflix")) estCost = 169;
-    else if (nameLower.includes("disney")) estCost = 99;
-    else if (nameLower.includes("youtube")) estCost = 59;
-    else if (nameLower.includes("prime")) estCost = 149;
-    else if (nameLower.includes("spotify")) estCost = 129;
-    else if (nameLower.includes("hbo")) estCost = 199;
+    let estCost = parseFloat(sub.price_paid);
+    if (isNaN(estCost) || estCost <= 0) {
+      if (Array.isArray(catalogPackages) && catalogPackages.length > 0) {
+        const appObj = catalogApps.find(a => (a.display_name || "").toLowerCase() === (sub.app_name || "").toLowerCase() || (a.name || "").toLowerCase() === (sub.app_name || "").toLowerCase());
+        const appId = appObj ? appObj.id : null;
+        const pkgObj = catalogPackages.find(p => (appId ? p.app_id === appId : true) && (p.name || "").toLowerCase() === (sub.package_name || "").toLowerCase());
+        if (pkgObj && pkgObj.price) {
+          estCost = parseFloat(pkgObj.price);
+        }
+      }
+    }
+
+    if (isNaN(estCost) || estCost <= 0) {
+      const nameLower = (sub.app_name || "").toLowerCase();
+      if (nameLower.includes("netflix")) estCost = 169;
+      else if (nameLower.includes("disney")) estCost = 99;
+      else if (nameLower.includes("youtube")) estCost = 59;
+      else if (nameLower.includes("prime")) estCost = 149;
+      else if (nameLower.includes("spotify")) estCost = 129;
+      else if (nameLower.includes("hbo")) estCost = 199;
+      else estCost = 199;
+    }
 
     totalCalculatedAmount += estCost;
 
