@@ -1415,6 +1415,188 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+// ================= LIVE SUPPORT CHAT CONTROLLER =================
+let activeSupportTicket = null;
+let supportChatMessages = [];
+let chatPollingTimer = null;
+
+async function initSupportChat() {
+  const customerCode = localStorage.getItem("boss_customer_code") || (userBindings && userBindings[0] ? userBindings[0].customer_name : "") || "GUEST";
+  
+  try {
+    // 1. Check if customer already has an active support ticket
+    const tickets = await supabaseFetch(`support_tickets?customer_name=eq.${encodeURIComponent(customerCode)}&order=created_at.desc&limit=1`);
+    
+    if (tickets && tickets.length > 0) {
+      activeSupportTicket = tickets[0];
+    } else {
+      activeSupportTicket = null;
+    }
+
+    if (activeSupportTicket) {
+      await fetchSupportMessages();
+    }
+  } catch (err) {
+    console.warn("initSupportChat err:", err);
+  }
+}
+
+async function fetchSupportMessages() {
+  if (!activeSupportTicket) return;
+  try {
+    const msgs = await supabaseFetch(`support_messages?ticket_id=eq.${activeSupportTicket.id}&order=created_at.asc`);
+    if (Array.isArray(msgs)) {
+      supportChatMessages = msgs;
+      renderSupportChatUI();
+    }
+  } catch (err) {
+    console.warn("fetchSupportMessages err:", err);
+  }
+}
+
+function renderSupportChatUI() {
+  const container = document.getElementById("chat-messages-container");
+  if (!container) return;
+
+  if (!supportChatMessages || supportChatMessages.length === 0) {
+    container.innerHTML = `
+      <div class="chat-empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <div style="font-weight: 600; color: #fff; font-size: 13px; margin-top: 6px;">ยินดีต้อนรับสู่แชทช่วยเหลือ BOSS Premium</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">พิมพ์ข้อความหรือเลือกหัวข้อยอดฮิตด้านบนเพื่อเริ่มสนทนาได้เลยครับ</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = "";
+  supportChatMessages.forEach(msg => {
+    const isCustomer = msg.sender_type === "customer";
+    const rowClass = isCustomer ? "customer" : "admin";
+    const senderTitle = isCustomer ? (msg.sender_name || "คุณ") : "👑 แอดมิน BOSS Premium";
+    const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น." : "";
+
+    html += `
+      <div class="chat-msg-row ${rowClass}">
+        <span class="chat-sender-name">${escapeHtml(senderTitle)}</span>
+        <div class="chat-bubble">
+          <div>${escapeHtml(msg.message_text)}</div>
+          <div class="chat-msg-time">${timeStr}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+async function submitSupportChatMessage(customText = null) {
+  const inputEl = document.getElementById("chat-input-text");
+  const textVal = customText || (inputEl ? inputEl.value.trim() : "");
+  if (!textVal) return;
+
+  if (inputEl && !customText) inputEl.value = "";
+
+  const customerCode = localStorage.getItem("boss_customer_code") || (userBindings && userBindings[0] ? userBindings[0].customer_name : "") || "GUEST";
+  const customerName = currentUser ? (currentUser.displayName || customerCode) : customerCode;
+
+  try {
+    // 1. Create Ticket if not exists
+    if (!activeSupportTicket) {
+      const newTicketPayload = {
+        customer_name: customerCode,
+        customer_line_id: currentUser ? currentUser.userId || "" : "",
+        subject: textVal.length > 35 ? textVal.substring(0, 35) + "..." : textVal,
+        status: "open"
+      };
+
+      const res = await supabaseFetch("support_tickets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(newTicketPayload)
+      });
+
+      if (Array.isArray(res) && res[0]) {
+        activeSupportTicket = res[0];
+      }
+    }
+
+    if (!activeSupportTicket) {
+      showToast("ไม่สามารถสร้างห้องแชทได้ กรุณาลองใหม่อีกครั้ง", "warning");
+      return;
+    }
+
+    // 2. Post Chat Message to Supabase
+    const msgPayload = {
+      ticket_id: activeSupportTicket.id,
+      sender_type: "customer",
+      sender_name: customerName,
+      message_text: textVal,
+      is_read: false
+    };
+
+    // Optimistic UI push
+    supportChatMessages.push({
+      ...msgPayload,
+      created_at: new Date().toISOString()
+    });
+    renderSupportChatUI();
+
+    await supabaseFetch("support_messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify(msgPayload)
+    });
+
+    // Update ticket updated_at & status
+    await supabaseFetch(`support_tickets?id=eq.${activeSupportTicket.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "open", updated_at: new Date().toISOString() })
+    });
+
+    fetchSupportMessages();
+  } catch (err) {
+    console.error("submitSupportChatMessage err:", err);
+  }
+}
+
+function sendQuickTopic(topicText) {
+  submitSupportChatMessage(topicText);
+}
+
+function handleChatKeyDown(event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    submitSupportChatMessage();
+  }
+}
+
+function startChatPolling() {
+  stopChatPolling();
+  initSupportChat();
+  chatPollingTimer = setInterval(() => {
+    const tabPane = document.getElementById("tab-support-pane");
+    if (tabPane && tabPane.classList.contains("active") && tabPane.style.display !== "none") {
+      fetchSupportMessages();
+    }
+  }, 4000);
+}
+
+function stopChatPolling() {
+  if (chatPollingTimer) {
+    clearInterval(chatPollingTimer);
+    chatPollingTimer = null;
+  }
+}
+
 function populateAppSelect() {
   const select = document.getElementById("modal-app-select");
   if (!select) return;
@@ -1534,6 +1716,12 @@ function switchTab(tabName) {
     }, 280);
   }, 140);
   checkFloatingScrollButton();
+
+  if (tabName === "support") {
+    startChatPolling();
+  } else {
+    stopChatPolling();
+  }
 }
 
 // 7. Event Listeners Setup
