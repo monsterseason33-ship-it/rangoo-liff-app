@@ -4,8 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BOSS Premium (ร้านกู) - Customer Portal</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>">
+  <title>BOSS Premium - Customer Portal</title>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>">
   <!-- LINE LIFF SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="styles.css?v=2.9">
@@ -30,7 +31,9 @@
       <!-- User Profile Badge with Integrated User ID Inspector -->
       <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;"
         title="แตะเพื่อดูและตั้งค่าโปรไฟล์">
-        <img id="user-avatar" class="user-avatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='%230284c7'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-8 3-8 5v1h16v-1c0-2-1.9-5-8-5z'/></svg>" alt="Profile">
+        <img id="user-avatar" class="user-avatar"
+          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='%230284c7'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-8 3-8 5v1h16v-1c0-2-1.9-5-8-5z'/></svg>"
+          alt="Profile">
         <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
           <span id="user-name" class="user-name">กำลังโหลด...</span>
           <span id="user-id-subtext"
@@ -101,13 +104,21 @@
             <div class="flash-countdown-box">
               <span class="flash-timer-label">Ends in</span>
               <div class="flash-timer-digits">
-                <span id="flash-timer-hh">03</span>:<span id="flash-timer-mm">45</span>:<span id="flash-timer-ss">18</span>
+                <span id="flash-timer-hh">03</span>:<span id="flash-timer-mm">45</span>:<span
+                  id="flash-timer-ss">18</span>
               </div>
             </div>
           </div>
           <!-- Admin Manage Promos Button (Only visible for admin) -->
-          <button id="btn-admin-manage-promos" class="btn-glass-pill" style="display: none; color: var(--gold-light); border-color: var(--border-gold); align-items: center; gap: 4px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <button id="btn-admin-manage-promos" class="btn-glass-pill"
+            style="display: none; color: var(--gold-light); border-color: var(--border-gold); align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+              </path>
+            </svg>
             <span>จัดการโปร</span>
           </button>
         </div>
@@ -175,7 +186,12 @@
       <div class="store-promo-banner">
         <div class="promo-content">
           <span class="promo-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 2px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 2px;">
+              <path
+                d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z">
+              </path>
+            </svg>
             HOT PROMO
           </span>
           <h3>โปรโมชั่นพิเศษต้อนรับเดือนนี้</h3>
@@ -186,19 +202,40 @@
       <!-- Catalog Category Filter Chips -->
       <div id="catalog-category-filters" class="filter-chips-container">
         <button class="filter-chip active" data-category="all">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"></path></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;">
+            <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"></path>
+          </svg>
           ทั้งหมด
         </button>
         <button class="filter-chip" data-category="movie">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;">
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+            <line x1="7" y1="2" x2="7" y2="22"></line>
+            <line x1="17" y1="2" x2="17" y2="22"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="2" y1="7" x2="7" y2="7"></line>
+            <line x1="2" y1="17" x2="7" y2="17"></line>
+            <line x1="17" y1="17" x2="22" y2="17"></line>
+            <line x1="17" y1="7" x2="22" y2="7"></line>
+          </svg>
           หนัง & ซีรีส์
         </button>
         <button class="filter-chip" data-category="music">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
           ฟังเพลง
         </button>
         <button class="filter-chip" data-category="hot">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 3px;">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
           แพ็คเกจยอดฮิต
         </button>
       </div>
@@ -566,13 +603,19 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="purchase-app-title" class="modal-title" style="display: inline-flex; align-items: center; gap: 8px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
           เลือกแพ็คเกจสั่งซื้อ
         </h3>
         <button id="purchase-modal-close-btn" class="modal-close">✕</button>
       </div>
 
-      <div id="purchase-app-info" style="margin-bottom: 14px; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-color);">
+      <div id="purchase-app-info"
+        style="margin-bottom: 14px; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-color);">
       </div>
 
       <!-- Order Type Switcher (New vs Renewal) -->
@@ -580,11 +623,19 @@
         <label class="form-label">ประเภทคำสั่งซื้อ</label>
         <div class="order-type-container">
           <button type="button" id="btn-order-type-new" class="order-type-btn active" onclick="setOrderType('new')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
             เปิดบัญชีใหม่
           </button>
           <button type="button" id="btn-order-type-renew" class="order-type-btn" onclick="setOrderType('renew')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
             ต่ออายุโปรไฟล์เดิม
           </button>
         </div>
@@ -600,12 +651,21 @@
       <div class="form-group">
         <label class="form-label">ประเภทอุปกรณ์ที่ต้องการใช้งาน</label>
         <div class="device-type-grid">
-          <button type="button" id="btn-device-mobile" class="device-type-pill active" onclick="setDeviceType('mobile')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <button type="button" id="btn-device-mobile" class="device-type-pill active"
+            onclick="setDeviceType('mobile')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
             มือถือ / แท็บเล็ต / PC
           </button>
           <button type="button" id="btn-device-tv" class="device-type-pill" onclick="setDeviceType('tv')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+              <polyline points="17 2 12 7 7 2"></polyline>
+            </svg>
             สมาร์ททีวี (Smart TV)
           </button>
         </div>
@@ -620,23 +680,44 @@
       <!-- Shop Payment Account Info Card -->
       <div class="payment-info-card">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-          <span style="font-size: 11px; font-weight: bold; color: var(--gold-light); display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          <span
+            style="font-size: 11px; font-weight: bold; color: var(--gold-light); display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+              <line x1="1" y1="10" x2="23" y2="10"></line>
+            </svg>
             ช่องทางชำระเงินร้านค้า (PromptPay)
           </span>
-          <button type="button" class="copy-btn" onclick="copyToClipboard('0829999999', 'เลขพร้อมเพย์ร้าน')" style="font-size: 9.5px; padding: 2px 6px;">คัดลอกพร้อมเพย์</button>
+          <button type="button" class="copy-btn" onclick="copyToClipboard('0829999999', 'เลขพร้อมเพย์ร้าน')"
+            style="font-size: 9.5px; padding: 2px 6px;">คัดลอกพร้อมเพย์</button>
         </div>
-        <div style="font-size: 12px; font-family: monospace; color: var(--blue-bright); font-weight: bold;">พร้อมเพย์: 082-999-9999 (BOSS Premium)</div>
-        <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">กสิกรไทย (KBank) • ชำระเงินแล้วแนบสลิปผ่านทาง LINE OA ได้เลยครับ</div>
+        <div style="font-size: 12px; font-family: monospace; color: var(--blue-bright); font-weight: bold;">พร้อมเพย์:
+          082-999-9999 (BOSS Premium)</div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">กสิกรไทย (KBank) •
+          ชำระเงินแล้วแนบสลิปผ่านทาง LINE OA ได้เลยครับ</div>
       </div>
 
-      <div style="background: rgba(6, 199, 85, 0.1); border: 1px solid rgba(6, 199, 85, 0.3); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 11.5px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 6px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06C755" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><line x1="12" y1="17" x2="12.01" y2="17"></line><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"></path></svg>
-        <span>สั่งซื้อผ่านระบบจะส่งรายการสั่งซื้อไปยัง LINE OA ทันที พร้อมระบบรับประกันเปลี่ยนจอให้ฟรีตลอดอายุการใช้งาน</span>
+      <div
+        style="background: rgba(6, 199, 85, 0.1); border: 1px solid rgba(6, 199, 85, 0.3); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 11.5px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06C755" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          <path
+            d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z">
+          </path>
+        </svg>
+        <span>สั่งซื้อผ่านระบบจะส่งรายการสั่งซื้อไปยัง LINE OA ทันที
+          พร้อมระบบรับประกันเปลี่ยนจอให้ฟรีตลอดอายุการใช้งาน</span>
       </div>
 
-      <button type="button" id="btn-confirm-purchase" class="btn btn-primary" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      <button type="button" id="btn-confirm-purchase" class="btn btn-primary"
+        style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
         ยืนยันสั่งซื้อผ่าน LINE OA
       </button>
     </div>
@@ -647,7 +728,11 @@
     <div class="modal-content" style="max-width: 440px;">
       <div class="modal-header">
         <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 8px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
           ใบสรุปคำสั่งซื้อ
         </h3>
         <button id="success-modal-close-btn" class="modal-close">✕</button>
@@ -659,12 +744,21 @@
 
       <!-- Action Buttons -->
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
-        <button type="button" id="btn-open-line-oa" class="btn" style="width: 100%; background: #06C755; color: #fff; font-weight: bold; border: none; padding: 12px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; cursor: pointer;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 5.92 2 10.75c0 4.31 3.52 7.91 8.27 8.61.32.07.76.22.87.5.1.25.07.65.03.9-.06.4-.28 1.45-.31 1.76-.05.51.24.7.5.38.35-.43 3.82-4.5 5.22-6.58A9.7 9.7 0 0 0 22 10.75C22 5.92 17.52 2 12 2z"/></svg>
+        <button type="button" id="btn-open-line-oa" class="btn"
+          style="width: 100%; background: #06C755; color: #fff; font-weight: bold; border: none; padding: 12px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+            <path
+              d="M12 2C6.48 2 2 5.92 2 10.75c0 4.31 3.52 7.91 8.27 8.61.32.07.76.22.87.5.1.25.07.65.03.9-.06.4-.28 1.45-.31 1.76-.05.51.24.7.5.38.35-.43 3.82-4.5 5.22-6.58A9.7 9.7 0 0 0 22 10.75C22 5.92 17.52 2 12 2z" />
+          </svg>
           <span>เปิดแชท LINE OA เพื่อส่งสลิปชำระเงิน</span>
         </button>
-        <button type="button" id="btn-copy-receipt-summary" class="btn btn-secondary" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <button type="button" id="btn-copy-receipt-summary" class="btn btn-secondary"
+          style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
           คัดลอกรายละเอียดคำสั่งซื้อ
         </button>
       </div>
@@ -676,7 +770,8 @@
     <div class="modal-content" style="max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header">
         <h3 class="modal-title" style="display: inline-flex; align-items: center; gap: 6px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
           จัดการโปรโมชั่น (Admin Config)
@@ -686,33 +781,44 @@
 
       <div style="overflow-y: auto; flex: 1; padding-right: 2px;">
         <!-- Top Action / Add New Promo Button -->
-        <button type="button" id="btn-admin-add-promo" class="btn" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: #fff; font-weight: bold; border: none; padding: 10px; border-radius: 12px; font-size: 12.5px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 14px; cursor: pointer;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <button type="button" id="btn-admin-add-promo" class="btn"
+          style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: #fff; font-weight: bold; border: none; padding: 10px; border-radius: 12px; font-size: 12.5px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 14px; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
           สร้างการ์ดโปรโมชั่นใหม่
         </button>
 
         <!-- Edit/Create Promo Form Container (Hidden by default until Add/Edit is clicked) -->
-        <form id="admin-promo-form" style="display: none; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-gold); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
-          <div style="font-size: 12px; font-weight: bold; color: var(--gold-light); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <form id="admin-promo-form"
+          style="display: none; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-gold); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+          <div
+            style="font-size: 12px; font-weight: bold; color: var(--gold-light); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
             <span id="promo-form-title">สร้างโปรโมชั่นใหม่</span>
-            <button type="button" id="btn-cancel-promo-form" style="background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer;">ยกเลิก</button>
+            <button type="button" id="btn-cancel-promo-form"
+              style="background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer;">ยกเลิก</button>
           </div>
 
           <input type="hidden" id="promo-edit-id" value="">
 
           <div class="form-group">
             <label class="form-label">หัวข้อโปรโมชั่น (Title)</label>
-            <input type="text" id="promo-input-title" class="form-input" placeholder="เช่น FLASH SALE! Netflix 4K 30 วัน" required>
+            <input type="text" id="promo-input-title" class="form-input"
+              placeholder="เช่น FLASH SALE! Netflix 4K 30 วัน" required>
           </div>
 
           <div class="form-group">
             <label class="form-label">รายละเอียดเงื่อนไข (Description)</label>
-            <textarea id="promo-input-desc" class="form-textarea" rows="2" placeholder="เช่น จอส่วนตัวพรีเมียม ประกัน 30 วัน"></textarea>
+            <textarea id="promo-input-desc" class="form-textarea" rows="2"
+              placeholder="เช่น จอส่วนตัวพรีเมียม ประกัน 30 วัน"></textarea>
           </div>
 
           <div class="form-group">
             <label class="form-label">ลิงก์รูปภาพประกอบการ์ด (Product Image URL)</label>
-            <input type="text" id="promo-input-banner-image" class="form-input" placeholder="ใส่ URL รูปภาพ เช่น https://... หรือ promo_flash.png">
+            <input type="text" id="promo-input-banner-image" class="form-input"
+              placeholder="ใส่ URL รูปภาพ เช่น https://... หรือ promo_flash.png">
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -744,7 +850,8 @@
 
           <div class="form-group">
             <label class="form-label">ข้อความเสนอขายที่จะส่งเข้า LINE OA (Action Payload)</label>
-            <textarea id="promo-input-action-payload" class="form-textarea" rows="2" placeholder="เช่น สนใจโปรโมชั่น ⚡ FLASH SALE! Netflix 4K ราคา 119 บาท ครับ"></textarea>
+            <textarea id="promo-input-action-payload" class="form-textarea" rows="2"
+              placeholder="เช่น สนใจโปรโมชั่น ⚡ FLASH SALE! Netflix 4K ราคา 119 บาท ครับ"></textarea>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -767,7 +874,8 @@
         </form>
 
         <!-- Admin Promos List -->
-        <div style="font-size: 11px; font-weight: bold; color: var(--text-muted); margin-bottom: 8px;">รายการโปรโมชั่นทั้งหมดในระบบ:</div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--text-muted); margin-bottom: 8px;">
+          รายการโปรโมชั่นทั้งหมดในระบบ:</div>
         <div id="admin-promos-list-container" style="display: flex; flex-direction: column; gap: 8px;">
           <!-- Items will be loaded here -->
         </div>
