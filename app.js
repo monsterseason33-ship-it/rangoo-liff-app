@@ -763,6 +763,17 @@ function renderSubscriptions() {
     const pin = acc.pin_code || extractPattern(sub.raw_account_data, /PIN:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📌\s*PIN:\s*([^\n]+)/) || "-";
     const chatId = extractChatId(sub.chat_url);
 
+    // Format full Thai Expiry Date & Time
+    const formattedExpiryDateTime = sub.expiry_date
+      ? new Date(sub.expiry_date).toLocaleString('th-TH', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) + " น."
+      : "ไม่ระบุ";
+
     // Extract Customer WebApp direct URL
     const customerCode = sub.customer_name || extractChatId(sub.chat_url) || localStorage.getItem("boss_customer_code") || "";
     const customerWebappUrl = customerCode
@@ -859,6 +870,16 @@ function renderSubscriptions() {
             </span>
             <span class="info-tile-val device-val">
               ${getDeviceTypeHtml(sub.device_type)}
+            </span>
+          </div>
+
+          <div class="info-tile full-width-tile">
+            <span class="info-tile-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold-light, #fde047)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              วันเวลาหมดอายุสิทธิ์
+            </span>
+            <span class="info-tile-val expiry-time-val">
+              📅 ${formattedExpiryDateTime}
             </span>
           </div>
         </div>
