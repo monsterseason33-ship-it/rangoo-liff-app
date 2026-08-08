@@ -814,7 +814,14 @@ function renderSubscriptions() {
               อุปกรณ์
             </span>
             <span class="info-tile-val device-val">
-              ${sub.device_type === 'tv' ? '📺 สมาร์ททีวี' : '📱 มือถือ/แท็บเล็ต/PC'}
+              ${(function(dt) {
+                if (!dt) return '📱 มือถือ/แท็บเล็ต/PC';
+                const lower = dt.toLowerCase().trim();
+                if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี')) return '📺 สมาร์ททีวี';
+                if (lower.includes('ไอแพด') || lower.includes('ipad')) return '🍎 ไอแพด';
+                if (lower.includes('คอม') || lower.includes('pc')) return '💻 คอมพิวเตอร์';
+                return '📱 มือถือ/แท็บเล็ต/PC';
+              })(sub.device_type)}
             </span>
           </div>
         </div>
