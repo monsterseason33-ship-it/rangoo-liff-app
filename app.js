@@ -1685,9 +1685,37 @@ function handleChatKeyDown(event) {
   }
 }
 
+let chatRealtimeChannel = null;
+
+function subscribeChatRealtime() {
+  if (window.supabaseClient && activeSupportTicket) {
+    try {
+      if (chatRealtimeChannel) {
+        window.supabaseClient.removeChannel(chatRealtimeChannel);
+      }
+      chatRealtimeChannel = window.supabaseClient
+        .channel(`support_chat_${activeSupportTicket.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `ticket_id=eq.${activeSupportTicket.id}`
+        }, (payload) => {
+          if (payload.new) {
+            fetchSupportMessages();
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn("subscribeChatRealtime err:", e);
+    }
+  }
+}
+
 function startChatPolling() {
   stopChatPolling();
   initSupportChat();
+  subscribeChatRealtime();
   chatPollingTimer = setInterval(() => {
     const tabPane = document.getElementById("tab-support-pane");
     if (tabPane && tabPane.classList.contains("active") && tabPane.style.display !== "none") {
@@ -1703,6 +1731,14 @@ function stopChatPolling() {
   if (chatPollingTimer) {
     clearInterval(chatPollingTimer);
     chatPollingTimer = null;
+  }
+  if (window.supabaseClient && chatRealtimeChannel) {
+    try {
+      window.supabaseClient.removeChannel(chatRealtimeChannel);
+      chatRealtimeChannel = null;
+    } catch (e) {
+      console.warn(e);
+    }
   }
 }
 
