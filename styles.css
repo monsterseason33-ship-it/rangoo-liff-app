@@ -16,6 +16,8 @@
   --silver-dark: #64748b;
   --silver-gradient: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
   --gold-gradient: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
+  --gold-primary: #fbbf24;
+  --gold-light: #fde047;
 
   --blue-primary: #38bdf8;
   --blue-bright: #94a3b8;
