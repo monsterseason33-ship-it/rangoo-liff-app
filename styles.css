@@ -1687,21 +1687,21 @@ body {
 
 /* ================= BOTTOM TAB BAR & ACTIVE GLOW CAPSULE ================= */
 .tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 540px;
-  background: rgba(5, 11, 24, 0.96);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border-gold, rgba(212, 175, 55, 0.35));
-  display: flex;
-  justify-content: center;
-  z-index: 99999 !important;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.7);
-  padding: 4px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 100% !important;
+  max-width: 540px !important;
+  background: rgba(5, 11, 24, 0.98) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-top: 1px solid rgba(212, 175, 55, 0.4) !important;
+  display: flex !important;
+  justify-content: center !important;
+  z-index: 999999 !important;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.8) !important;
+  padding: 4px 0 calc(6px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 .tab-bar-inner {
