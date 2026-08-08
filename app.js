@@ -683,12 +683,12 @@ function getDeviceTypeHtml(dt) {
 
   const pcIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px; display: inline-block;"><rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect><line x1="2" y1="20" x2="22" y2="20"></line></svg>`;
 
-  if (!dt) return `${mobileIcon}<span>มือถือ / iPad</span>`;
+  if (!dt) return `${mobileIcon}<span>มือถือ / ไอแพด / แท็บเล็ต</span>`;
   const lower = dt.toLowerCase().trim();
 
   // 1. Check Mobile first (covers "มือถือ", "mobile", "มือถือ/PC", "มือถือ/พกพา")
   if (lower.includes('มือถือ') || lower.includes('mobile')) {
-    return `${mobileIcon}<span>มือถือ / iPad</span>`;
+    return `${mobileIcon}<span>มือถือ / ไอแพด / แท็บเล็ต</span>`;
   }
   // 2. Check iPad / Tablet
   if (lower.includes('ไอแพด') || lower.includes('ipad') || lower.includes('แท็บเล็ต')) {
@@ -766,12 +766,12 @@ function renderSubscriptions() {
     // Format full Thai Expiry Date & Time
     const formattedExpiryDateTime = sub.expiry_date
       ? new Date(sub.expiry_date).toLocaleString('th-TH', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }) + " น."
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) + " น."
       : "ไม่ระบุ";
 
     // Extract Customer WebApp direct URL
@@ -1806,14 +1806,14 @@ async function fetchAndRenderPromotions() {
     activePromos.forEach((promo, idx) => {
       const badgeText = promo.badge_text || (
         promo.promo_type === 'flash_sale' ? 'FLASH SALE' :
-        promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก'
+          promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก'
       );
 
       // Hero Banner Image / Product Thumb
       const thumbImg = promo.banner_image || (
         promo.promo_type === 'flash_sale' ? 'promo_flash.png' :
-        promo.promo_type === 'bundle' ? 'promo_bundle.png' :
-        'promo_clearance.png'
+          promo.promo_type === 'bundle' ? 'promo_bundle.png' :
+            'promo_clearance.png'
       );
 
       // Calculate Discount %
@@ -1826,8 +1826,8 @@ async function fetchAndRenderPromotions() {
       // Stock Progress Bar Text & % with SVG Icons
       const progressPct = idx === 0 ? 85 : idx === 1 ? 92 : 65;
       const progressLabel = idx === 0 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>ขายแล้ว 85%` :
-                            idx === 1 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>เหลือเพียง 2 ชุดสุดท้าย` :
-                            `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>เคลียร์สต๊อก 65%`;
+        idx === 1 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>เหลือเพียง 2 ชุดสุดท้าย` :
+          `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>เคลียร์สต๊อก 65%`;
 
       // Clean up promo description: remove raw URLs and clean extra whitespace
       let cleanDesc = (promo.description || '')
