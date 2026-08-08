@@ -8,7 +8,14 @@ const CONFIG = {
   LINE_OA_HANDLE: "@676aljmg"
 };
 
-// Global State
+// Initialize Supabase JS Client for Realtime WebSocket
+if (window.supabase) {
+  try {
+    window.supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+  } catch (e) {
+    console.warn("Failed to init Supabase client:", e);
+  }
+}
 let currentUser = {
   userId: null,
   displayName: "ผู้ใช้งานทั่วไป",
@@ -1712,19 +1719,25 @@ function subscribeChatRealtime() {
   }
 }
 
-function startChatPolling() {
+async function startChatPolling() {
   stopChatPolling();
-  initSupportChat();
+  await initSupportChat();
   subscribeChatRealtime();
+
+  fetchSupportMessages();
+  if (currentUser && currentUser.isAdmin) {
+    loadAdminTicketsList();
+  }
+
   chatPollingTimer = setInterval(() => {
     const tabPane = document.getElementById("tab-support-pane");
-    if (tabPane && tabPane.classList.contains("active") && tabPane.style.display !== "none") {
+    if (tabPane && tabPane.style.display !== "none") {
       fetchSupportMessages();
       if (currentUser && currentUser.isAdmin) {
         loadAdminTicketsList();
       }
     }
-  }, 4000);
+  }, 2500);
 }
 
 function stopChatPolling() {
