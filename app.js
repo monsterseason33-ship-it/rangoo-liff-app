@@ -1419,25 +1419,127 @@ function escapeHtml(str) {
 let activeSupportTicket = null;
 let supportChatMessages = [];
 let chatPollingTimer = null;
+let adminTicketsList = [];
 
 async function initSupportChat() {
+  const adminToolbar = document.getElementById("admin-support-toolbar");
   const customerCode = localStorage.getItem("boss_customer_code") || (userBindings && userBindings[0] ? userBindings[0].customer_name : "") || "GUEST";
   
-  try {
-    // 1. Check if customer already has an active support ticket
-    const tickets = await supabaseFetch(`support_tickets?customer_name=eq.${encodeURIComponent(customerCode)}&order=created_at.desc&limit=1`);
-    
-    if (tickets && tickets.length > 0) {
-      activeSupportTicket = tickets[0];
-    } else {
-      activeSupportTicket = null;
-    }
+  if (currentUser && currentUser.isAdmin) {
+    if (adminToolbar) adminToolbar.style.display = "flex";
+    await loadAdminTicketsList();
+  } else {
+    if (adminToolbar) adminToolbar.style.display = "none";
+    try {
+      // 1. Check if customer already has an active support ticket
+      const tickets = await supabaseFetch(`support_tickets?customer_name=eq.${encodeURIComponent(customerCode)}&order=created_at.desc&limit=1`);
+      
+      if (tickets && tickets.length > 0) {
+        activeSupportTicket = tickets[0];
+      } else {
+        activeSupportTicket = null;
+      }
 
-    if (activeSupportTicket) {
-      await fetchSupportMessages();
+      if (activeSupportTicket) {
+        await fetchSupportMessages();
+      }
+    } catch (err) {
+      console.warn("initSupportChat err:", err);
+    }
+  }
+}
+
+async function loadAdminTicketsList() {
+  const selectEl = document.getElementById("admin-ticket-selector");
+  if (!selectEl) return;
+
+  try {
+    const tickets = await supabaseFetch(`support_tickets?order=updated_at.desc&limit=30`);
+    if (Array.isArray(tickets)) {
+      adminTicketsList = tickets;
+      
+      if (tickets.length === 0) {
+        selectEl.innerHTML = `<option value="">-- ยังไม่มีรายการแจ้งเรื่องจากลูกค้า --</option>`;
+        return;
+      }
+
+      let html = "";
+      tickets.forEach(t => {
+        let statusBadge = "🔴 รอตอบ";
+        if (t.status === "in_progress") statusBadge = "🟡 กำลังคุย";
+        else if (t.status === "resolved") statusBadge = "🟢 ปิดแล้ว";
+
+        const selectedAttr = (activeSupportTicket && activeSupportTicket.id === t.id) ? "selected" : "";
+        html += `<option value="${t.id}" ${selectedAttr}>${statusBadge} ลูกค้า: ${escapeHtml(t.customer_name)} (${escapeHtml(t.subject || 'แจ้งเรื่อง')})</option>`;
+      });
+
+      selectEl.innerHTML = html;
+
+      if (!activeSupportTicket && tickets.length > 0) {
+        activeSupportTicket = tickets[0];
+      }
+
+      if (activeSupportTicket) {
+        await fetchSupportMessages();
+      }
     }
   } catch (err) {
-    console.warn("initSupportChat err:", err);
+    console.warn("loadAdminTicketsList err:", err);
+  }
+}
+
+async function switchAdminChatTicket(ticketId) {
+  if (!ticketId) return;
+  const found = adminTicketsList.find(t => t.id === ticketId);
+  if (found) {
+    activeSupportTicket = found;
+    await fetchSupportMessages();
+  } else {
+    try {
+      const res = await supabaseFetch(`support_tickets?id=eq.${ticketId}`);
+      if (res && res[0]) {
+        activeSupportTicket = res[0];
+        await fetchSupportMessages();
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+}
+
+async function resolveCurrentSupportTicket() {
+  if (!activeSupportTicket) {
+    showToast("กรุณาเลือกเคสลูกค้าก่อนครับ", "warning");
+    return;
+  }
+
+  try {
+    // 1. Send resolution message
+    const msgPayload = {
+      ticket_id: activeSupportTicket.id,
+      sender_type: "admin",
+      sender_name: "👑 แอดมิน BOSS Premium",
+      message_text: "✅ แอดมินทำการตรวจสอบและแก้ไขปัญหาเรียบร้อยแล้วครับ หากยังพบปัญหา สามารถพิมพ์แจ้งเพิ่มเติมในนี้ได้ทันทีครับ!",
+      is_read: true
+    };
+
+    await supabaseFetch("support_messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msgPayload)
+    });
+
+    // 2. Update ticket status to resolved
+    await supabaseFetch(`support_tickets?id=eq.${activeSupportTicket.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "resolved", updated_at: new Date().toISOString() })
+    });
+
+    showToast("✅ ทำการปิดเคสนี้เรียบร้อยแล้ว!", "success");
+    await loadAdminTicketsList();
+  } catch (err) {
+    console.error("resolveCurrentSupportTicket err:", err);
   }
 }
 
@@ -1473,7 +1575,7 @@ function renderSupportChatUI() {
   supportChatMessages.forEach(msg => {
     const isCustomer = msg.sender_type === "customer";
     const rowClass = isCustomer ? "customer" : "admin";
-    const senderTitle = isCustomer ? (msg.sender_name || "คุณ") : "👑 แอดมิน BOSS Premium";
+    const senderTitle = isCustomer ? (msg.sender_name || "ลูกค้า") : "👑 แอดมิน BOSS Premium";
     const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น." : "";
 
     html += `
@@ -1498,12 +1600,14 @@ async function submitSupportChatMessage(customText = null) {
 
   if (inputEl && !customText) inputEl.value = "";
 
+  const isAdminSender = currentUser && currentUser.isAdmin;
   const customerCode = localStorage.getItem("boss_customer_code") || (userBindings && userBindings[0] ? userBindings[0].customer_name : "") || "GUEST";
-  const customerName = currentUser ? (currentUser.displayName || customerCode) : customerCode;
+  const senderName = isAdminSender ? "👑 แอดมิน BOSS Premium" : (currentUser ? (currentUser.displayName || customerCode) : customerCode);
+  const senderType = isAdminSender ? "admin" : "customer";
 
   try {
-    // 1. Create Ticket if not exists
-    if (!activeSupportTicket) {
+    // 1. Create Ticket if not exists (for non-admin customers)
+    if (!activeSupportTicket && !isAdminSender) {
       const newTicketPayload = {
         customer_name: customerCode,
         customer_line_id: currentUser ? currentUser.userId || "" : "",
@@ -1526,17 +1630,17 @@ async function submitSupportChatMessage(customText = null) {
     }
 
     if (!activeSupportTicket) {
-      showToast("ไม่สามารถสร้างห้องแชทได้ กรุณาลองใหม่อีกครั้ง", "warning");
+      showToast("กรุณาเลือกเคสลูกค้าก่อนส่งข้อความครับ", "warning");
       return;
     }
 
     // 2. Post Chat Message to Supabase
     const msgPayload = {
       ticket_id: activeSupportTicket.id,
-      sender_type: "customer",
-      sender_name: customerName,
+      sender_type: senderType,
+      sender_name: senderName,
       message_text: textVal,
-      is_read: false
+      is_read: isAdminSender
     };
 
     // Optimistic UI push
@@ -1556,13 +1660,15 @@ async function submitSupportChatMessage(customText = null) {
     });
 
     // Update ticket updated_at & status
+    const newStatus = isAdminSender ? "in_progress" : "open";
     await supabaseFetch(`support_tickets?id=eq.${activeSupportTicket.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "open", updated_at: new Date().toISOString() })
+      body: JSON.stringify({ status: newStatus, updated_at: new Date().toISOString() })
     });
 
     fetchSupportMessages();
+    if (isAdminSender) loadAdminTicketsList();
   } catch (err) {
     console.error("submitSupportChatMessage err:", err);
   }
@@ -1586,6 +1692,9 @@ function startChatPolling() {
     const tabPane = document.getElementById("tab-support-pane");
     if (tabPane && tabPane.classList.contains("active") && tabPane.style.display !== "none") {
       fetchSupportMessages();
+      if (currentUser && currentUser.isAdmin) {
+        loadAdminTicketsList();
+      }
     }
   }, 4000);
 }

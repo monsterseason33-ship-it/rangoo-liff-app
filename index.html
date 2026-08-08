@@ -276,6 +276,19 @@
           <span class="pulse-dot"></span>
           <span>แอดมินออนไลน์</span>
         </span>
+      <!-- Admin Chat Inbox Toolbar (Only shown in Admin Mode) -->
+      <div id="admin-support-toolbar" class="admin-support-toolbar" style="display: none;">
+        <div class="admin-toolbar-header">
+          <span style="font-size: 11px; font-weight: bold; color: var(--gold-light);">
+            👑 กล่องข้อความแชทลูกค้า (Admin Inbox):
+          </span>
+          <button class="btn-resolve-ticket" onclick="resolveCurrentSupportTicket()" title="ทำเครื่องหมายแก้ไขเรียบร้อย">
+            ✅ ปิดเคสนี้
+          </button>
+        </div>
+        <select id="admin-ticket-selector" class="admin-ticket-select" onchange="switchAdminChatTicket(this.value)">
+          <option value="">-- กำลังโหลดรายการแชทลูกค้า... --</option>
+        </select>
       </div>
 
       <!-- Quick Topic Chips -->
