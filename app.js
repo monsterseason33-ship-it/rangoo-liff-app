@@ -1580,6 +1580,8 @@ function renderSupportChatUI() {
 
   const adminCrownSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="#facc15" stroke="#eab308" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: -1px; margin-right: 3px; filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.6));"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>`;
 
+  const isAdminView = currentUser && currentUser.isAdmin;
+
   let html = "";
   supportChatMessages.forEach(msg => {
     const isCustomer = msg.sender_type === "customer";
@@ -1589,9 +1591,16 @@ function renderSupportChatUI() {
       : `${adminCrownSvg}<span style="color: #fde047; font-weight: 700;">แอด Boss</span>`;
     const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น." : "";
 
+    const unsendBtn = (isAdminView && msg.id) 
+      ? `<button class="btn-unsend-msg" onclick="unsendSupportChatMessage('${msg.id}')" title="ยกเลิกการส่งข้อความนี้">🗑️ ยกเลิก</button>` 
+      : ``;
+
     html += `
       <div class="chat-msg-row ${rowClass}">
-        <span class="chat-sender-name">${senderTitleHtml}</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <span class="chat-sender-name">${senderTitleHtml}</span>
+          ${unsendBtn}
+        </div>
         <div class="chat-bubble">
           <div>${escapeHtml(msg.message_text)}</div>
           <div class="chat-msg-time">${timeStr}</div>
@@ -1602,6 +1611,28 @@ function renderSupportChatUI() {
 
   container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
+}
+
+async function unsendSupportChatMessage(msgId) {
+  if (!msgId) return;
+  if (!confirm("คุณต้องการยกเลิกการส่งข้อความนี้ใช่หรือไม่?")) return;
+
+  try {
+    // 1. Optimistic remove local
+    supportChatMessages = supportChatMessages.filter(m => m.id !== msgId);
+    renderSupportChatUI();
+
+    // 2. Delete message in Supabase
+    await supabaseFetch(`support_messages?id=eq.${msgId}`, {
+      method: "DELETE"
+    });
+
+    showToast("ยกเลิกการส่งข้อความเรียบร้อยแล้ว", "success");
+    fetchSupportMessages();
+  } catch (err) {
+    console.error("unsendSupportChatMessage err:", err);
+    showToast("ไม่สามารถยกเลิกข้อความได้", "warning");
+  }
 }
 
 async function submitSupportChatMessage(customText = null) {

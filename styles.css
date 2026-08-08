@@ -2954,3 +2954,29 @@ input:checked + .slider-toggle:before {
   background: #0f172a;
   color: #ffffff;
 }
+
+/* Unsend Message Button (Admin Only) */
+.btn-unsend-msg {
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: #f43f5e;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 99px;
+  margin-left: 6px;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.btn-unsend-msg:hover {
+  opacity: 1;
+  background: #f43f5e;
+  color: #ffffff;
+  border-color: #f43f5e;
+  transform: scale(1.05);
+}
