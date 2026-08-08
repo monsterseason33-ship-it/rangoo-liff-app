@@ -670,64 +670,7 @@ function getAppCardStyle(appName) {
 // Helper: Get formatted & app-aware package name for WebApp display
 function getFormattedPackageName(sub) {
   if (!sub) return "แพ็คเกจปกติ";
-
-  const appName = (sub.app_name || "").toLowerCase().trim();
-  const pkgRaw = sub.package_name || "";
-  const profileName = (sub.account ? sub.account.profile_name : "") || sub.raw_account_data || "";
-
-  // Calculate remaining days if available
-  let daysStr = "30 วัน";
-  if (sub.expiry_date) {
-    const expiry = new Date(sub.expiry_date);
-    const now = new Date();
-    const diffMs = expiry.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays > 0) {
-      daysStr = `${diffDays} วัน`;
-    } else {
-      daysStr = "หมดอายุ";
-    }
-  } else if (sub.days) {
-    daysStr = `${sub.days} วัน`;
-  }
-
-  // 1. Netflix App Specific Formatter
-  if (appName.includes("netflix")) {
-    const isTv = sub.device_type === "tv" || /จอ\s*5/.test(profileName) || profileName.toLowerCase().includes("tv");
-    if (isTv) {
-      return `Netflix 4K (${daysStr} ดูได้ทุกอุปกรณ์รวมถึงทีวีด้วย)`;
-    } else {
-      return `Netflix 4K (${daysStr} เฉพาะดูในมือถือ แท็บเล็ต คอมพิวเตอร์)`;
-    }
-  }
-
-  // 2. Disney+ Hotstar Specific Formatter
-  if (appName.includes("disney")) {
-    if (pkgRaw.includes("7/6") || pkgRaw.includes("7 วัน")) return `Disney+ Hotstar 4K (7 วัน)`;
-    if (pkgRaw.includes("30/6") || pkgRaw.includes("30 วัน") || pkgRaw.includes("30/5")) return `Disney+ Hotstar 4K (30 วัน)`;
-    return `Disney+ Hotstar Premium (${daysStr})`;
-  }
-
-  // 3. YouTube Premium
-  if (appName.includes("youtube")) {
-    return `YouTube Premium (${daysStr})`;
-  }
-
-  // 4. Spotify Premium
-  if (appName.includes("spotify")) {
-    return `Spotify Premium (${daysStr})`;
-  }
-
-  // 5. Prime Video & HBO / Max
-  if (appName.includes("prime")) return `Prime Video HD/4K (${daysStr})`;
-  if (appName.includes("hbo") || appName.includes("max")) return `HBO GO / MAX (${daysStr})`;
-
-  // 6. Generic Fallback (if pkgRaw belongs to the app, show it; otherwise clean up app name)
-  if (pkgRaw && !pkgRaw.toLowerCase().includes("disney") && !pkgRaw.toLowerCase().includes("netflix")) {
-    return `${pkgRaw} (${daysStr})`;
-  }
-
-  return `${sub.app_name} Premium (${daysStr})`;
+  return sub.package_name || (sub.app_name ? `${sub.app_name} Premium` : "แพ็คเกจปกติ");
 }
 
 // 4. Render Customer Active Subscriptions (สิทธิ์ใช้งาน)
