@@ -685,15 +685,24 @@ function getDeviceTypeHtml(dt) {
 
   if (!dt) return `${mobileIcon}<span>มือถือ / iPad</span>`;
   const lower = dt.toLowerCase().trim();
-  if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี')) {
-    return `${tvIcon}<span>ทีวี / คอมพิวเตอร์</span>`;
+
+  // 1. Check Mobile first (covers "มือถือ", "mobile", "มือถือ/PC", "มือถือ/พกพา")
+  if (lower.includes('มือถือ') || lower.includes('mobile')) {
+    return `${mobileIcon}<span>มือถือ / iPad</span>`;
   }
+  // 2. Check iPad / Tablet
   if (lower.includes('ไอแพด') || lower.includes('ipad') || lower.includes('แท็บเล็ต')) {
     return `${tabletIcon}<span>ไอแพด / แท็บเล็ต</span>`;
   }
+  // 3. Check TV / Smart TV
+  if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี')) {
+    return `${tvIcon}<span>สมาร์ททีวี</span>`;
+  }
+  // 4. Check Standalone Computer / PC
   if (lower.includes('คอม') || lower.includes('pc') || lower.includes('laptop')) {
     return `${pcIcon}<span>คอมพิวเตอร์ / PC</span>`;
   }
+
   return `${mobileIcon}<span>มือถือ / iPad</span>`;
 }
 
