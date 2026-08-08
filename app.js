@@ -739,10 +739,17 @@ function renderSubscriptions() {
     const diffMs = expiryDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
+    // Extract Account Info from Binding or Linked Account
+    const acc = sub.account || {};
+    const isBroken = acc.status === "broken" || acc.status === "มีปัญหา" || !!acc.problem_type || sub.status === "broken";
+
     let expiryBadgeClass = "expiry-active";
     let expiryText = `เหลือ ${diffDays} วัน`;
 
-    if (diffMs <= 0) {
+    if (isBroken) {
+      expiryBadgeClass = "expiry-broken";
+      expiryText = "⚠️ บัญชีมีปัญหา";
+    } else if (diffMs <= 0) {
       expiryBadgeClass = "expiry-expired";
       expiryText = "หมดอายุแล้ว";
     } else if (diffDays <= 3) {
@@ -750,8 +757,6 @@ function renderSubscriptions() {
       expiryText = `ใกล้หมดอายุ (เหลือ ${diffDays} วัน)`;
     }
 
-    // Extract Account Info from Binding or Linked Account
-    const acc = sub.account || {};
     const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📧\s*([^\n]+)/) || "ไม่ระบุ";
     const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "ไม่ระบุ";
     const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /👤\s*([^\n]+)/) || "จอ 1";
@@ -797,6 +802,12 @@ function renderSubscriptions() {
       </div>
 
       <div class="sub-details">
+        ${isBroken ? `
+          <div class="sub-broken-banner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>บัญชีนี้อยู่ระหว่างการตรวจสอบ/แก้ไขปัญหาจากทางร้าน หากเข้าใช้งานไม่ได้ สามารถกดปุ่ม "แจ้งปัญหา" ด้านล่างได้ทันทีครับ</span>
+          </div>
+        ` : ''}
         <div class="sub-pkg-banner">
           <span class="sub-pkg-badge">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
