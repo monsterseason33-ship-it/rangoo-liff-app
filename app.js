@@ -673,6 +673,30 @@ function getFormattedPackageName(sub) {
   return sub.package_name || (sub.app_name ? `${sub.app_name} Premium` : "แพ็คเกจปกติ");
 }
 
+// Helper: Render device type with beautiful SVG icons
+function getDeviceTypeHtml(dt) {
+  const tvIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px; display: inline-block;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>`;
+
+  const mobileIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px; display: inline-block;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>`;
+
+  const tabletIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px; display: inline-block;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>`;
+
+  const pcIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px; display: inline-block;"><rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect><line x1="2" y1="20" x2="22" y2="20"></line></svg>`;
+
+  if (!dt) return `${mobileIcon}<span>มือถือ / iPad</span>`;
+  const lower = dt.toLowerCase().trim();
+  if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี')) {
+    return `${tvIcon}<span>ทีวี / คอมพิวเตอร์</span>`;
+  }
+  if (lower.includes('ไอแพด') || lower.includes('ipad') || lower.includes('แท็บเล็ต')) {
+    return `${tabletIcon}<span>ไอแพด / แท็บเล็ต</span>`;
+  }
+  if (lower.includes('คอม') || lower.includes('pc') || lower.includes('laptop')) {
+    return `${pcIcon}<span>คอมพิวเตอร์ / PC</span>`;
+  }
+  return `${mobileIcon}<span>มือถือ / iPad</span>`;
+}
+
 // 4. Render Customer Active Subscriptions (สิทธิ์ใช้งาน)
 function renderSubscriptions() {
   const container = document.getElementById("subscriptions-container");
@@ -814,14 +838,7 @@ function renderSubscriptions() {
               อุปกรณ์
             </span>
             <span class="info-tile-val device-val">
-              ${(function(dt) {
-                if (!dt) return '📱 มือถือ/แท็บเล็ต/PC';
-                const lower = dt.toLowerCase().trim();
-                if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี')) return '📺 สมาร์ททีวี';
-                if (lower.includes('ไอแพด') || lower.includes('ipad')) return '🍎 ไอแพด';
-                if (lower.includes('คอม') || lower.includes('pc')) return '💻 คอมพิวเตอร์';
-                return '📱 มือถือ/แท็บเล็ต/PC';
-              })(sub.device_type)}
+              ${getDeviceTypeHtml(sub.device_type)}
             </span>
           </div>
         </div>
