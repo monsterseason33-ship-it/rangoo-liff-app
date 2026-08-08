@@ -1591,15 +1591,33 @@ function renderSupportChatUI() {
       : `${adminCrownSvg}<span style="color: #fde047; font-weight: 700;">แอด Boss</span>`;
     const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น." : "";
 
-    const unsendBtn = (isAdminView && msg.id) 
-      ? `<button class="btn-unsend-msg" onclick="unsendSupportChatMessage('${msg.id}')" title="ยกเลิกการส่งข้อความนี้">🗑️ ยกเลิก</button>` 
-      : ``;
+    const msgMenuHtml = (isAdminView && msg.id) ? `
+      <div class="msg-menu-wrapper">
+        <button class="btn-msg-options" onclick="toggleMsgContextMenu(event, '${msg.id}')" title="ตัวเลือกข้อความ">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="2.5"></circle>
+            <circle cx="12" cy="12" r="2.5"></circle>
+            <circle cx="12" cy="19" r="2.5"></circle>
+          </svg>
+        </button>
+        <div id="msg-dropdown-${msg.id}" class="msg-context-dropdown">
+          <button class="dropdown-item danger" onclick="unsendSupportChatMessage('${msg.id}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            ยกเลิกการส่งข้อความ
+          </button>
+          <button class="dropdown-item" onclick="copyToClipboard('${escapeHtml(msg.message_text)}', 'ข้อความ')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            คัดลอกข้อความ
+          </button>
+        </div>
+      </div>
+    ` : ``;
 
     html += `
       <div class="chat-msg-row ${rowClass}">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; position: relative;">
           <span class="chat-sender-name">${senderTitleHtml}</span>
-          ${unsendBtn}
+          ${msgMenuHtml}
         </div>
         <div class="chat-bubble">
           <div>${escapeHtml(msg.message_text)}</div>
@@ -1612,6 +1630,22 @@ function renderSupportChatUI() {
   container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
 }
+
+function toggleMsgContextMenu(event, msgId) {
+  event.stopPropagation();
+  document.querySelectorAll(".msg-context-dropdown.active").forEach(el => {
+    if (el.id !== `msg-dropdown-${msgId}`) el.classList.remove("active");
+  });
+
+  const dropdown = document.getElementById(`msg-dropdown-${msgId}`);
+  if (dropdown) {
+    dropdown.classList.toggle("active");
+  }
+}
+
+document.addEventListener("click", () => {
+  document.querySelectorAll(".msg-context-dropdown.active").forEach(el => el.classList.remove("active"));
+});
 
 async function unsendSupportChatMessage(msgId) {
   if (!msgId) return;

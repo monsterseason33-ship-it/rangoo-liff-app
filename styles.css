@@ -2955,28 +2955,95 @@ input:checked + .slider-toggle:before {
   color: #ffffff;
 }
 
-/* Unsend Message Button (Admin Only) */
-.btn-unsend-msg {
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.25);
-  color: #f43f5e;
-  font-size: 9px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 99px;
-  margin-left: 6px;
-  opacity: 0.7;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+/* 3-Dot Message Options Dropdown Menu */
+.msg-menu-wrapper {
+  position: relative;
+  display: inline-block;
 }
 
-.btn-unsend-msg:hover {
+.btn-msg-options {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted, #94a3b8);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: all 0.2s ease;
+}
+
+.btn-msg-options:hover {
   opacity: 1;
-  background: #f43f5e;
+  background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  border-color: #f43f5e;
-  transform: scale(1.05);
+  transform: scale(1.1);
+}
+
+.msg-context-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 12px;
+  padding: 4px;
+  min-width: 155px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92) translateY(-6px);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chat-msg-row.admin .msg-context-dropdown {
+  right: auto;
+  left: 0;
+}
+
+.msg-context-dropdown.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+
+.dropdown-item {
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.dropdown-item.danger {
+  color: #f43f5e;
+}
+
+.dropdown-item.danger:hover {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fb7185;
 }
