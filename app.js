@@ -910,7 +910,63 @@ function renderSubscriptions() {
 
   // Populate App select modal
   populateAppSelect();
+  setTimeout(checkFloatingScrollButton, 200);
 }
+
+// Floating Quick Scroll Button Logic for Subscriptions Tab
+function scrollToSubscriptionsSection() {
+  const container = document.getElementById("subscriptions-container") || document.getElementById("sub-count-badge");
+  if (container) {
+    const yOffset = -70; // Offset for sticky header
+    const y = container.getBoundingClientRect().top + window.pageYOffset + yOffset;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  }
+}
+
+function checkFloatingScrollButton() {
+  const btn = document.getElementById("floating-scroll-sub-btn");
+  const textEl = document.getElementById("floating-btn-text");
+  if (!btn) return;
+
+  // 1. Must be on Tab 1 (tab-subscriptions-pane active)
+  const tabPane = document.getElementById("tab-subscriptions-pane");
+  if (!tabPane || !tabPane.classList.contains("active") || tabPane.style.display === "none") {
+    btn.classList.remove("visible");
+    return;
+  }
+
+  // 2. Must have active subscriptions
+  if (!userBindings || userBindings.length === 0) {
+    btn.classList.remove("visible");
+    return;
+  }
+
+  // 3. Check if subscriptions container is hidden below current viewport
+  const container = document.getElementById("subscriptions-container");
+  if (!container) {
+    btn.classList.remove("visible");
+    return;
+  }
+
+  const rect = container.getBoundingClientRect();
+  const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+  // If container top is below the visible screen viewport (or mostly out of view)
+  const isHiddenBelow = rect.top > (windowHeight - 120);
+
+  if (isHiddenBelow) {
+    if (textEl) {
+      textEl.textContent = `ดูสิทธิ์ใช้งานของคุณ (${userBindings.length} รายการ)`;
+    }
+    btn.classList.add("visible");
+  } else {
+    btn.classList.remove("visible");
+  }
+}
+
+// Attach scroll and resize listeners
+window.addEventListener("scroll", checkFloatingScrollButton, { passive: true });
+window.addEventListener("resize", checkFloatingScrollButton, { passive: true });
 
 // Open Customer WebApp Link in new tab
 function openCustomerWebapp(url) {
@@ -1486,8 +1542,10 @@ function switchTab(tabName) {
     setTimeout(() => {
       newPane.classList.remove(unfoldInClass);
       isTabSwitching = false;
+      checkFloatingScrollButton();
     }, 280);
   }, 140);
+  checkFloatingScrollButton();
 }
 
 // 7. Event Listeners Setup

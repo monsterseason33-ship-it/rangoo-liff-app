@@ -2662,3 +2662,63 @@ input:checked + .slider-toggle {
 input:checked + .slider-toggle:before {
   transform: translateX(16px);
 }
+
+/* Floating Quick Scroll-To-Subscriptions Button */
+.floating-scroll-sub-btn {
+  position: fixed;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px) scale(0.95);
+  z-index: 99;
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 99px;
+  padding: 8.5px 18px;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 8px 25px rgba(2, 132, 199, 0.55), 0 0 12px rgba(56, 189, 248, 0.4);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+}
+
+.floating-scroll-sub-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.floating-scroll-sub-btn:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.7);
+  transform: translateX(-50%) translateY(-2px) scale(1.03);
+}
+
+.floating-scroll-sub-btn:active {
+  transform: translateX(-50%) translateY(1px) scale(0.96);
+}
+
+.floating-btn-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 99px;
+  border: 1.5px solid rgba(56, 189, 248, 0.6);
+  animation: floating-btn-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes floating-btn-ping {
+  75%, 100% {
+    transform: scale(1.18, 1.4);
+    opacity: 0;
+  }
+}
