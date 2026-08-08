@@ -1525,7 +1525,7 @@ async function resolveCurrentSupportTicket() {
     const msgPayload = {
       ticket_id: activeSupportTicket.id,
       sender_type: "admin",
-      sender_name: "👑 แอดมิน BOSS Premium",
+      sender_name: "แอด Boss",
       message_text: "✅ แอดมินทำการตรวจสอบและแก้ไขปัญหาเรียบร้อยแล้วครับ หากยังพบปัญหา สามารถพิมพ์แจ้งเพิ่มเติมในนี้ได้ทันทีครับ!",
       is_read: true
     };
@@ -1578,16 +1578,20 @@ function renderSupportChatUI() {
     return;
   }
 
+  const adminCrownSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="#facc15" stroke="#eab308" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: -1px; margin-right: 3px; filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.6));"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path></svg>`;
+
   let html = "";
   supportChatMessages.forEach(msg => {
     const isCustomer = msg.sender_type === "customer";
     const rowClass = isCustomer ? "customer" : "admin";
-    const senderTitle = isCustomer ? (msg.sender_name || "ลูกค้า") : "👑 แอดมิน BOSS Premium";
+    const senderTitleHtml = isCustomer 
+      ? escapeHtml(msg.sender_name || "ลูกค้า") 
+      : `${adminCrownSvg}<span style="color: #fde047; font-weight: 700;">แอด Boss</span>`;
     const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น." : "";
 
     html += `
       <div class="chat-msg-row ${rowClass}">
-        <span class="chat-sender-name">${escapeHtml(senderTitle)}</span>
+        <span class="chat-sender-name">${senderTitleHtml}</span>
         <div class="chat-bubble">
           <div>${escapeHtml(msg.message_text)}</div>
           <div class="chat-msg-time">${timeStr}</div>
@@ -1609,7 +1613,7 @@ async function submitSupportChatMessage(customText = null) {
 
   const isAdminSender = currentUser && currentUser.isAdmin;
   const customerCode = localStorage.getItem("boss_customer_code") || (userBindings && userBindings[0] ? userBindings[0].customer_name : "") || "GUEST";
-  const senderName = isAdminSender ? "👑 แอดมิน BOSS Premium" : (currentUser ? (currentUser.displayName || customerCode) : customerCode);
+  const senderName = isAdminSender ? "แอด Boss" : (currentUser ? (currentUser.displayName || customerCode) : customerCode);
   const senderType = isAdminSender ? "admin" : "customer";
 
   try {
