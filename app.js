@@ -883,18 +883,6 @@ function renderSubscriptions() {
             </span>
           </div>
         </div>
-
-        <div class="sub-webapp-link-card">
-          <div class="webapp-link-label">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-            <span>ลิ้งก์ WebApp:</span>
-          </div>
-          <div class="webapp-link-actions">
-            <span class="webapp-url-text" title="${escapeHtml(customerWebappUrl)}">${escapeHtml(customerWebappUrl)}</span>
-            <button class="copy-pill-btn open-btn" onclick="openCustomerWebapp('${escapeHtml(customerWebappUrl)}')">เปิด</button>
-            <button class="copy-pill-btn" onclick="copyToClipboard('${escapeHtml(customerWebappUrl)}', 'ลิ้งก์ WebApp ลูกค้า')">คัดลอก</button>
-          </div>
-        </div>
       </div>
 
       <div class="card-actions">
