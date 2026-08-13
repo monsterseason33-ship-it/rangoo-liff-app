@@ -2264,9 +2264,12 @@ async function fetchAndRenderPromotions() {
     // Auto-fetch Netflix Clearance Stock
     const clearanceInfo = await fetchNetflixClearanceStock();
     if (clearanceInfo && clearanceInfo.stockCount > 0) {
-      const existingClearanceIdx = activePromos.findIndex(p => p.promo_type === 'clearance' || (p.badge_text && p.badge_text.includes('โละ')) || (p.badge_text && p.badge_text.includes('เคลียร์')) || (p.title && p.title.includes('Netflix')));
+      const existingClearanceIdx = activePromos.findIndex(p => p.promo_type === 'clearance' || (p.badge_text && (p.badge_text.includes('โละ') || p.badge_text.includes('เคลียร์'))) || (p.title && p.title.includes('Netflix')));
       if (existingClearanceIdx !== -1) {
         activePromos[existingClearanceIdx].stock_count = clearanceInfo.stockCount;
+        activePromos[existingClearanceIdx].title = `📦 จอโล๊ะ Netflix 4K (เหลือ ${clearanceInfo.minDays} วัน)`;
+        activePromos[existingClearanceIdx].badge_text = "⚡ จอโล๊ะเคลียร์สต๊อก";
+        activePromos[existingClearanceIdx].promo_price = clearanceInfo.estimatedPrice || 29;
       } else {
         const autoClearancePromo = {
           id: "auto-netflix-clearance",
