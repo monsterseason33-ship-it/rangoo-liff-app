@@ -2198,6 +2198,51 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+async function fetchNetflixClearanceStock() {
+  const targetShopUserId = "Ud624479284e7b16f667193128ae8d9c9";
+  try {
+    const accounts = await supabaseFetch(`accounts?user_id=eq.${targetShopUserId}&status=eq.available&select=*,app:apps(*)`) || [];
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const clearanceAccounts = accounts.filter(acc => {
+      const appName = ((acc.app && (acc.app.name || acc.app.display_name)) || "").toLowerCase();
+      const isNetflix = appName.includes("netflix") || !acc.app;
+      if (!isNetflix || !acc.expiry_date) return false;
+
+      const expDate = new Date(acc.expiry_date);
+      if (isNaN(expDate.getTime())) return false;
+
+      const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+      const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+
+      // Condition for clearance screen (remaining days 1 to 25)
+      return diffDays > 0 && diffDays <= 25;
+    });
+
+    const stockCount = clearanceAccounts.length;
+    if (stockCount === 0) return null;
+
+    let minDays = 99;
+    clearanceAccounts.forEach(acc => {
+      const expDate = new Date(acc.expiry_date);
+      const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+      const d = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+      if (d > 0 && d < minDays) minDays = d;
+    });
+
+    return {
+      stockCount: stockCount,
+      minDays: minDays < 99 ? minDays : 7,
+      estimatedPrice: 29
+    };
+  } catch (err) {
+    console.warn("[Netflix Clearance Stock Fetch Error]", err);
+    return null;
+  }
+}
+
 async function fetchAndRenderPromotions() {
   const container = document.getElementById("promotions-container");
   if (!container) return;
@@ -2206,7 +2251,32 @@ async function fetchAndRenderPromotions() {
     const data = await supabaseFetch("promotions?select=*&order=display_order.asc,created_at.desc");
     promotionsData = data || [];
 
-    const activePromos = promotionsData.filter(p => p.is_active !== false);
+    let activePromos = promotionsData.filter(p => p.is_active !== false);
+
+    // Auto-fetch Netflix Clearance Stock for shop Ud624479284e7b16f667193128ae8d9c9
+    const clearanceInfo = await fetchNetflixClearanceStock();
+    if (clearanceInfo && clearanceInfo.stockCount > 0) {
+      const autoClearancePromo = {
+        id: "auto-netflix-clearance",
+        title: `📦 จอโล๊ะ Netflix 4K (เหลือ ${clearanceInfo.minDays} วัน)`,
+        description: `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`,
+        promo_price: clearanceInfo.estimatedPrice || 29,
+        original_price: 99,
+        badge_text: "⚡ จอโล๊ะเคลียร์สต๊อก",
+        banner_image: "promo_clearance.png",
+        is_auto_clearance: true,
+        stock_count: clearanceInfo.stockCount,
+        script_url: "https://www.netflix.com/"
+      };
+
+      const existingClearanceIdx = activePromos.findIndex(p => p.promo_type === 'clearance' || (p.title && p.title.includes('โล๊ะ')));
+      if (existingClearanceIdx !== -1) {
+        activePromos[existingClearanceIdx].description = `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`;
+        activePromos[existingClearanceIdx].stock_count = clearanceInfo.stockCount;
+      } else {
+        activePromos.unshift(autoClearancePromo);
+      }
+    }
 
     if (!activePromos || activePromos.length === 0) {
       document.getElementById("promotions-section").style.display = "none";
@@ -2224,35 +2294,35 @@ async function fetchAndRenderPromotions() {
           promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก'
       );
 
-      // Hero Banner Image / Product Thumb
       const thumbImg = promo.banner_image || (
         promo.promo_type === 'flash_sale' ? 'promo_flash.png' :
           promo.promo_type === 'bundle' ? 'promo_bundle.png' :
             'promo_clearance.png'
       );
 
-      // Calculate Discount %
       let discountTagHtml = '';
       if (promo.original_price && promo.original_price > promo.promo_price) {
         const pct = Math.round(((promo.original_price - promo.promo_price) / promo.original_price) * 100);
         discountTagHtml = `<div class="shopee-discount-tag">-${pct}%</div>`;
       }
 
-      // Stock Progress Bar Text & % with SVG Icons
-      const progressPct = idx === 0 ? 85 : idx === 1 ? 92 : 65;
-      const progressLabel = idx === 0 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>ขายแล้ว 85%` :
+      let progressPct = idx === 0 ? 85 : idx === 1 ? 92 : 65;
+      let progressLabel = idx === 0 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>ขายแล้ว 85%` :
         idx === 1 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>เหลือเพียง 2 ชุดสุดท้าย` :
           `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>เคลียร์สต๊อก 65%`;
 
-      // Clean up promo description: remove raw URLs and clean extra whitespace
+      if (promo.stock_count !== undefined) {
+        progressPct = Math.min(95, Math.max(25, 100 - (promo.stock_count * 12)));
+        progressLabel = `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>⚡ เหลือเพียง ${promo.stock_count} จอสุดท้าย (เรียลไทม์)`;
+      }
+
       let cleanDesc = (promo.description || '')
         .replace(/https?:\/\/[^\s]+/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 
       html += `
-        <div class="promo-card vertical-card">
-          <!-- Card Banner Header -->
+        <div class="promo-card vertical-card ${promo.is_auto_clearance ? 'auto-clearance-card' : ''}">
           <div class="card-banner-wrapper">
             <div class="card-banner-img" style="background-image: url('${thumbImg}');">
               ${discountTagHtml}
@@ -2260,19 +2330,16 @@ async function fetchAndRenderPromotions() {
             </div>
           </div>
 
-          <!-- Card Body -->
           <div class="vertical-card-body">
             <div class="promo-card-title">${escapeHtml(promo.title)}</div>
             <div class="promo-card-desc">${escapeHtml(cleanDesc)}</div>
 
-            <!-- Sales Progress Bar -->
             <div class="shopee-progress-bar-container">
               <div class="shopee-progress-fill" style="width: ${progressPct}%;"></div>
               <div class="shopee-progress-text">${progressLabel}</div>
             </div>
           </div>
 
-          <!-- Card Footer -->
           <div class="vertical-card-footer">
             <div class="vertical-price-row">
               <div class="shopee-price-box">
@@ -2281,7 +2348,7 @@ async function fetchAndRenderPromotions() {
               </div>
             </div>
             <button type="button" class="btn-shopee-buy btn-full-width" onclick="handlePromoAction('${promo.id}')">
-              <span>ซื้อเลย</span>
+              <span>สั่งซื้อจอโล๊ะ</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
@@ -2294,6 +2361,13 @@ async function fetchAndRenderPromotions() {
   } catch (err) {
     console.warn("[Promotions Load Error]", err);
   }
+}
+
+// Real-time stock polling for clearance screens (every 10 seconds)
+if (!window._clearanceRealtimeTimer) {
+  window._clearanceRealtimeTimer = setInterval(() => {
+    fetchAndRenderPromotions();
+  }, 10000);
 }
 
 // Auto Slide & Pagination Dots Core Logic
