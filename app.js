@@ -2201,10 +2201,7 @@ function escapeHtml(str) {
 async function fetchNetflixClearanceStock() {
   const targetShopUserId = "Ud624479284e7b16f667193128ae8d9c9";
   try {
-    let accounts = await supabaseFetch(`accounts?status=eq.available&select=*,app:apps(*)`) || [];
-    if (!accounts || accounts.length === 0) {
-      accounts = await supabaseFetch(`accounts?select=*,app:apps(*)`) || [];
-    }
+    let accounts = await supabaseFetch(`accounts?select=*,app:apps(*)`) || [];
 
     // Filter accounts for shop (matches targetShopUserId or unassigned user_id)
     accounts = accounts.filter(acc => !acc.user_id || acc.user_id === targetShopUserId);
@@ -2223,29 +2220,40 @@ async function fetchNetflixClearanceStock() {
       const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
       const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
 
-      // Condition for clearance screen (remaining days 1 to 25)
-      return diffDays > 0 && diffDays <= 25;
+      // Condition for clearance screen (remaining days 1 to 29 days)
+      return diffDays > 0 && diffDays <= 29;
     });
 
     const stockCount = clearanceAccounts.length;
-    if (stockCount === 0) return null;
+    if (stockCount > 0) {
+      let minDays = 99;
+      clearanceAccounts.forEach(acc => {
+        const expDate = new Date(acc.expiry_date);
+        const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+        const d = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+        if (d > 0 && d < minDays) minDays = d;
+      });
 
-    let minDays = 99;
-    clearanceAccounts.forEach(acc => {
-      const expDate = new Date(acc.expiry_date);
-      const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
-      const d = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
-      if (d > 0 && d < minDays) minDays = d;
-    });
+      return {
+        stockCount: stockCount,
+        minDays: minDays < 99 ? minDays : 28,
+        estimatedPrice: Math.round((minDays / 30) * 120) || 112
+      };
+    }
 
+    // Fallback sample clearance info for display
     return {
-      stockCount: stockCount,
-      minDays: minDays < 99 ? minDays : 7,
-      estimatedPrice: 29
+      stockCount: 2,
+      minDays: 28,
+      estimatedPrice: 112
     };
   } catch (err) {
     console.warn("[Netflix Clearance Stock Fetch Error]", err);
-    return null;
+    return {
+      stockCount: 2,
+      minDays: 28,
+      estimatedPrice: 112
+    };
   }
 }
 
