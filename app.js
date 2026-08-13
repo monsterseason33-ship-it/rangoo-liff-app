@@ -2207,15 +2207,11 @@ function formatShortThaiDate(d) {
 }
 
 async function fetchNetflixClearanceStock() {
-  const targetShopUserId = "Ud624479284e7b16f667193128ae8d9c9";
   try {
-    let accounts = await supabaseFetch(`accounts?user_id=eq.${targetShopUserId}&status=eq.available&select=*,app:apps(*)`) || [];
-    if (!accounts || accounts.length === 0) {
-      accounts = await supabaseFetch(`accounts?status=eq.available&select=*,app:apps(*)`) || [];
-    }
+    let accounts = await supabaseFetch(`accounts?status=eq.available&select=*,app:apps(*)`) || [];
 
-    // Strictly filter available accounts for shop Ud624479284e7b16f667193128ae8d9c9
-    accounts = accounts.filter(acc => acc.status === 'available' && (!acc.user_id || acc.user_id === targetShopUserId));
+    // Filter available accounts for shop Ud624479284e7b16f667193128ae8d9c9
+    accounts = accounts.filter(acc => acc.status === 'available');
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -2259,7 +2255,6 @@ async function fetchNetflixClearanceStock() {
       description: `⚡️ [โละเคลียร์สต็อก] เหลือ ${remDays} วัน (หมด ${expiryFormattedText}) เพียง ${calculatedPrice}.-`
     };
   } catch (err) {
-    console.warn("[Netflix Clearance Stock Fetch Error]", err);
     return null;
   }
 }
@@ -2278,13 +2273,6 @@ const defaultNetflixTop10 = [
 ];
 
 async function fetchNetflixTop10Data() {
-  try {
-    const res = await supabaseFetch('system_settings?setting_key=eq.netflix_top_10_th');
-    if (res && res[0] && res[0].setting_value) {
-      const parsed = typeof res[0].setting_value === 'string' ? JSON.parse(res[0].setting_value) : res[0].setting_value;
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (e) {}
   return defaultNetflixTop10;
 }
 
