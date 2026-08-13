@@ -2386,7 +2386,7 @@ async function fetchAndRenderPromotions() {
               </div>
             </div>
             <button type="button" class="btn-shopee-buy btn-full-width" onclick="handlePromoAction('${promo.id}')">
-              <span>สั่งซื้อจอโล๊ะ</span>
+              <span>${promo.is_auto_clearance ? 'สั่งซื้อจอโล๊ะ' : 'ซื้อเลย'}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
@@ -2394,8 +2394,11 @@ async function fetchAndRenderPromotions() {
       `;
     });
 
-    container.innerHTML = html;
-    initPromoAutoSlider(activePromos.length);
+    if (container.dataset.renderedHtml !== html) {
+      container.dataset.renderedHtml = html;
+      container.innerHTML = html;
+      initPromoAutoSlider(activePromos.length);
+    }
   } catch (err) {
     console.warn("[Promotions Load Error]", err);
   }
@@ -2410,7 +2413,9 @@ if (!window._clearanceRealtimeTimer) {
 
 // Auto Slide & Pagination Dots Core Logic
 let promoAutoSlideTimer = null;
+let promoPauseResumeTimer = null;
 let currentPromoIndex = 0;
+let isPromoSliderInitialized = false;
 
 function initPromoAutoSlider(activePromosCount) {
   const container = document.getElementById("promotions-container");
@@ -2429,28 +2434,40 @@ function initPromoAutoSlider(activePromosCount) {
     dotsContainer.innerHTML = dotsHtml;
   }
 
+  startPromoAutoSlide(activePromosCount);
+
+  if (!container.dataset.listenersAttached) {
+    container.dataset.listenersAttached = "true";
+
+    container.addEventListener("scroll", () => {
+      const cards = container.querySelectorAll(".promo-card");
+      if (!cards || cards.length === 0) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const activeIdx = Array.from(cards).findIndex(card => {
+        const r = card.getBoundingClientRect();
+        return Math.abs(r.left - containerRect.left) < r.width / 2;
+      });
+
+      if (activeIdx !== -1 && activeIdx !== currentPromoIndex) {
+        currentPromoIndex = activeIdx;
+        updatePromoActiveDot(currentPromoIndex);
+      }
+    }, { passive: true });
+
+    container.addEventListener("touchstart", () => pausePromoAutoSlider(activePromosCount), { passive: true });
+    container.addEventListener("mouseenter", () => pausePromoAutoSlider(activePromosCount), { passive: true });
+    container.addEventListener("touchend", () => resumePromoAutoSlider(activePromosCount), { passive: true });
+    container.addEventListener("mouseleave", () => resumePromoAutoSlider(activePromosCount), { passive: true });
+  }
+}
+
+function startPromoAutoSlide(activePromosCount) {
   if (promoAutoSlideTimer) clearInterval(promoAutoSlideTimer);
-
-  currentPromoIndex = 0;
-
   promoAutoSlideTimer = setInterval(() => {
     currentPromoIndex = (currentPromoIndex + 1) % activePromosCount;
     scrollToPromoCard(currentPromoIndex);
-  }, 3500);
-
-  container.addEventListener("scroll", () => {
-    const cards = container.querySelectorAll(".promo-card");
-    if (!cards || cards.length === 0) return;
-    const cardWidth = cards[0].offsetWidth + 12;
-    const newIndex = Math.round(container.scrollLeft / cardWidth);
-    if (newIndex !== currentPromoIndex && newIndex >= 0 && newIndex < activePromosCount) {
-      currentPromoIndex = newIndex;
-      updatePromoActiveDot(currentPromoIndex);
-    }
-  }, { passive: true });
-
-  container.addEventListener("touchstart", pausePromoAutoSlider, { passive: true });
-  container.addEventListener("mouseenter", pausePromoAutoSlider, { passive: true });
+  }, 4000);
 }
 
 function scrollToPromoCard(index) {
@@ -2459,9 +2476,9 @@ function scrollToPromoCard(index) {
   const cards = container.querySelectorAll(".promo-card");
   if (!cards || !cards[index]) return;
 
-  const cardWidth = cards[0].offsetWidth + 12;
+  const targetLeft = cards[index].offsetLeft - container.offsetLeft;
   container.scrollTo({
-    left: index * cardWidth,
+    left: targetLeft,
     behavior: "smooth"
   });
   updatePromoActiveDot(index);
@@ -2478,19 +2495,16 @@ function updatePromoActiveDot(index) {
   });
 }
 
-function pausePromoAutoSlider() {
-  if (promoAutoSlideTimer) {
-    clearInterval(promoAutoSlideTimer);
-    setTimeout(() => {
-      const activePromos = promotionsData.filter(p => p.is_active !== false);
-      if (activePromos.length > 1) {
-        promoAutoSlideTimer = setInterval(() => {
-          currentPromoIndex = (currentPromoIndex + 1) % activePromos.length;
-          scrollToPromoCard(currentPromoIndex);
-        }, 3500);
-      }
-    }, 6000);
-  }
+function pausePromoAutoSlider(activePromosCount) {
+  if (promoAutoSlideTimer) clearInterval(promoAutoSlideTimer);
+  if (promoPauseResumeTimer) clearTimeout(promoPauseResumeTimer);
+}
+
+function resumePromoAutoSlider(activePromosCount) {
+  if (promoPauseResumeTimer) clearTimeout(promoPauseResumeTimer);
+  promoPauseResumeTimer = setTimeout(() => {
+    startPromoAutoSlide(activePromosCount);
+  }, 4000);
 }
 
 function handlePromoAction(promoId) {
