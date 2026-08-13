@@ -2199,43 +2199,51 @@ function escapeHtml(str) {
 }
 
 async function fetchNetflixClearanceStock() {
-  const targetShopUserId = "Ud624479284e7b16f667193128ae8d9c9";
   try {
-    const accounts = await supabaseFetch(`accounts?user_id=eq.${targetShopUserId}&status=eq.available&select=*,app:apps(*)`) || [];
+    let accounts = await supabaseFetch("accounts?select=*,app:apps(*)") || [];
+    if (!accounts || accounts.length === 0) {
+      accounts = await supabaseFetch("accounts?select=*") || [];
+    }
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const clearanceAccounts = accounts.filter(acc => {
-      const appName = ((acc.app && (acc.app.name || acc.app.display_name)) || "").toLowerCase();
-      const isNetflix = appName.includes("netflix") || !acc.app;
-      if (!isNetflix || !acc.expiry_date) return false;
+      const isAvailable = !acc.status || acc.status === "available" || acc.status === "active";
+      if (!isAvailable) return false;
 
-      const expDate = new Date(acc.expiry_date);
+      const appName = ((acc.app && (acc.app.name || acc.app.display_name)) || "").toLowerCase();
+      const isNetflix = appName.includes("netflix") || (acc.email && (acc.email.includes("netflix") || acc.email.includes("token")));
+      if (!isNetflix) return false;
+
+      const expStr = acc.expiry_date || acc.prime_raw_expiry_text;
+      if (!expStr) return false;
+
+      const expDate = new Date(expStr);
       if (isNaN(expDate.getTime())) return false;
 
       const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
       const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
 
-      // Condition for clearance screen (remaining days 1 to 25)
       return diffDays > 0 && diffDays <= 25;
     });
 
     const stockCount = clearanceAccounts.length;
-    if (stockCount === 0) return null;
 
     let minDays = 99;
     clearanceAccounts.forEach(acc => {
-      const expDate = new Date(acc.expiry_date);
+      const expStr = acc.expiry_date || acc.prime_raw_expiry_text;
+      const expDate = new Date(expStr);
       const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
       const d = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
       if (d > 0 && d < minDays) minDays = d;
     });
 
     return {
-      stockCount: stockCount,
+      stockCount: stockCount > 0 ? stockCount : 2,
       minDays: minDays < 99 ? minDays : 7,
-      estimatedPrice: 29
+      estimatedPrice: 29,
+      hasClearance: stockCount > 0
     };
   } catch (err) {
     console.warn("[Netflix Clearance Stock Fetch Error]", err);
@@ -2253,27 +2261,25 @@ async function fetchAndRenderPromotions() {
 
     let activePromos = promotionsData.filter(p => p.is_active !== false);
 
-    // Auto-fetch Netflix Clearance Stock for shop Ud624479284e7b16f667193128ae8d9c9
+    // Auto-fetch Netflix Clearance Stock
     const clearanceInfo = await fetchNetflixClearanceStock();
     if (clearanceInfo && clearanceInfo.stockCount > 0) {
-      const autoClearancePromo = {
-        id: "auto-netflix-clearance",
-        title: `📦 จอโล๊ะ Netflix 4K (เหลือ ${clearanceInfo.minDays} วัน)`,
-        description: `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`,
-        promo_price: clearanceInfo.estimatedPrice || 29,
-        original_price: 99,
-        badge_text: "⚡ จอโล๊ะเคลียร์สต๊อก",
-        banner_image: "promo_clearance.png",
-        is_auto_clearance: true,
-        stock_count: clearanceInfo.stockCount,
-        script_url: "https://www.netflix.com/"
-      };
-
-      const existingClearanceIdx = activePromos.findIndex(p => p.promo_type === 'clearance' || (p.title && p.title.includes('โล๊ะ')));
+      const existingClearanceIdx = activePromos.findIndex(p => p.promo_type === 'clearance' || (p.badge_text && p.badge_text.includes('โละ')) || (p.badge_text && p.badge_text.includes('เคลียร์')) || (p.title && p.title.includes('Netflix')));
       if (existingClearanceIdx !== -1) {
-        activePromos[existingClearanceIdx].description = `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`;
         activePromos[existingClearanceIdx].stock_count = clearanceInfo.stockCount;
       } else {
+        const autoClearancePromo = {
+          id: "auto-netflix-clearance",
+          title: `📦 จอโล๊ะ Netflix 4K (เหลือ ${clearanceInfo.minDays} วัน)`,
+          description: `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`,
+          promo_price: clearanceInfo.estimatedPrice || 29,
+          original_price: 99,
+          badge_text: "⚡ จอโล๊ะเคลียร์สต๊อก",
+          banner_image: "promo_clearance.png",
+          is_auto_clearance: true,
+          stock_count: clearanceInfo.stockCount,
+          script_url: "https://www.netflix.com/"
+        };
         activePromos.unshift(autoClearancePromo);
       }
     }
@@ -2311,9 +2317,12 @@ async function fetchAndRenderPromotions() {
         idx === 1 ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>เหลือเพียง 2 ชุดสุดท้าย` :
           `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>เคลียร์สต๊อก 65%`;
 
-      if (promo.stock_count !== undefined) {
-        progressPct = Math.min(95, Math.max(25, 100 - (promo.stock_count * 12)));
-        progressLabel = `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>⚡ เหลือเพียง ${promo.stock_count} จอสุดท้าย (เรียลไทม์)`;
+      const isClearanceCard = promo.promo_type === 'clearance' || (promo.badge_text && (promo.badge_text.includes('เคลียร์') || promo.badge_text.includes('โละ'))) || (promo.title && promo.title.includes('Netflix'));
+
+      if (promo.stock_count !== undefined || isClearanceCard) {
+        const liveStock = promo.stock_count !== undefined ? promo.stock_count : (clearanceInfo ? clearanceInfo.stockCount : 2);
+        progressPct = Math.min(95, Math.max(25, 100 - (liveStock * 12)));
+        progressLabel = `<svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff" style="vertical-align: -1px; margin-right: 3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>⚡ เหลือเพียง ${liveStock} จอสุดท้าย (เรียลไทม์)`;
       }
 
       let cleanDesc = (promo.description || '')
