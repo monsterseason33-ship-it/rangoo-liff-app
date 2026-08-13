@@ -3047,3 +3047,26 @@ input:checked + .slider-toggle:before {
   background: rgba(244, 63, 94, 0.18);
   color: #fb7185;
 }
+
+/* 🏆 Top 10 Netflix Auto-Sliding Card Styles */
+.top10-rank-pill {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: linear-gradient(135deg, #e50914 0%, #b1060e 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.5);
+  letter-spacing: 0.5px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.top10-title-animated {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}

@@ -2264,6 +2264,30 @@ async function fetchNetflixClearanceStock() {
   }
 }
 
+const defaultNetflixTop10 = [
+  { rank: 1, title: "คนเดือดทวงแค้น", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABaoPLMTIeLwY1BbKUyNh2_bWhkSyXXAI_Nb2qgVNa9BUzNJYqR-5N3t8Iu1cuo3-BdaQOjZYFwCHD5JnVt2oee6O1n7LUSv_JAbGwl6ZZFnDolcMz8DfL06nyDn_EgLOpESX.webp?r=b2c" },
+  { rank: 2, title: "อย่างนี้ต้องโดนสั่งสอน", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABWYECiQdsIPT75JErblpB9gkfncPOdnnn9tZVCbeufWDXfKeBIpio7dArmT3AGAW3Y28n4wzZtGu73n-ICUGtTobZcWNwXht1q7jmjnzu5Q3yLBkJ-643XURQUv2TxjOH68C.webp?r=47b" },
+  { rank: 3, title: "ทนายปีศาจ", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABZWTBxtjT2q1168G4W1fLEwPL6VR2n3K0Zxm3eB4fa7MeOfZiVBP5iCwMfZFCBkUyNC6434b7SAYvp79amC4g4GNR2eaXxGnzV83gcQyLBYqLd05i6wTO26PNKg46SRkh3Be.webp?r=a50" },
+  { rank: 4, title: "รักติดหนึบ", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABaYUnVRarkuZ7JA_vk6Lk4XUmkk6EZBYCvIKUkOwqh_7FjHWBhdGoYsLO6FbMfGlrHQPGDOemcKuOW7asTyPOwftvC_U7gTklR46rzDTlumzUg3m7XkrTAIUcNMUBebf6lC8.webp?r=8d0" },
+  { rank: 5, title: "บูรพาอาถรรพ์", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABSoWwnGX7osRcxIsq-1ZFyYhpgvNAw4feCyhos2te8rk_V0dGPX3mx1CRfHbpCS8qQ9mvIvl9o2oOHhKxPpR6sCMZKJv320jPhhSeOulhJmOLPWoZCTNEx4O_Zwihemvry4q.webp?r=ae8" },
+  { rank: 6, title: "บ้านหลังสุดท้าย", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABT_JaD2VupKxB9-mG5xTvon3PjO8K239VA0QDoSrArMHjBcgD2QNZn4w5qKxxZafgcY33zhNGI3gmv_5R7LDqEhJMXIe6vlD2ABE92r_Eblvzz1TaZGk3mLTsn1EUFws3EiK.webp?r=c50" },
+  { rank: 7, title: "เณรน้อยเจ้าอภินิหาร", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABRkmoGyijhjvOvV-HllbRc9dCKmXz3-oP5_XeVUFiAyWkO8clPLqkZ87xJ3yEdq0HT28sL2CQYp2WQ_77nE42lVQZyvYFh5jOGrGpVm82mgFe9B_VibFU8qIz8ALxmWQzMLo.webp?r=a76" },
+  { rank: 8, title: "ทางสู่ฝันของนานโด", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABfPJ2AYOi53NDQCNOdjbmZL0xQW_gDoxm1lQBnWbale_N-36VwbrFidNJMud7LmnLmaHXvymca1YBVW5BwUdaXBJ373ccp5Sms98-BIwrLKX5f19DY1tSoZkrGg-5nQiVxcJ.webp?r=71c" },
+  { rank: 9, title: "คุยกับฆาตกร: ชาร์ลส์ แมนสัน", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABcc81MJ4Lh1059ARvLYKxXXiBjo0Qxi4L_pIYo2i13a1zuzYd8WfaaScJ6XXapAjDsSCRw1xXHmWc02H0XZlyTE-bTAm-RC0JUl_UdKFfqwap1hV359SwSdT2TA4r-TgSpD9.webp?r=319" },
+  { rank: 10, title: "หน่วยจู่โจมมือพระกาฬ", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABeCMw6YtXTYihQ7NPT5-TysiOSP-e_uoWAEwx0XOLy5qar3uUCImhJOkX8KTTDyEWwg_KFdd4-T171eQDPFss7ltrjeyt0pp5UAiP7clVcVO43idWmZr8V1H_lZoiuSXTVfc.webp?r=dd5" }
+];
+
+async function fetchNetflixTop10Data() {
+  try {
+    const res = await supabaseFetch('system_settings?setting_key=eq.netflix_top_10_th');
+    if (res && res[0] && res[0].setting_value) {
+      const parsed = typeof res[0].setting_value === 'string' ? JSON.parse(res[0].setting_value) : res[0].setting_value;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return defaultNetflixTop10;
+}
+
 async function fetchAndRenderPromotions() {
   const container = document.getElementById("promotions-container");
   if (!container) return;
@@ -2292,6 +2316,26 @@ async function fetchAndRenderPromotions() {
 
       // Always unshift as a dedicated extra clearance card
       activePromos.unshift(autoClearancePromo);
+    }
+
+    // Auto-fetch Netflix Top 10 Thailand Trending
+    const top10List = await fetchNetflixTop10Data();
+    if (top10List && top10List.length > 0) {
+      window._netflixTop10List = top10List;
+      const firstItem = top10List[0];
+      const autoTop10Promo = {
+        id: "auto-netflix-top10",
+        title: `🔥 อันดับ 1: ${firstItem.title}`,
+        description: `🎬 10 อันดับหนัง/ซีรีส์ฮิต Netflix ไทย อัปเดตรายสัปดาห์`,
+        promo_price: 170,
+        original_price: 199,
+        badge_text: "🔥 TOP 10 ในไทย",
+        banner_image: firstItem.poster,
+        is_auto_top10: true,
+        script_url: "https://www.netflix.com/"
+      };
+
+      activePromos.push(autoTop10Promo);
     }
 
     if (!activePromos || activePromos.length === 0) {
@@ -2337,6 +2381,44 @@ async function fetchAndRenderPromotions() {
         .replace(/\s+/g, ' ')
         .trim();
 
+      if (promo.is_auto_top10) {
+        html += `
+          <div class="promo-card vertical-card top10-card-wrapper">
+            <div class="card-banner-wrapper">
+              <div class="card-banner-img top10-banner-img" style="background-image: url('${thumbImg}'); transition: background-image 0.5s ease;">
+                ${discountTagHtml}
+                <div class="card-badge-pill">${badgeText}</div>
+                <div class="top10-rank-pill">🔥 TOP #1</div>
+              </div>
+            </div>
+
+            <div class="vertical-card-body">
+              <div class="promo-card-title top10-title-animated">${escapeHtml(promo.title)}</div>
+              <div class="promo-card-desc">${escapeHtml(cleanDesc)}</div>
+
+              <div class="shopee-progress-bar-container">
+                <div class="shopee-progress-fill" style="width: 95%;"></div>
+                <div class="shopee-progress-text">🔥 อัปเดตอันดับฮิตประจำสัปดาห์</div>
+              </div>
+            </div>
+
+            <div class="vertical-card-footer">
+              <div class="vertical-price-row">
+                <div class="shopee-price-box">
+                  ${promo.original_price ? `<span class="promo-original-price">฿${promo.original_price}</span>` : ''}
+                  <span class="shopee-flash-price">฿${promo.promo_price}</span>
+                </div>
+              </div>
+              <button type="button" class="btn-shopee-buy btn-full-width" onclick="handlePromoAction('${promo.id}')">
+                <span>สั่งซื้อ Netflix</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
       html += `
         <div class="promo-card vertical-card ${promo.is_auto_clearance ? 'auto-clearance-card' : ''}">
           <div class="card-banner-wrapper">
@@ -2376,6 +2458,28 @@ async function fetchAndRenderPromotions() {
       container.dataset.renderedHtml = html;
       container.innerHTML = html;
       initPromoAutoSlider(activePromos.length);
+    }
+
+    // Start Top 10 Internal Poster & Title Slideshow
+    if (!window._top10SlideshowTimer && window._netflixTop10List && window._netflixTop10List.length > 0) {
+      let top10Idx = 0;
+      window._top10SlideshowTimer = setInterval(() => {
+        const list = window._netflixTop10List;
+        if (!list || list.length === 0) return;
+        top10Idx = (top10Idx + 1) % list.length;
+        const item = list[top10Idx];
+
+        const cardWrapper = document.querySelector(".top10-card-wrapper");
+        if (!cardWrapper) return;
+
+        const imgEl = cardWrapper.querySelector(".top10-banner-img");
+        const rankEl = cardWrapper.querySelector(".top10-rank-pill");
+        const titleEl = cardWrapper.querySelector(".top10-title-animated");
+
+        if (imgEl) imgEl.style.backgroundImage = `url('${item.poster}')`;
+        if (rankEl) rankEl.innerHTML = `🔥 TOP #${item.rank}`;
+        if (titleEl) titleEl.textContent = `🔥 อันดับ ${item.rank}: ${item.title}`;
+      }, 2500);
     }
   } catch (err) {
     console.warn("[Promotions Load Error]", err);
