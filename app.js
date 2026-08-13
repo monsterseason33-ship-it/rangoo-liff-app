@@ -2275,13 +2275,8 @@ async function fetchAndRenderPromotions() {
         script_url: "https://www.netflix.com/"
       };
 
-      const existingClearanceIdx = activePromos.findIndex(p => p.promo_type === 'clearance' || (p.title && p.title.includes('โล๊ะ')));
-      if (existingClearanceIdx !== -1) {
-        activePromos[existingClearanceIdx].description = `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`;
-        activePromos[existingClearanceIdx].stock_count = clearanceInfo.stockCount;
-      } else {
-        activePromos.unshift(autoClearancePromo);
-      }
+      // Always unshift as a dedicated extra clearance card
+      activePromos.unshift(autoClearancePromo);
     }
 
     if (!activePromos || activePromos.length === 0) {
