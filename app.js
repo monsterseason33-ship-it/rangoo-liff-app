@@ -2209,10 +2209,13 @@ function formatShortThaiDate(d) {
 async function fetchNetflixClearanceStock() {
   const targetShopUserId = "Ud624479284e7b16f667193128ae8d9c9";
   try {
-    let accounts = await supabaseFetch(`accounts?select=*,app:apps(*)`) || [];
+    let accounts = await supabaseFetch(`accounts?user_id=eq.${targetShopUserId}&status=eq.available&select=*,app:apps(*)`) || [];
+    if (!accounts || accounts.length === 0) {
+      accounts = await supabaseFetch(`accounts?status=eq.available&select=*,app:apps(*)`) || [];
+    }
 
-    // Filter accounts for shop (matches targetShopUserId or unassigned user_id)
-    accounts = accounts.filter(acc => !acc.user_id || acc.user_id === targetShopUserId);
+    // Strictly filter available accounts for shop Ud624479284e7b16f667193128ae8d9c9
+    accounts = accounts.filter(acc => acc.status === 'available' && (!acc.user_id || acc.user_id === targetShopUserId));
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
