@@ -2198,6 +2198,14 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function formatShortThaiDate(d) {
+  if (!d || isNaN(d.getTime())) return "23.59 น.";
+  const shortThaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const day = d.getDate();
+  const month = shortThaiMonths[d.getMonth()];
+  return `${day} ${month} 23.59 น.`;
+}
+
 async function fetchNetflixClearanceStock() {
   const targetShopUserId = "Ud624479284e7b16f667193128ae8d9c9";
   try {
@@ -2227,32 +2235,53 @@ async function fetchNetflixClearanceStock() {
     const stockCount = clearanceAccounts.length;
     if (stockCount > 0) {
       let minDays = 99;
+      let targetAccount = clearanceAccounts[0];
+
       clearanceAccounts.forEach(acc => {
         const expDate = new Date(acc.expiry_date);
         const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
         const d = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
-        if (d > 0 && d < minDays) minDays = d;
+        if (d > 0 && d < minDays) {
+          minDays = d;
+          targetAccount = acc;
+        }
       });
+
+      const expDateObj = new Date(targetAccount.expiry_date);
+      const expiryFormattedText = formatShortThaiDate(expDateObj);
+      const calculatedPrice = Math.round((minDays / 30) * 120);
 
       return {
         stockCount: stockCount,
-        minDays: minDays < 99 ? minDays : 28,
-        estimatedPrice: Math.round((minDays / 30) * 120) || 112
+        minDays: minDays,
+        estimatedPrice: calculatedPrice,
+        originalPrice: 120,
+        expiryText: expiryFormattedText,
+        title: `📦 จอโล๊ะ Netflix 4K (มือถือ/แท็บเล็ต)`,
+        description: `⚡️ [โละเคลียร์สต็อก] เหลือ ${minDays} วัน (หมด ${expiryFormattedText}) เพียง ${calculatedPrice}.-`
       };
     }
 
-    // Fallback sample clearance info for display
+    // Fallback sample clearance info matching exact script example
     return {
-      stockCount: 2,
+      stockCount: 1,
       minDays: 28,
-      estimatedPrice: 112
+      estimatedPrice: 112,
+      originalPrice: 120,
+      expiryText: "9 ก.ย. 23.59 น.",
+      title: "📦 จอโล๊ะ Netflix 4K (มือถือ/แท็บเล็ต)",
+      description: "⚡️ [โละเคลียร์สต็อก] เหลือ 28 วัน (หมด 9 ก.ย. 23.59 น.) เพียง 112.-"
     };
   } catch (err) {
     console.warn("[Netflix Clearance Stock Fetch Error]", err);
     return {
-      stockCount: 2,
+      stockCount: 1,
       minDays: 28,
-      estimatedPrice: 112
+      estimatedPrice: 112,
+      originalPrice: 120,
+      expiryText: "9 ก.ย. 23.59 น.",
+      title: "📦 จอโล๊ะ Netflix 4K (มือถือ/แท็บเล็ต)",
+      description: "⚡️ [โละเคลียร์สต็อก] เหลือ 28 วัน (หมด 9 ก.ย. 23.59 น.) เพียง 112.-"
     };
   }
 }
@@ -2272,10 +2301,10 @@ async function fetchAndRenderPromotions() {
     if (clearanceInfo && clearanceInfo.stockCount > 0) {
       const autoClearancePromo = {
         id: "auto-netflix-clearance",
-        title: `📦 จอโล๊ะ Netflix 4K (เหลือ ${clearanceInfo.minDays} วัน)`,
-        description: `⚡ เคลียร์สต๊อกจอหลุด/วันเหลือ พร้อมใช้งานได้ทันที (เหลือเพียง ${clearanceInfo.stockCount} จอสุดท้าย)`,
-        promo_price: clearanceInfo.estimatedPrice || 29,
-        original_price: 99,
+        title: clearanceInfo.title || "📦 จอโล๊ะ Netflix 4K (มือถือ/แท็บเล็ต)",
+        description: clearanceInfo.description || `⚡️ [โละเคลียร์สต็อก] เหลือ ${clearanceInfo.minDays} วัน เพียง ${clearanceInfo.estimatedPrice}.-`,
+        promo_price: clearanceInfo.estimatedPrice || 112,
+        original_price: clearanceInfo.originalPrice || 120,
         badge_text: "⚡ จอโล๊ะเคลียร์สต๊อก",
         banner_image: "promo_clearance.png",
         is_auto_clearance: true,
