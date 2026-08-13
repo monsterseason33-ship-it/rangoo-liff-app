@@ -2228,8 +2228,8 @@ async function fetchNetflixClearanceStock() {
       const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
       const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
 
-      // Active clearance screen condition (remaining days between 15 and 29 days)
-      return diffDays >= 15 && diffDays <= 29;
+      // Active clearance screen condition (matches extension content.js 100%: 1 to 29 days)
+      return diffDays > 0 && diffDays < 30;
     });
 
     const stockCount = clearanceAccounts.length;
