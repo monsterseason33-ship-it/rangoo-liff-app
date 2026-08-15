@@ -2554,6 +2554,17 @@ function scrollToPromoCard(index) {
   updatePromoActiveDot(index);
 }
 
+function scrollPromoSlider(direction) {
+  const container = document.getElementById("promotions-container");
+  if (!container) return;
+  const cards = container.querySelectorAll(".promo-card");
+  if (!cards || cards.length === 0) return;
+
+  const nextIdx = Math.max(0, Math.min(cards.length - 1, currentPromoIndex + direction));
+  currentPromoIndex = nextIdx;
+  scrollToPromoCard(currentPromoIndex);
+}
+
 function updatePromoActiveDot(index) {
   const dots = document.querySelectorAll("#promo-slider-dots .promo-dot");
   dots.forEach((dot, i) => {

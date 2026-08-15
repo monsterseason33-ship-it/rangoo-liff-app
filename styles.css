@@ -70,6 +70,8 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
   gap: 12px;
 }
 
@@ -147,8 +149,9 @@ body {
 
 /* Container */
 .container {
-  padding: 16px;
-  max-width: 540px;
+  padding: 14px 16px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -1689,10 +1692,11 @@ body {
 .tab-bar {
   position: fixed !important;
   bottom: 0 !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
+  left: 0 !important;
+  right: 0 !important;
+  transform: none !important;
   width: 100% !important;
-  max-width: 540px !important;
+  max-width: 100% !important;
   background: rgba(5, 11, 24, 0.98) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
@@ -1702,6 +1706,7 @@ body {
   z-index: 999999 !important;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.8) !important;
   padding: 4px 0 calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tab-bar-inner {
@@ -2243,6 +2248,52 @@ body {
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 10.5px;
+}
+
+.promo-slider-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.promo-nav-btn {
+  display: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.promo-nav-btn:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: var(--gold-primary, #fbbf24);
+  color: var(--gold-light, #fde047);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8), 0 0 14px rgba(251, 191, 36, 0.4);
+}
+
+.promo-nav-btn:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.promo-nav-btn.prev {
+  left: -14px;
+}
+
+.promo-nav-btn.next {
+  right: -14px;
 }
 
 .promo-cards-slider {
@@ -3077,4 +3128,384 @@ input:checked + .slider-toggle:before {
 
 .top10-title-animated {
   transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN SYSTEM: iPAD (TABLET) & PC (DESKTOP) WIDESCREEN
+   ========================================================================== */
+
+/* 📱 TABLET / iPAD BREAKPOINT (641px - 1024px) */
+@media (min-width: 641px) {
+  body {
+    padding-bottom: 110px;
+  }
+
+  .app-header {
+    padding: 12px 24px;
+  }
+
+  .header-main-row {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .brand-logo-img {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+
+  .brand-title h1 {
+    font-size: 15px;
+  }
+
+  .brand-title p {
+    font-size: 10px;
+  }
+
+  .user-profile-badge {
+    max-width: 220px;
+    padding: 5px 10px 5px 5px;
+    gap: 8px;
+  }
+
+  .user-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .user-name {
+    font-size: 11.5px;
+    max-width: 110px;
+  }
+
+  .container {
+    max-width: 880px;
+    padding: 20px 24px;
+  }
+
+  .welcome-banner {
+    padding: 18px 22px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+  }
+
+  .welcome-banner h2 {
+    font-size: 17.5px;
+  }
+
+  .welcome-banner p {
+    font-size: 12.5px;
+  }
+
+  .search-box {
+    margin-bottom: 18px;
+  }
+
+  .search-input {
+    height: 46px;
+    font-size: 13.5px;
+    border-radius: 14px;
+    padding-left: 44px;
+  }
+
+  .search-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* 2-Column Responsive Cards Grid on iPad */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .sub-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  /* Promotions Carousel Scaling */
+  .promo-card {
+    flex: 0 0 220px;
+    max-width: 220px;
+    min-width: 210px;
+    border-radius: 22px;
+  }
+
+  .card-banner-wrapper {
+    height: 245px;
+  }
+
+  /* Spending Metrics Dashboard */
+  .spending-metrics-card {
+    padding: 18px 24px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+  }
+
+  .metric-label {
+    font-size: 11.5px;
+  }
+
+  .metric-value {
+    font-size: 20px;
+  }
+
+  /* Live Chat Support Room */
+  .chat-room-card {
+    height: 560px;
+    border-radius: 22px;
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .chat-bubble {
+    font-size: 13px;
+    padding: 11px 16px;
+  }
+
+  /* Floating Apple Glass Navigation Dock Capsule */
+  .tab-bar {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: calc(100% - 48px) !important;
+    max-width: 460px !important;
+    border-radius: 99px !important;
+    border: 1px solid rgba(212, 175, 55, 0.4) !important;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 175, 55, 0.15) !important;
+    padding: 6px 14px !important;
+  }
+
+  .tab-bar-inner {
+    max-width: 100%;
+  }
+
+  .floating-scroll-sub-btn {
+    bottom: 85px;
+    right: 28px;
+  }
+
+  .modal-content {
+    max-width: 520px;
+    border-radius: 26px;
+    padding: 24px;
+  }
+}
+
+/* 💻 PC / DESKTOP WIDESCREEN (>= 1025px) */
+@media (min-width: 1025px) {
+  body {
+    padding-bottom: 120px;
+  }
+
+  .app-header {
+    padding: 12px 32px;
+  }
+
+  .header-main-row {
+    max-width: 1220px;
+    margin: 0 auto;
+  }
+
+  .brand-logo-img {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .brand-title h1 {
+    font-size: 16px;
+  }
+
+  .brand-title p {
+    font-size: 10.5px;
+  }
+
+  .user-profile-badge {
+    max-width: 250px;
+    padding: 5px 12px 5px 6px;
+    gap: 9px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .user-name {
+    font-size: 12px;
+    max-width: 125px;
+  }
+
+  .container {
+    max-width: 1220px;
+    padding: 26px 32px;
+  }
+
+  .welcome-banner {
+    padding: 22px 28px;
+    border-radius: 22px;
+    margin-bottom: 22px;
+  }
+
+  .welcome-banner h2 {
+    font-size: 19px;
+  }
+
+  .welcome-banner p {
+    font-size: 13.5px;
+  }
+
+  .search-box {
+    margin-bottom: 22px;
+  }
+
+  .search-input {
+    height: 48px;
+    font-size: 14px;
+    border-radius: 16px;
+    padding-left: 48px;
+  }
+
+  .search-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* Multi-Column Grid on Desktop / PC */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .sub-card {
+    padding: 24px;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .sub-card-header {
+    margin-bottom: 14px;
+  }
+
+  .app-name-text {
+    font-size: 18px;
+  }
+
+  .app-icon-symbol,
+  .app-theme-gif-icon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .promo-cards-slider {
+    gap: 14px;
+    padding-bottom: 12px;
+  }
+
+  .promo-card {
+    flex: 0 0 240px;
+    max-width: 240px;
+    min-width: 230px;
+    border-radius: 22px;
+  }
+
+  .card-banner-wrapper {
+    height: 260px;
+  }
+
+  .promo-nav-btn {
+    display: flex;
+  }
+
+  /* Spending Metrics on Desktop */
+  .spending-metrics-card {
+    padding: 22px 32px;
+    border-radius: 22px;
+    margin-bottom: 22px;
+  }
+
+  .metric-label {
+    font-size: 12.5px;
+  }
+
+  .metric-value {
+    font-size: 24px;
+  }
+
+  .metric-divider {
+    height: 36px;
+  }
+
+  /* Spacious Chat Room on Desktop */
+  .chat-room-card {
+    height: 620px;
+    border-radius: 24px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .chat-bubble {
+    font-size: 13.5px;
+    padding: 12px 18px;
+  }
+
+  /* Centered Glass Navigation Dock Capsule */
+  .tab-bar {
+    max-width: 480px !important;
+    bottom: 24px !important;
+    padding: 7px 18px !important;
+    border-radius: 99px !important;
+  }
+
+  .tab-item {
+    font-size: 11px;
+    padding: 6px 4px;
+  }
+
+  .tab-item:hover {
+    transform: translateY(-3px) scale(1.05);
+    color: #fff;
+  }
+
+  .modal-content {
+    max-width: 560px;
+    border-radius: 28px;
+    padding: 28px;
+  }
+
+  .floating-scroll-sub-btn {
+    bottom: 95px;
+    right: 36px;
+  }
+}
+
+/* 🖥️ LARGE WIDESCREEN / 2K+ (>= 1440px) */
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1340px;
+    padding: 30px 36px;
+  }
+
+  .header-main-row {
+    max-width: 1340px;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+  }
 }
