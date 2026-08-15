@@ -699,21 +699,21 @@ function getDeviceTypeHtml(dt) {
   if (!dt) return `${mobileIcon}<span>มือถือ / ไอแพด / แท็บเล็ต</span>`;
   const lower = dt.toLowerCase().trim();
 
-  // 1. Check Mobile first (covers "มือถือ", "mobile", "มือถือ/PC", "มือถือ/พกพา")
-  if (lower.includes('มือถือ') || lower.includes('mobile')) {
-    return `${mobileIcon}<span>มือถือ / ไอแพด / แท็บเล็ต</span>`;
-  }
-  // 2. Check iPad / Tablet
-  if (lower.includes('ไอแพด') || lower.includes('ipad') || lower.includes('แท็บเล็ต')) {
-    return `${tabletIcon}<span>ไอแพด / แท็บเล็ต</span>`;
-  }
-  // 3. Check TV / Smart TV
-  if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี')) {
+  // 1. Check TV / Smart TV FIRST (covers "สมาร์ททีวี", "ทีวี", "tv", "สมาร์ททีวี / มือถือ")
+  if (lower === 'tv' || lower.includes('tv') || lower.includes('ทีวี') || lower.includes('สมาร์ททีวี')) {
     return `${tvIcon}<span>สมาร์ททีวี</span>`;
   }
-  // 4. Check Standalone Computer / PC
-  if (lower.includes('คอม') || lower.includes('pc') || lower.includes('laptop')) {
+  // 2. Check iPad / Tablet
+  if (lower.includes('ไอแพด') || lower.includes('ipad') || lower.includes('แท็บเล็ต') || lower.includes('tablet')) {
+    return `${tabletIcon}<span>ไอแพด / แท็บเล็ต</span>`;
+  }
+  // 3. Check Standalone Computer / PC
+  if (lower.includes('คอม') || lower.includes('pc') || lower.includes('laptop') || lower.includes('คอมพิวเตอร์')) {
     return `${pcIcon}<span>คอมพิวเตอร์ / PC</span>`;
+  }
+  // 4. Check Mobile
+  if (lower.includes('มือถือ') || lower.includes('mobile') || lower.includes('โทรศัพท์')) {
+    return `${mobileIcon}<span>มือถือ / ไอแพด / แท็บเล็ต</span>`;
   }
 
   return `${mobileIcon}<span>มือถือ / iPad</span>`;
