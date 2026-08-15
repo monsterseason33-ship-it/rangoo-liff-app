@@ -2235,7 +2235,7 @@ async function fetchNetflixClearanceStock() {
   try {
     let accounts = await supabaseFetch(`accounts?status=eq.available&select=*,app:apps(*)`) || [];
 
-    // Filter available accounts for shop Ud624479284e7b16f667193128ae8d9c9
+    // Filter available accounts for shop
     accounts = accounts.filter(acc => acc.status === 'available');
 
     const now = new Date();
@@ -2268,15 +2268,51 @@ async function fetchNetflixClearanceStock() {
     const remDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
 
     const expiryFormattedText = formatShortThaiDate(expDateObj);
-    const calculatedPrice = Math.round((remDays / 30) * 120);
+
+    // 1. Detect device type of the target clearance account
+    const isTv = targetAccount.device_type
+      ? (targetAccount.device_type.toLowerCase() === 'tv' || targetAccount.device_type.includes('ทีวี'))
+      : (/จอ\s*5/.test(targetAccount.profile_name || "") || (targetAccount.profile_name || "").toLowerCase().includes("tv"));
+
+    // 2. Fetch or reuse catalogPackages to match exact package tiers like Extension content.js
+    if (!catalogPackages || catalogPackages.length === 0) {
+      catalogPackages = await supabaseFetch("packages?select=*&order=price.asc") || [];
+    }
+
+    let netflixPackages = (catalogPackages || []).filter(p => {
+      const pName = (p.name || "").toLowerCase();
+      const isTvPkg = pName.includes("tv") || pName.includes("ทีวี") || pName.includes("ทุกอุปกรณ์");
+      const isNf = pName.includes("netflix") || (p.app && (p.app.name || "").toLowerCase().includes("netflix"));
+      return isNf && isTvPkg === isTv;
+    });
+
+    if (netflixPackages.length === 0) {
+      netflixPackages = isTv
+        ? [{ days: 7, price: 79 }, { days: 15, price: 109 }, { days: 30, price: 170 }]
+        : [{ days: 7, price: 69 }, { days: 15, price: 99 }, { days: 30, price: 120 }];
+    }
+
+    netflixPackages.sort((a, b) => (a.days || 30) - (b.days || 30));
+
+    // 3. Find matching package duration tier (Tier classification identical to Extension content.js)
+    let matchedPkg = netflixPackages.find(p => remDays <= (p.days || 30));
+    if (!matchedPkg) {
+      matchedPkg = netflixPackages[netflixPackages.length - 1];
+    }
+
+    const pkgDays = matchedPkg.days || 30;
+    const basePrice = matchedPkg.price || (isTv ? 170 : 120);
+    const calculatedPrice = Math.round((remDays / pkgDays) * basePrice);
+    const originalPrice = basePrice;
+    const deviceTitle = isTv ? "สมาร์ททีวี/ทุกอุปกรณ์" : "มือถือ/แท็บเล็ต";
 
     return {
       stockCount: stockCount,
       minDays: remDays,
       estimatedPrice: calculatedPrice,
-      originalPrice: 120,
+      originalPrice: originalPrice,
       expiryText: expiryFormattedText,
-      title: `📦 จอโล๊ะ Netflix 4K (มือถือ/แท็บเล็ต)`,
+      title: `📦 จอโล๊ะ Netflix 4K (${deviceTitle})`,
       description: `⚡️ [โละเคลียร์สต็อก] เหลือ ${remDays} วัน (หมด ${expiryFormattedText}) เพียง ${calculatedPrice}.-`
     };
   } catch (err) {
