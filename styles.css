@@ -447,30 +447,49 @@ body {
 /* Modern Sleek Progress Bar (iOS Glassmorphism Style) */
 .sub-progress-container {
   width: 100%;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.07);
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 99px;
   overflow: hidden;
   margin: 12px 0 14px 0;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  position: relative;
 }
 
 .sub-progress-fill {
   height: 100%;
   border-radius: 99px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  overflow: hidden;
+}
+
+.sub-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+  border-radius: 99px;
+  animation: progressShimmer 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes progressShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .sub-progress-fill.expiry-active {
-  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 55%, #7dd3fc 100%);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.65), 0 0 4px rgba(56, 189, 248, 0.4);
   border: none;
 }
 
 .sub-progress-fill.expiry-warning {
-  background: linear-gradient(90deg, #d97706 0%, #fbbf24 100%);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  background: linear-gradient(90deg, #d97706 0%, #fbbf24 60%, #fde047 100%);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.65), 0 0 4px rgba(251, 191, 36, 0.4);
   border: none;
 }
 
@@ -482,7 +501,7 @@ body {
 
 .sub-progress-fill.expiry-broken {
   background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%) !important;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6) !important;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.75) !important;
 }
 
 .expiry-broken {
