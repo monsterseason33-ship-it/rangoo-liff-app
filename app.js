@@ -42,6 +42,10 @@ let promotionsData = [];
 
 // Helper: Call Supabase REST API
 async function supabaseFetch(endpoint, options = {}) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new Error("ERR_INTERNET_DISCONNECTED");
+  }
+
   const url = `${CONFIG.SUPABASE_URL}/rest/v1/${endpoint}`;
   const headers = {
     "apikey": CONFIG.SUPABASE_KEY,
@@ -60,7 +64,9 @@ async function supabaseFetch(endpoint, options = {}) {
     const text = await res.text();
     return text ? JSON.parse(text) : null;
   } catch (err) {
-    console.error("[Supabase Fetch Error]", err);
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      console.error("[Supabase Fetch Error]", err.message || err);
+    }
     throw err;
   }
 }
@@ -2279,6 +2285,8 @@ async function fetchNetflixTop10Data() {
 async function fetchAndRenderPromotions() {
   const container = document.getElementById("promotions-container");
   if (!container) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
 
   try {
     const data = await supabaseFetch("promotions?select=*&order=display_order.asc,created_at.desc");
@@ -2470,15 +2478,34 @@ async function fetchAndRenderPromotions() {
       }, 2500);
     }
   } catch (err) {
-    console.warn("[Promotions Load Error]", err);
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      console.warn("[Promotions Load Error]", err);
+    }
   }
 }
 
-// Real-time stock polling for clearance screens (every 10 seconds)
+// Real-time stock polling for clearance screens (every 20 seconds when online & visible)
 if (!window._clearanceRealtimeTimer) {
   window._clearanceRealtimeTimer = setInterval(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine && typeof document !== 'undefined' && !document.hidden) {
+      fetchAndRenderPromotions();
+    }
+  }, 20000);
+}
+
+// Online/Offline Network Event Listeners
+if (typeof window !== 'undefined' && !window._networkListenersAttached) {
+  window._networkListenersAttached = true;
+  window.addEventListener('online', () => {
+    console.log('[Network] 🟢 Connection restored. Refreshing...');
     fetchAndRenderPromotions();
-  }, 10000);
+    if (typeof loadCustomerSubscriptions === 'function' && window._lastActiveRefCode) {
+      loadCustomerSubscriptions(window._lastActiveRefCode);
+    }
+  });
+  window.addEventListener('offline', () => {
+    console.log('[Network] 🔴 Connection offline.');
+  });
 }
 
 // Auto Slide & Pagination Dots Core Logic
