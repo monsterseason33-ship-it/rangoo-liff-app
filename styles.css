@@ -592,15 +592,30 @@ body {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .credential-text {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Fira Code', monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  max-width: 100%;
+}
+
+.credential-text:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.credential-text:active {
+  transform: scale(0.98);
 }
 
 .email-text {
@@ -637,6 +652,29 @@ body {
   transform: scale(0.95);
 }
 
+.copy-pill-btn.copy-icon-only {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.copy-pill-btn.copy-icon-only:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+.copy-pill-btn.copy-icon-only:active {
+  transform: scale(0.92);
+}
+
 .copy-pill-btn.open-btn {
   background: rgba(56, 189, 248, 0.15);
   border-color: rgba(56, 189, 248, 0.35);
@@ -649,21 +687,29 @@ body {
 }
 
 .eye-pill-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
-  padding: 3px 7px;
-  border-radius: 12px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .eye-pill-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: rgba(253, 224, 71, 0.15);
+  border-color: rgba(253, 224, 71, 0.3);
+  color: #fde047;
+}
+
+.eye-pill-btn:active {
+  transform: scale(0.92);
 }
 
 /* Info Grid (Profile & Device) */

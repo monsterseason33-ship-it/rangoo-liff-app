@@ -866,8 +866,10 @@ function renderSubscriptions() {
               <span>อีเมล:</span>
             </div>
             <div class="credential-val-box">
-              <span class="credential-text email-text" title="${escapeHtml(email)}">${escapeHtml(email)}</span>
-              <button class="copy-pill-btn" onclick="copyToClipboard('${escapeHtml(email)}')">คัดลอก</button>
+              <span class="credential-text email-text" onclick="copyToClipboard('${escapeHtml(email)}', 'อีเมล')" title="แตะเพื่อคัดลอกอีเมล">${escapeHtml(email)}</span>
+              <button class="copy-pill-btn copy-icon-only" onclick="copyToClipboard('${escapeHtml(email)}', 'อีเมล')" title="คัดลอกอีเมล">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
             </div>
           </div>
 
@@ -877,9 +879,11 @@ function renderSubscriptions() {
               <span>รหัสผ่าน:</span>
             </div>
             <div class="credential-val-box">
-              <span class="credential-text pass-text ${isPasswordVisible ? '' : 'masked'}" title="${escapeHtml(displayedPassword)}">${escapeHtml(displayedPassword)}</span>
+              <span class="credential-text pass-text ${isPasswordVisible ? '' : 'masked'}" onclick="copyToClipboard('${escapeHtml(rawPassword)}', 'รหัสผ่าน')" title="แตะเพื่อคัดลอกรหัสผ่าน">${escapeHtml(displayedPassword)}</span>
               <button class="eye-pill-btn" onclick="togglePasswordVisibility('${sub.id}')" title="ซ่อน/แสดงรหัสผ่าน">${eyeSvg}</button>
-              <button class="copy-pill-btn" onclick="copyToClipboard('${escapeHtml(rawPassword)}')">คัดลอก</button>
+              <button class="copy-pill-btn copy-icon-only" onclick="copyToClipboard('${escapeHtml(rawPassword)}', 'รหัสผ่าน')" title="คัดลอกรหัสผ่าน">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
             </div>
           </div>
         </div>
