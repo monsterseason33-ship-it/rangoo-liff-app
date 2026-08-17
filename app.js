@@ -905,7 +905,7 @@ function renderSubscriptions() {
               อุปกรณ์
             </span>
             <span class="info-tile-val device-val">
-              ${getDeviceTypeHtml(sub.device_type)}
+              ${getDeviceTypeHtml(sub.device_type || acc.device_type)}
             </span>
           </div>
 
