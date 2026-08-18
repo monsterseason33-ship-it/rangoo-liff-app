@@ -2648,7 +2648,7 @@ body.support-tab-active .container {
   font-weight: 700;
 }
 
-/* ================= PROMOTIONS & BANNER SLIDER STYLES (COMPACT SLEEK E-COMMERCE STYLE) ================= */
+/* ================= PROMOTIONS & BANNER SLIDER STYLES (MODERN LUXURY GLASSMORPHIC STYLE) ================= */
 .promotions-section {
   width: 100%;
   position: relative;
@@ -2656,7 +2656,7 @@ body.support-tab-active .container {
   border: none;
   padding: 0;
   box-shadow: none;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 /* Header Live Countdown Styling */
@@ -2669,51 +2669,65 @@ body.support-tab-active .container {
 .flash-title-group {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 13.5px;
   font-weight: 900;
   color: #ffffff;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
 }
 
+.flash-title-group svg {
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8));
+  animation: pulseGlow 1.8s infinite ease-in-out;
+}
+
 .flash-title-text {
-  background: linear-gradient(90deg, #ffffff 0%, #ff8a7a 100%);
+  background: linear-gradient(90deg, #ffffff 0%, #fed7aa 40%, #fb923c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 900;
+  letter-spacing: 0.8px;
 }
 
 .flash-countdown-box {
   display: flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 3px 9px;
-  border-radius: 12px;
+  gap: 6px;
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  padding: 3px 10px;
+  border-radius: 14px;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.15);
 }
 
 .flash-timer-label {
-  font-size: 9px;
-  color: #94a3b8;
-  font-weight: 600;
+  font-size: 9.5px;
+  color: #fca5a5;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .flash-timer-digits {
-  font-family: 'Outfit', monospace, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
+  font-family: 'Outfit', ui-monospace, monospace, sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
   color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .flash-timer-digits span {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.25);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 10.5px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
 
 .promo-slider-wrapper {
@@ -2764,11 +2778,11 @@ body.support-tab-active .container {
 
 .promo-cards-slider {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 2px 0 10px 0;
+  padding: 4px 2px 12px 2px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -2777,13 +2791,13 @@ body.support-tab-active .container {
   display: none;
 }
 
-/* Slider Pagination Dots */
+/* Slider Pagination Dots - Modern Pill Style */
 .promo-slider-dots {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  margin-top: 2px;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .promo-dot {
@@ -2795,12 +2809,19 @@ body.support-tab-active .container {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.promo-dot.active {
+  width: 18px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+}
+
 .promo-card {
-  flex: 0 0 195px;
-  max-width: 195px;
-  min-width: 190px;
+  flex: 0 0 198px;
+  max-width: 198px;
+  min-width: 192px;
   scroll-snap-align: start;
-  background: rgba(14, 16, 24, 0.95);
+  background: linear-gradient(175deg, rgba(20, 24, 38, 0.95) 0%, rgba(10, 13, 22, 0.98) 100%);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2810,20 +2831,20 @@ body.support-tab-active .container {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .promo-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.8);
+  transform: translateY(-6px);
+  border-color: rgba(251, 191, 36, 0.45);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.85), 0 0 20px rgba(251, 191, 36, 0.2);
 }
 
 /* Card Banner Header - Sleek 2:3 Movie Poster Display */
 .card-banner-wrapper {
   width: 100%;
-  height: 230px;
+  height: 220px;
   position: relative;
   overflow: hidden;
   background: #08090d;
@@ -2835,18 +2856,18 @@ body.support-tab-active .container {
   background-size: cover;
   background-position: center top;
   position: relative;
-  transition: transform 0.5s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .promo-card:hover .card-banner-img {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .card-banner-img::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(14, 16, 24, 1) 0%, rgba(14, 16, 24, 0.55) 40%, rgba(14, 16, 24, 0.1) 75%, transparent 100%);
+  background: linear-gradient(to top, rgba(14, 17, 27, 1) 0%, rgba(14, 17, 27, 0.7) 35%, rgba(14, 17, 27, 0.15) 70%, transparent 100%);
 }
 
 .card-badge-pill {
@@ -2854,20 +2875,20 @@ body.support-tab-active .container {
   top: 10px;
   right: 10px;
   z-index: 5;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-  font-size: 9px;
+  background: rgba(10, 15, 29, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  font-size: 9.5px;
   font-weight: 800;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 12px;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   display: flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
 }
 
 .shopee-discount-tag {
@@ -2875,14 +2896,14 @@ body.support-tab-active .container {
   top: 10px;
   left: 10px;
   z-index: 5;
-  background: linear-gradient(135deg, #ff0055 0%, #e50914 100%);
+  background: linear-gradient(135deg, #ff0055 0%, #e11d48 100%);
   color: #ffffff;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 900;
-  padding: 2px 7px;
+  padding: 2.5px 8px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.6);
-  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.6);
+  letter-spacing: 0.4px;
 }
 
 /* Card Body Content - Integrated into Poster Bottom */
@@ -2891,29 +2912,30 @@ body.support-tab-active .container {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: -38px;
+  margin-top: -34px;
   position: relative;
   z-index: 6;
 }
 
 .vertical-card-body .promo-card-title {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 800;
   color: #ffffff;
-  line-height: 1.3;
+  line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal;
-  min-height: 32px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  min-height: 34px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  letter-spacing: -0.1px;
 }
 
 .vertical-card-body .promo-card-desc {
-  font-size: 10px;
-  color: #cbd5e1;
-  line-height: 1.3;
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -2925,19 +2947,20 @@ body.support-tab-active .container {
 /* Shopee Stock Sales Progress Bar */
 .shopee-progress-bar-container {
   width: 100%;
-  height: 13px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   position: relative;
   overflow: hidden;
-  margin-top: 2px;
+  margin-top: 3px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
 
 .shopee-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ff0055 0%, #ff5252 50%, #ff7a00 100%);
-  border-radius: 8px;
+  background: linear-gradient(90deg, #e11d48 0%, #f97316 60%, #fbbf24 100%);
+  border-radius: 10px;
 }
 
 .shopee-progress-text {
@@ -2952,7 +2975,7 @@ body.support-tab-active .container {
   color: #ffffff;
   font-size: 8.5px;
   font-weight: 800;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
   letter-spacing: 0.2px;
 }
 
@@ -2962,7 +2985,7 @@ body.support-tab-active .container {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: rgba(14, 16, 24, 0.98);
+  background: rgba(14, 17, 27, 0.98);
 }
 
 .vertical-price-row {
@@ -2978,56 +3001,66 @@ body.support-tab-active .container {
 }
 
 .promo-original-price {
-  font-size: 10.5px;
+  font-size: 11px;
   color: #64748b;
   text-decoration: line-through;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .shopee-flash-price {
-  font-size: 17px;
-  color: #ffffff;
+  font-size: 19px;
   font-family: 'Outfit', sans-serif;
+  font-weight: 900;
   line-height: 1;
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.3));
 }
 
 .btn-shopee-buy {
-  background: #ffffff;
-  color: #08090d;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 5px 11px;
+  padding: 6px 12px;
   border-radius: 16px;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  box-shadow: 0 3px 10px rgba(255, 255, 255, 0.15);
-  transition: all 0.2s ease;
+  gap: 4px;
+  transition: all 0.25s ease;
 }
 
 .btn-full-width {
   width: 100% !important;
   justify-content: center;
-  padding: 7px 12px !important;
-  font-size: 11px !important;
+  padding: 8px 14px !important;
+  font-size: 11.5px !important;
   font-weight: 800 !important;
   border-radius: 12px !important;
   letter-spacing: 0.3px;
-  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
-  color: #0b0f19 !important;
-  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2) !important;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 16px rgba(251, 191, 36, 0.4) !important;
 }
 
 .btn-full-width:hover {
-  background: #ffffff !important;
-  box-shadow: 0 6px 22px rgba(255, 255, 255, 0.4) !important;
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #fde047 0%, #fbbf24 100%) !important;
+  box-shadow: 0 6px 24px rgba(251, 191, 36, 0.6) !important;
+  transform: translateY(-2px);
 }
 
-.btn-shopee-buy:hover {
-  transform: scale(1.03);
+.btn-full-width:active {
+  transform: translateY(0);
+}
+
+.btn-full-width svg {
+  transition: transform 0.2s ease;
+}
+
+.btn-full-width:hover svg {
+  transform: translateX(3px);
+}
   background: #f1f5f9;
   box-shadow: 0 4px 16px rgba(255, 255, 255, 0.25);
 }

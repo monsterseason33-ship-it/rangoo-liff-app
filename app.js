@@ -2679,6 +2679,23 @@ async function fetchAndRenderPromotions() {
         .replace(/\s+/g, ' ')
         .trim();
 
+      // Smart Fallback Description (prevent duplicate title & subtitle, show high-converting value proposition)
+      if (!cleanDesc || cleanDesc.toLowerCase() === (promo.title || '').trim().toLowerCase()) {
+        if (promo.is_auto_clearance) {
+          cleanDesc = "⚡️ โละสต็อกราคาสุดคุ้ม ด่วนก่อนหมด";
+        } else if ((promo.title || '').toLowerCase().includes("netflix")) {
+          cleanDesc = "✨ คมชัดระดับ 4K HDR ลื่นไหลไม่มีสะดุด";
+        } else if ((promo.title || '').toLowerCase().includes("mono") || (promo.title || '').toLowerCase().includes("sport")) {
+          cleanDesc = "⚽ ดูบอลสดพรีเมียร์ลีก + หนังและซีรีส์ครบ";
+        } else if ((promo.title || '').toLowerCase().includes("prime")) {
+          cleanDesc = "🎬 หนังและซีรีส์ระดับพรีเมียม ซับไทยครบ";
+        } else if ((promo.title || '').toLowerCase().includes("disney") || (promo.title || '').toLowerCase().includes("hotstar")) {
+          cleanDesc = "🏰 มาร์เวล ดิสนีย์ และซีรีส์ดังระดับโลก";
+        } else {
+          cleanDesc = "✨ บัญชีพรีเมียมแท้ 100% ส่งด่วนพร้อมใช้งาน";
+        }
+      }
+
       if (promo.is_auto_top10) {
         html += `
           <div class="promo-card vertical-card top10-card-wrapper">
@@ -2708,7 +2725,7 @@ async function fetchAndRenderPromotions() {
                 </div>
               </div>
               <button type="button" class="btn-shopee-buy btn-full-width" onclick="handlePromoAction('${promo.id}')">
-                <span>สั่งซื้อ Netflix</span>
+                <span>🎬 สั่งซื้อ Netflix</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
               </button>
             </div>
@@ -2716,6 +2733,8 @@ async function fetchAndRenderPromotions() {
         `;
         return;
       }
+
+      const buyBtnLabel = promo.is_auto_clearance ? '⚡ สั่งซื้อจอโล๊ะ' : '🔥 สั่งซื้อเลย';
 
       html += `
         <div class="promo-card vertical-card ${promo.is_auto_clearance ? 'auto-clearance-card' : ''}">
@@ -2744,7 +2763,7 @@ async function fetchAndRenderPromotions() {
               </div>
             </div>
             <button type="button" class="btn-shopee-buy btn-full-width" onclick="handlePromoAction('${promo.id}')">
-              <span>${promo.is_auto_clearance ? 'สั่งซื้อจอโล๊ะ' : 'ซื้อเลย'}</span>
+              <span>${buyBtnLabel}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
           </div>
