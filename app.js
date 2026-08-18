@@ -2141,7 +2141,10 @@ function switchTab(tabName) {
 
   if (!oldPane || !newPane) {
     Object.keys(panes).forEach(k => {
-      if (panes[k]) panes[k].style.display = (k === tabName) ? "block" : "none";
+      if (panes[k]) {
+        panes[k].style.display = (k === tabName) ? (k === "support" ? "flex" : "block") : "none";
+        panes[k].classList.toggle("active", k === tabName);
+      }
     });
     activeTabName = tabName;
     return;
@@ -2151,7 +2154,7 @@ function switchTab(tabName) {
   activeTabName = tabName;
 
   // Clear previous animation classes
-  oldPane.classList.remove("tab-unfold-left", "tab-unfold-right", "tab-fold-left", "tab-fold-right", "tab-unfold-in", "tab-fold-out");
+  oldPane.classList.remove("tab-unfold-left", "tab-unfold-right", "tab-fold-left", "tab-fold-right", "tab-unfold-in", "tab-fold-out", "active");
   newPane.classList.remove("tab-unfold-left", "tab-unfold-right", "tab-fold-left", "tab-fold-right", "tab-unfold-in", "tab-fold-out");
 
   const foldOutClass = isMovingRight ? "tab-fold-left" : "tab-fold-right";
@@ -2165,8 +2168,8 @@ function switchTab(tabName) {
     oldPane.classList.remove(foldOutClass);
 
     // 3. Display new pane and trigger 3D elastic spring unfold animation
-    newPane.style.display = "block";
-    newPane.classList.add(unfoldInClass);
+    newPane.style.display = (tabName === "support") ? "flex" : "block";
+    newPane.classList.add(unfoldInClass, "active");
 
     setTimeout(() => {
       newPane.classList.remove(unfoldInClass);
