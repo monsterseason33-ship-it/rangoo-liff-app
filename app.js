@@ -791,7 +791,7 @@ function renderSubscriptions() {
     const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📧\s*([^\n]+)/) || "ไม่ระบุ";
     const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "ไม่ระบุ";
     const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /👤\s*([^\n]+)/) || "จอ 1";
-    const pin = acc.pin_code || extractPattern(sub.raw_account_data, /PIN:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📌\s*PIN:\s*([^\n]+)/) || "-";
+    const pin = acc.pin_code || extractPattern(sub.raw_account_data, /(?:รหัส\s*)?PIN:\s*([^\n]+)/i) || extractPattern(sub.raw_account_data, /📌\s*(?:รหัส\s*)?PIN:\s*([^\n]+)/i) || extractPattern(sub.raw_account_data, /🔒\s*(?:รหัส\s*)?PIN:\s*([^\n]+)/i) || "-";
     const chatId = extractChatId(sub.chat_url);
 
     // Format full Thai Expiry Date & Time
@@ -894,9 +894,19 @@ function renderSubscriptions() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
               โปรไฟล์
             </span>
-            <span class="info-tile-val">
-              ${escapeHtml(profile)} ${pin && pin !== '-' ? `<span class="pin-badge">🔒 PIN: ${pin}</span>` : ''}
-            </span>
+            <div class="profile-val-container">
+              <span class="info-tile-val profile-name-val">${escapeHtml(profile)}</span>
+              ${pin && pin !== '-' ? `
+                <div class="pin-badge" onclick="event.stopPropagation(); copyToClipboard('${escapeHtml(pin)}', 'รหัส PIN ${escapeHtml(pin)}')" title="แตะเพื่อคัดลอก PIN: ${escapeHtml(pin)}">
+                  <div class="pin-badge-lock">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  </div>
+                  <span class="pin-badge-tag">PIN</span>
+                  <span class="pin-badge-code">${escapeHtml(pin)}</span>
+                  <svg class="pin-badge-copy-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </div>
+              ` : ''}
+            </div>
           </div>
 
           <div class="info-tile">
