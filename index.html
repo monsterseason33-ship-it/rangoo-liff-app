@@ -29,16 +29,8 @@
         </div>
       </div>
 
-      <!-- Header Actions: Search Toggle & User Profile Badge -->
+      <!-- Header Actions: User Profile Badge & Search Toggle -->
       <div class="header-actions-group">
-        <button type="button" id="btn-toggle-search" class="header-search-btn" title="ค้นหาแอป หรือสิทธิ์การใช้งาน (Ctrl+K)" onclick="toggleSearchBar()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <span class="search-active-dot" id="search-active-dot"></span>
-        </button>
-
         <!-- User Profile Badge with Integrated User ID Inspector -->
         <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;"
           title="แตะเพื่อดูและตั้งค่าโปรไฟล์">
@@ -59,6 +51,14 @@
             </svg>
           </button>
         </div>
+
+        <button type="button" id="btn-toggle-search" class="header-search-btn" title="ค้นหาแอป หรือสิทธิ์การใช้งาน (Ctrl+K)" onclick="toggleSearchBar()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span class="search-active-dot" id="search-active-dot"></span>
+        </button>
       </div>
     </div>
 
@@ -178,15 +178,24 @@
           </span>
           <span id="sub-count-badge" class="section-badge">0 รายการ</span>
         </div>
-        <button id="btn-refresh-subs" class="btn-glass-pill">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-          รีเฟรช
-        </button>
+        <div class="section-actions-group">
+          <button type="button" class="btn-glass-pill btn-quick-search" title="ค้นหาแอปหรือสิทธิ์การใช้งาน" onclick="toggleSearchBar()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span>ค้นหา</span>
+          </button>
+          <button id="btn-refresh-subs" class="btn-glass-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            รีเฟรช
+          </button>
+        </div>
       </div>
 
       <div id="subscriptions-container" class="cards-grid">
