@@ -57,8 +57,9 @@
   <!-- Main Container -->
   <main class="container">
 
-    <!-- Welcome Banner (Sleek Gold-Accented Glass Card) -->
+    <!-- Welcome Banner (Sleek Gold-Accented Glass Card with Auto-Fadeout) -->
     <div class="welcome-banner" id="welcome-banner">
+      <button type="button" class="welcome-banner-close-btn" id="welcome-banner-close-btn" title="ปิดการแจ้งเตือน" onclick="dismissWelcomeBanner()">✕</button>
       <h2>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" style="vertical-align: sub; margin-right: 4px;">
@@ -67,6 +68,7 @@
         ยินดีต้อนรับสู่ <span class="gold-text">BOSS Premium</span>
       </h2>
       <p>จัดการสิทธิ์ ดูรหัสผ่าน และสั่งซื้อแอปพรีเมียมได้ครบจบในที่เดียวผ่าน LINE OA ครับ</p>
+      <div class="welcome-banner-progress"></div>
     </div>
 
     <!-- Admin Mode Badge Container -->

@@ -1434,6 +1434,36 @@ function renderHistoryTab() {
   if (savedAmountEl) savedAmountEl.textContent = `฿${(totalCalculatedAmount * 1.8).toFixed(0).toLocaleString()}`;
 }
 
+// Welcome Banner Auto-Dismiss Controller
+let welcomeBannerTimer = null;
+
+function initWelcomeBanner() {
+  const banner = document.getElementById("welcome-banner");
+  if (!banner) return;
+
+  // Auto-dismiss smoothly after 5 seconds
+  if (welcomeBannerTimer) clearTimeout(welcomeBannerTimer);
+  welcomeBannerTimer = setTimeout(() => {
+    dismissWelcomeBanner();
+  }, 5000);
+}
+
+function dismissWelcomeBanner() {
+  const banner = document.getElementById("welcome-banner");
+  if (!banner || banner.classList.contains("hiding") || banner.classList.contains("hidden")) return;
+
+  if (welcomeBannerTimer) {
+    clearTimeout(welcomeBannerTimer);
+    welcomeBannerTimer = null;
+  }
+
+  banner.classList.add("hiding");
+  setTimeout(() => {
+    banner.classList.add("hidden");
+    banner.style.display = "none";
+  }, 680);
+}
+
 // 5. Utility Functions
 function copyToClipboard(text, label = "") {
   if (!text) return;
@@ -1993,6 +2023,7 @@ function switchTab(tabName) {
 // 7. Event Listeners Setup
 document.addEventListener("DOMContentLoaded", () => {
   initLiff();
+  initWelcomeBanner();
 
   // Navigation Bar Tabs
   const navSubs = document.getElementById("nav-subs");
