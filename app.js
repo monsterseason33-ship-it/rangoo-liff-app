@@ -741,21 +741,58 @@ function getSubscriptionTotalDays(sub) {
 function renderSubscriptions() {
   const container = document.getElementById("subscriptions-container");
   const badge = document.getElementById("sub-count-badge");
+  if (!container) return;
   container.innerHTML = "";
 
-  const activeSubs = userBindings;
-  badge.textContent = `${activeSubs.length} รายการ`;
+  let activeSubs = userBindings || [];
+
+  if (activeSearchQuery) {
+    const q = activeSearchQuery.toLowerCase();
+    activeSubs = activeSubs.filter(sub => {
+      const acc = sub.account || {};
+      const appName = (sub.app_name || "").toLowerCase();
+      const pkgName = (sub.package_name || "").toLowerCase();
+      const email = (acc.email || "").toLowerCase();
+      const profile = (acc.profile_name || "").toLowerCase();
+      const pin = (acc.pin_code || "").toLowerCase();
+      const customer = (sub.customer_name || "").toLowerCase();
+      const rawData = (sub.raw_account_data || "").toLowerCase();
+      return appName.includes(q) || pkgName.includes(q) || email.includes(q) || profile.includes(q) || pin.includes(q) || customer.includes(q) || rawData.includes(q);
+    });
+  }
+
+  if (badge) {
+    badge.textContent = `${activeSubs.length} รายการ`;
+  }
+
+  if (activeSearchQuery) {
+    const filterBanner = document.createElement("div");
+    filterBanner.className = "active-search-filter-banner";
+    filterBanner.innerHTML = `
+      <span>🔍 ค้นหา: "<b>${escapeHtml(activeSearchQuery)}</b>" (พบ ${activeSubs.length} สิทธิ์)</span>
+      <button type="button" class="active-search-clear-btn" onclick="clearSearchInput()">✕ ล้าง</button>
+    `;
+    container.appendChild(filterBanner);
+  }
 
   if (activeSubs.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
-        </div>
-        <div class="empty-title">ไม่พบสิทธิ์การใช้งาน</div>
-        <div class="empty-desc">คุณยังไม่มีสิทธิ์เข้าใช้งานแอปในขณะนี้ หรือสิทธิ์เดิมหมดอายุแล้ว</div>
+    const emptyEl = document.createElement("div");
+    emptyEl.className = "empty-state";
+    emptyEl.innerHTML = activeSearchQuery ? `
+      <div class="empty-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </div>
+      <div class="empty-title">ไม่พบสิทธิ์ที่ตรงกับ "${escapeHtml(activeSearchQuery)}"</div>
+      <div class="empty-desc">ลองค้นหาด้วยคำอื่น หรือกดล้างการค้นหาเพื่อดูทั้งหมด</div>
+      <button class="btn btn-outline" style="margin-top: 10px;" onclick="clearSearchInput()">ล้างการค้นหา</button>
+    ` : `
+      <div class="empty-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
+      </div>
+      <div class="empty-title">ไม่พบสิทธิ์การใช้งาน</div>
+      <div class="empty-desc">คุณยังไม่มีสิทธิ์เข้าใช้งานแอปในขณะนี้ หรือสิทธิ์เดิมหมดอายุแล้ว</div>
     `;
+    container.appendChild(emptyEl);
     return;
   }
 
@@ -1055,6 +1092,15 @@ function renderCatalog() {
   container.innerHTML = "";
 
   let filtered = catalogApps || [];
+
+  if (activeSearchQuery) {
+    const q = activeSearchQuery.toLowerCase();
+    filtered = filtered.filter(a => {
+      const name = (a.display_name || a.name || "").toLowerCase();
+      const desc = (a.description || "").toLowerCase();
+      return name.includes(q) || desc.includes(q);
+    });
+  }
 
   if (activeCatalogCategory === "movie") {
     filtered = filtered.filter(a => {
@@ -1462,6 +1508,123 @@ function dismissWelcomeBanner() {
     banner.classList.add("hidden");
     banner.style.display = "none";
   }, 680);
+}
+
+// ================= ON-DEMAND MODERN SEARCH CONTROLLER =================
+let activeSearchQuery = "";
+
+function toggleSearchBar() {
+  const searchBar = document.getElementById("search-overlay-bar");
+  const searchInput = document.getElementById("search-input");
+  const searchBtn = document.getElementById("btn-toggle-search");
+  if (!searchBar) return;
+
+  const isVisible = searchBar.style.display !== "none";
+  if (isVisible) {
+    closeSearchBar();
+  } else {
+    openSearchBar();
+  }
+}
+
+function openSearchBar() {
+  const searchBar = document.getElementById("search-overlay-bar");
+  const searchInput = document.getElementById("search-input");
+  const searchBtn = document.getElementById("btn-toggle-search");
+  if (!searchBar) return;
+
+  searchBar.style.display = "block";
+  searchBar.classList.remove("closing");
+  if (searchBtn) searchBtn.classList.add("active");
+  if (searchInput) {
+    setTimeout(() => {
+      searchInput.focus();
+      searchInput.select();
+    }, 50);
+  }
+}
+
+function closeSearchBar() {
+  const searchBar = document.getElementById("search-overlay-bar");
+  const searchBtn = document.getElementById("btn-toggle-search");
+  if (!searchBar) return;
+
+  searchBar.classList.add("closing");
+  setTimeout(() => {
+    searchBar.style.display = "none";
+    searchBar.classList.remove("closing");
+  }, 200);
+
+  if (searchBtn && !activeSearchQuery) {
+    searchBtn.classList.remove("active");
+  }
+}
+
+function clearSearchInput() {
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.value = "";
+    handleSearchChange("");
+    searchInput.focus();
+  } else {
+    handleSearchChange("");
+  }
+}
+
+function handleSearchChange(query) {
+  activeSearchQuery = (query || "").trim();
+  const clearBtn = document.getElementById("btn-clear-search");
+  const activeDot = document.getElementById("search-active-dot");
+  const searchBtn = document.getElementById("btn-toggle-search");
+  const hintEl = document.getElementById("search-result-hint");
+
+  if (clearBtn) {
+    clearBtn.style.display = activeSearchQuery ? "flex" : "none";
+  }
+  if (activeDot) {
+    activeDot.style.display = activeSearchQuery ? "block" : "none";
+  }
+  if (searchBtn) {
+    if (activeSearchQuery) {
+      searchBtn.classList.add("has-query");
+    } else {
+      searchBtn.classList.remove("has-query");
+    }
+  }
+
+  // Filter Active Subscriptions & Catalog
+  renderSubscriptions();
+  renderCatalog();
+
+  // Update live matching hint text in search bar
+  if (hintEl) {
+    if (activeSearchQuery) {
+      hintEl.style.display = "flex";
+      const q = activeSearchQuery.toLowerCase();
+      const subMatches = (userBindings || []).filter(sub => {
+        const acc = sub.account || {};
+        const appName = (sub.app_name || "").toLowerCase();
+        const pkgName = (sub.package_name || "").toLowerCase();
+        const email = (acc.email || "").toLowerCase();
+        const profile = (acc.profile_name || "").toLowerCase();
+        const pin = (acc.pin_code || "").toLowerCase();
+        const customer = (sub.customer_name || "").toLowerCase();
+        const rawData = (sub.raw_account_data || "").toLowerCase();
+        return appName.includes(q) || pkgName.includes(q) || email.includes(q) || profile.includes(q) || pin.includes(q) || customer.includes(q) || rawData.includes(q);
+      }).length;
+
+      const catMatches = (catalogApps || []).filter(a => {
+        const name = (a.display_name || a.name || "").toLowerCase();
+        const desc = (a.description || "").toLowerCase();
+        return name.includes(q) || desc.includes(q);
+      }).length;
+
+      hintEl.innerHTML = `<span>⚡ พบ <b>${subMatches}</b> สิทธิ์การใช้งาน • <b>${catMatches}</b> แอปในร้าน</span>`;
+    } else {
+      hintEl.style.display = "none";
+      hintEl.innerHTML = "";
+    }
+  }
 }
 
 // 5. Utility Functions
@@ -2024,6 +2187,33 @@ function switchTab(tabName) {
 document.addEventListener("DOMContentLoaded", () => {
   initLiff();
   initWelcomeBanner();
+
+  // On-Demand Search Bar Event Listeners
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      handleSearchChange(e.target.value);
+    });
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeSearchBar();
+      }
+    });
+  }
+
+  // Global Keyboard Shortcuts: '/' or 'Ctrl+K' / 'Cmd+K' to open search, 'Escape' to close
+  document.addEventListener("keydown", (e) => {
+    const isEditingInput = document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable);
+    if (!isEditingInput && e.key === "/") {
+      e.preventDefault();
+      openSearchBar();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      toggleSearchBar();
+    } else if (e.key === "Escape") {
+      closeSearchBar();
+    }
+  });
 
   // Navigation Bar Tabs
   const navSubs = document.getElementById("nav-subs");

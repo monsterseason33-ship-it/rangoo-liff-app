@@ -29,25 +29,57 @@
         </div>
       </div>
 
-      <!-- User Profile Badge with Integrated User ID Inspector -->
-      <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;"
-        title="แตะเพื่อดูและตั้งค่าโปรไฟล์">
-        <img id="user-avatar" class="user-avatar"
-          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='%230284c7'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-8 3-8 5v1h16v-1c0-2-1.9-5-8-5z'/></svg>"
-          alt="Profile">
-        <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
-          <span id="user-name" class="user-name">กำลังโหลด...</span>
-          <span id="user-id-subtext"
-            style="font-size: 8.5px; color: var(--blue-bright, #38bdf8); font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ID:
-            Loading...</span>
+      <!-- Header Actions: Search Toggle & User Profile Badge -->
+      <div class="header-actions-group">
+        <button type="button" id="btn-toggle-search" class="header-search-btn" title="ค้นหาแอป หรือสิทธิ์การใช้งาน (Ctrl+K)" onclick="toggleSearchBar()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span class="search-active-dot" id="search-active-dot"></span>
+        </button>
+
+        <!-- User Profile Badge with Integrated User ID Inspector -->
+        <div class="user-profile-badge" id="user-profile-badge" style="cursor: pointer;"
+          title="แตะเพื่อดูและตั้งค่าโปรไฟล์">
+          <img id="user-avatar" class="user-avatar"
+            src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 24 24' fill='%230284c7'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-8 3-8 5v1h16v-1c0-2-1.9-5-8-5z'/></svg>"
+            alt="Profile">
+          <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 0;">
+            <span id="user-name" class="user-name">กำลังโหลด...</span>
+            <span id="user-id-subtext"
+              style="font-size: 8.5px; color: var(--blue-bright, #38bdf8); font-family: monospace; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ID:
+              Loading...</span>
+          </div>
+          <button id="user-id-copy-btn" class="btn-user-id-copy" title="คัดลอกรหัสอ้างอิง">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
         </div>
-        <button id="user-id-copy-btn" class="btn-user-id-copy" title="คัดลอกรหัสอ้างอิง">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </div>
+    </div>
+
+    <!-- Expandable On-Demand Search Overlay Bar -->
+    <div id="search-overlay-bar" class="search-overlay-bar" style="display: none;">
+      <div class="search-bar-inner">
+        <div class="search-input-wrap">
+          <span class="search-icon-inside">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input type="text" id="search-input" class="search-input-field" placeholder="ค้นหาชื่อแอป, อีเมล, แพ็คเกจ หรือรหัสอ้างอิง..." autocomplete="off">
+          <button type="button" id="btn-clear-search" class="btn-clear-search" title="ล้างข้อความค้นหา" onclick="clearSearchInput()" style="display: none;">✕</button>
+        </div>
+        <button type="button" id="btn-close-search" class="btn-close-search" title="ปิดการค้นหา" onclick="closeSearchBar()">
+          ปิด
         </button>
       </div>
+      <div id="search-result-hint" class="search-result-hint" style="display: none;"></div>
     </div>
 
     <!-- Admin Mode Header Toolbar (Clean & Sleek) -->
@@ -77,18 +109,6 @@
     <!-- Security Unauthenticated Banner -->
     <div id="security-auth-banner"
       style="display:none; margin-bottom: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 12px; padding: 10px 14px; align-items: center;">
-    </div>
-
-    <!-- Search Input -->
-    <div class="search-box">
-      <span class="search-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-      </span>
-      <input type="text" id="search-input" class="search-input" placeholder="วางรหัสอ้างอิงลูกค้า หรือค้นหาแอป...">
     </div>
 
     <!-- ================= TAB 1: MY SUBSCRIPTIONS ================= -->
