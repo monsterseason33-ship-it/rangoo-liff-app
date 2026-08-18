@@ -2176,8 +2176,17 @@ function switchTab(tabName) {
   }, 140);
   checkFloatingScrollButton();
 
-  if (tabName === "support") {
+  const isSupportTab = (tabName === "support");
+  document.body.classList.toggle("support-tab-active", isSupportTab);
+
+  if (isSupportTab) {
     startChatPolling();
+    setTimeout(() => {
+      const msgBox = document.getElementById("chat-messages-container");
+      if (msgBox) {
+        msgBox.scrollTop = msgBox.scrollHeight;
+      }
+    }, 160);
   } else {
     stopChatPolling();
   }
