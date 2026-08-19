@@ -4336,60 +4336,103 @@ input:checked + .slider-toggle:before {
   50% { opacity: 0.8; transform: scale(1.02); }
 }
 
-/* 📦 Dynamic Netflix Package Selector Pills */
-/* 📦 Dynamic Netflix Package Selector Pills */
+/* 📦 Dynamic Netflix Segmented Device Switcher */
 .netflix-package-selector-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   margin-top: 3px;
   width: 100%;
 }
 
-.netflix-pkg-label {
-  font-size: 9px;
-  font-weight: 800;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  letter-spacing: 0.2px;
+/* Category Segmented Pill Bar (Row 1) */
+.netflix-cat-tabs-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2.5px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
 }
 
-.netflix-pkg-pills-container {
+.netflix-cat-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  padding: 4px 2px;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.netflix-cat-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.netflix-cat-tab.active {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.netflix-cat-tab.clearance-tab.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.18) 100%);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fef08a;
+  box-shadow: 0 1px 6px rgba(245, 158, 11, 0.3);
+}
+
+/* Duration / Plan Chips (Row 2) */
+.netflix-plan-chips-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   width: 100%;
   box-sizing: border-box;
 }
 
-.netflix-pkg-pill {
-  width: 100%;
+.netflix-plan-chips-row.single-deal-row {
+  grid-template-columns: 1fr;
+}
+
+.netflix-plan-chip {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #cbd5e1;
-  padding: 4px 6px;
+  padding: 4.5px 5px;
   border-radius: 8px;
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
+  gap: 3px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
   overflow: hidden;
+  width: 100%;
 }
 
-.netflix-pkg-pill:hover {
+.netflix-plan-chip:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
 }
 
-.netflix-pkg-pill.active {
+.netflix-plan-chip.active {
   background: linear-gradient(135deg, rgba(229, 9, 20, 0.38) 0%, rgba(177, 6, 14, 0.22) 100%);
   border-color: #e50914;
   color: #ffffff;
@@ -4397,45 +4440,40 @@ input:checked + .slider-toggle:before {
   font-weight: 800;
 }
 
-.netflix-pkg-pill.clearance-pill {
+.netflix-plan-chip.clearance-chip {
+  padding: 5.5px 8px;
   border-color: rgba(245, 158, 11, 0.3);
 }
 
-.netflix-pkg-pill.clearance-pill.active {
+.netflix-plan-chip.clearance-chip.active {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.38) 0%, rgba(217, 119, 6, 0.22) 100%);
   border-color: #f59e0b;
   color: #fef08a;
   box-shadow: 0 2px 10px rgba(245, 158, 11, 0.45);
   font-weight: 800;
-.netflix-pkg-pill-left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-  flex: 1;
 }
 
-.pkg-svg-icon {
-  flex-shrink: 0;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.netflix-pkg-pill-name {
+.netflix-plan-chip-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 9px;
   text-align: left;
   line-height: 1.2;
+  flex: 1;
 }
 
-.netflix-pkg-pill-price {
+.netflix-plan-chip-price {
   font-weight: 900;
   color: #fbbf24;
   font-size: 9.5px;
   flex-shrink: 0;
-  margin-left: 2px;
+}
+
+.pkg-svg-icon {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .netflix-dyn-price {
