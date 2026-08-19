@@ -4,6 +4,7 @@ const CONFIG = {
   SUPABASE_URL: "https://teeporxvxrwzwmnsnjyw.supabase.co",
   SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk",
   ADMIN_NAMES: ["boss", "ร้านกู", "admin", "เจ้าของร้าน"], // Auto-detect admin users
+  ADMIN_PASSCODES: ["B5HU8T37C1ESHCFDDW", "b5hu8t37c1eshcfddw"], // Secret Admin Passcodes for Full Unlock
   LINE_OA_LINK: "https://line.me/R/ti/p/@676aljmg",
   LINE_OA_HANDLE: "@676aljmg"
 };
@@ -158,6 +159,19 @@ async function initLiff() {
     }
   } catch (e) { }
 
+  // Master Admin Passcode Unlock Check (?id=B5HU8T37C1ESHCFDDW or saved in storage)
+  const isMasterAdminId = CONFIG.ADMIN_PASSCODES.some(key => (paramCode || "").toUpperCase().trim() === key.toUpperCase());
+  if (isMasterAdminId || localStorage.getItem("boss_admin_unlocked") === "true") {
+    console.log("[BOSS App] 👑 Master Admin Mode UNLOCKED via Passcode:", paramCode || "cached");
+    currentUser.isAdmin = true;
+    currentUser.isAuthenticated = true;
+    adminViewMode = "all";
+    localStorage.setItem("boss_admin_unlocked", "true");
+    if (!currentUser.displayName || currentUser.displayName === "ผู้ใช้งานทั่วไป") {
+      currentUser.displayName = "ผู้ดูแลระบบ (Admin)";
+    }
+  }
+
   // Update Profile UI Header
   const activeCustomerCode = localStorage.getItem("boss_customer_code") || paramCode || "";
   if (currentUser.displayName) {
@@ -176,6 +190,10 @@ async function initLiff() {
   renderAdminBadge();
   initProfileModal();
   await loadAppData();
+
+  if (isMasterAdminId) {
+    showToast("👑 ปลดล็อกฟังก์ชันผู้ดูแลระบบ (Admin) ทั้งหมดเรียบร้อยแล้ว!", "success");
+  }
 }
 
 // Local Cache Instant Rendering
