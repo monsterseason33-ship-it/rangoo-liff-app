@@ -3021,7 +3021,7 @@ async function fetchAndRenderPromotions() {
         const firstTopItem = defaultNetflixTop10[0];
         html += `
           <div class="promo-card vertical-card top10-card-wrapper">
-            <!-- Cinema Glass Banner with 3D Giant Rank -->
+            <!-- Cinema Poster Banner with Giant 3D Rank -->
             <div class="card-banner-wrapper top10-cinematic-banner">
               <div class="card-banner-img top10-banner-img" style="background-image: url('${firstTopItem.poster}');">
                 <div class="top10-overlay-gradient"></div>
@@ -3034,20 +3034,20 @@ async function fetchAndRenderPromotions() {
                   <div class="top10-live-pill"><span class="top10-pulse-dot"></span> TOP 10 ในไทย</div>
                   <div class="top10-quality-pill">4K UHD</div>
                 </div>
-
-                <!-- Interactive 1-10 Rank Picker (Tap to jump immediately) -->
-                <div class="top10-quick-picker-row" onclick="event.stopPropagation();">
-                  ${defaultNetflixTop10.map(m => `
-                    <button type="button" class="top10-picker-btn ${m.rank === 1 ? 'active' : ''}" data-rank="${m.rank}" onclick="selectTop10Movie(${m.rank}, event)" title="${escapeHtml(m.title)}">
-                      ${m.rank}
-                    </button>
-                  `).join('')}
-                </div>
               </div>
             </div>
 
             <!-- Body Details -->
             <div class="vertical-card-body top10-card-body">
+              <!-- Interactive 1-10 Rank Picker Strip -->
+              <div class="top10-quick-picker-row">
+                ${defaultNetflixTop10.map(m => `
+                  <button type="button" class="top10-picker-btn ${m.rank === 1 ? 'active' : ''}" data-rank="${m.rank}" onclick="selectTop10Movie(${m.rank}, event)" title="${escapeHtml(m.title)}">
+                    ${m.rank}
+                  </button>
+                `).join('')}
+              </div>
+
               <div class="top10-title-row">
                 <div class="promo-card-title top10-title-animated">อันดับ 1: ${escapeHtml(firstTopItem.title)}</div>
                 <button type="button" class="btn-top10-info-pop" onclick="toggleTop10Synopsis(event)" title="ดูเรื่องย่อและรายละเอียด">
