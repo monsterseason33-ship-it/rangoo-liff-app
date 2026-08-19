@@ -2832,6 +2832,8 @@ async function fetchNetflixClearanceStock() {
   } catch (err) {
     return null;
   }
+}
+
 // 2. Fetch Prime Video Clearance Stock (Auto-detect accounts nearing expiry 1-29 days)
 async function fetchPrimeClearanceStock() {
   try {
