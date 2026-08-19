@@ -3273,20 +3273,20 @@ body.support-tab-active .container {
 /* Shopee Stock Sales Progress Bar */
 .shopee-progress-bar-container {
   width: 100%;
-  height: 14px;
+  height: 18px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 12px;
   position: relative;
   overflow: hidden;
   margin-top: 3px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .shopee-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #e11d48 0%, #f97316 60%, #fbbf24 100%);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .shopee-progress-text {
@@ -3299,7 +3299,7 @@ body.support-tab-active .container {
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 800;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
   letter-spacing: 0.2px;
@@ -3307,11 +3307,12 @@ body.support-tab-active .container {
 
 /* Vertical Card Footer */
 .vertical-card-footer {
-  padding: 6px 12px 12px 12px;
+  padding: 8px 12px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   background: rgba(14, 17, 27, 0.98);
+  margin-top: auto;
 }
 
 .vertical-price-row {
@@ -3345,22 +3346,24 @@ body.support-tab-active .container {
 }
 
 .btn-shopee-buy {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 16px;
+  font-size: 11.5px;
+  font-weight: 800;
+  height: 38px;
+  border-radius: 12px;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 6px;
   transition: all 0.25s ease;
+  letter-spacing: 0.3px;
 }
 
 .btn-full-width {
   width: 100% !important;
   justify-content: center;
-  padding: 8px 14px !important;
+  padding: 0 14px !important;
   font-size: 11.5px !important;
   font-weight: 800 !important;
   border-radius: 12px !important;
