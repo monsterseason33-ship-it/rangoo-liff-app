@@ -2832,6 +2832,65 @@ async function fetchNetflixClearanceStock() {
   } catch (err) {
     return null;
   }
+// 2. Fetch Prime Video Clearance Stock (Auto-detect accounts nearing expiry 1-29 days)
+async function fetchPrimeClearanceStock() {
+  try {
+    const res = await supabaseFetch("accounts?status=eq.available&select=*,app:apps(*)&order=expiry_date.asc");
+    if (!res || res.length === 0) return null;
+
+    const primeClearanceAccounts = res.filter(acc => {
+      const appName = ((acc.app && (acc.app.name || acc.app.display_name)) || "").toLowerCase();
+      if (!appName.includes("prime") && !appName.includes("amazon")) return false;
+      if (!acc.expiry_date) return false;
+
+      const expiry = new Date(acc.expiry_date);
+      const now = new Date();
+      const diffMs = expiry - now;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      return diffDays >= 1 && diffDays <= 29;
+    });
+
+    if (primeClearanceAccounts.length === 0) return null;
+
+    const stockCount = primeClearanceAccounts.length;
+    const targetAccount = primeClearanceAccounts[0];
+    const expiry = new Date(targetAccount.expiry_date);
+    const now = new Date();
+    const remDays = Math.max(1, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
+    const expiryFormattedText = `${expiry.getDate()} ${MONTHS_TH[expiry.getMonth()] || ''}`;
+
+    // Look up packages for Prime
+    const allPackages = await supabaseFetch("packages?select=*,app:apps(*)");
+    let primePackages = (allPackages || []).filter(p => {
+      const appName = ((p.app && (p.app.name || p.app.display_name)) || "").toLowerCase();
+      const pName = (p.name || "").toLowerCase();
+      return appName.includes("prime") || pName.includes("prime");
+    });
+
+    if (primePackages.length === 0) {
+      primePackages = [{ days: 7, price: 49 }, { days: 15, price: 79 }, { days: 30, price: 99 }];
+    }
+
+    primePackages.sort((a, b) => (a.days || 30) - (b.days || 30));
+
+    let matchedPkg = primePackages.find(p => remDays <= (p.days || 30)) || primePackages[primePackages.length - 1];
+    const pkgDays = matchedPkg.days || 30;
+    const basePrice = matchedPkg.price || 99;
+    const calculatedPrice = Math.max(29, Math.round((remDays / pkgDays) * basePrice));
+    const originalPrice = basePrice;
+
+    return {
+      stockCount: stockCount,
+      minDays: remDays,
+      estimatedPrice: calculatedPrice,
+      originalPrice: originalPrice,
+      expiryText: expiryFormattedText,
+      title: `📦 จอโล๊ะ Prime Video`,
+      description: `⚡️ [โละเคลียร์สต็อก] เหลือ ${remDays} วัน (หมด ${expiryFormattedText}) เพียง ${calculatedPrice}.-`
+    };
+  } catch (err) {
+    return null;
+  }
 }
 
 const defaultNetflixTop10 = [
@@ -2847,8 +2906,33 @@ const defaultNetflixTop10 = [
   { rank: 10, title: "หน่วยจู่โจมมือพระกาฬ", tag: "ซีรีส์แอ็กชัน • สงคราม", badge: "ระเบิดตูมตาม", duration: "8 ตอนจบ", rating: "18+", poster: "https://occ-0-3706-325.1.nflxso.net/dnm/api/v6/mAcAr9TxZIVbINe88xb3Teg5_OA/AAAABeCMw6YtXTYihQ7NPT5-TysiOSP-e_uoWAEwx0XOLy5qar3uUCImhJOkX8KTTDyEWwg_KFdd4-T171eQDPFss7ltrjeyt0pp5UAiP7clVcVO43idWmZr8V1H_lZoiuSXTVfc.webp?r=dd5", synopsis: "ภารกิจชิงตัวประกันสุดอันตรายหลังแดนศัตรูที่เดิมพันด้วยชีวิตทั้งหน่วย แอ็กชันจัดเต็มทุกนาที" }
 ];
 
+// 🌟 Live Prime Video Thailand Top 10 Catalog (Scraped from official Prime Video link)
+const defaultPrimeTop10 = [
+  { rank: 1, title: "Lioness (ปฏิบัติการเดือด ไลโอเนส)", tag: "ซีรีส์แอ็กชัน • หน่วยสืบราชการลับ", badge: "ยอดนิยมอันดับ 1", duration: "ซีซัน 2 (8 ตอน)", rating: "18+", poster: "https://m.media-amazon.com/images/S/pv-target-images/2a4b8eb586efcfca31b26806f0e2b34914c62c9c7f1a3074d081e7d8009db954._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "หน่วยซีไอเอส่งสายลับหญิงแฝงตัวเข้าไปในกลุ่มก่อการร้ายเพื่อหยุดยั้งแผนการโจมตีระดับชาติ เดิมพันด้วยชีวิตและจิตใจที่เต็มไปด้วยความกดดันและอันตรายรอบด้าน" },
+  { rank: 2, title: "แจ็ค รีชเชอร์ ยอดคนสืบระห่ำ (Reacher)", tag: "ซีรีส์แอ็กชัน • สืบสวนไขคดี", badge: "แอ็กชันจัดเต็ม", duration: "ซีซัน 2 (8 ตอน)", rating: "18+", poster: "https://m.media-amazon.com/images/S/pv-target-images/0e1e6955fc15f02bcbb49265f2991054ebcb464da4b4805c87383cf82fa460d3._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "อดีตสารวัตรทหารมือฉกาจ แจ็ค รีชเชอร์ ต้องเดินทางไขคดีสมคบคิดสุดอันตรายและล้างแค้นให้เพื่อนร่วมหน่วยที่ถูกสังหารอย่างเหี้ยมโหด" },
+  { rank: 3, title: "สเตอร์ลิ่ง พอยต์ : มรดกกลางใจ", tag: "ซีรีส์ดราม่า • ความรักและมรดก", badge: "ดราม่าเข้มข้น", duration: "10 ตอนจบ", rating: "13+", poster: "https://m.media-amazon.com/images/S/pv-target-images/611be243ae74f4b260907cf9fcfa5d8363eb077cb0a34b22c7eb167cff6ce9d3._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "เรื่องราวความลับเบื้องหลังมรดกตระกูลใหญ่ริมชายฝั่งที่เปลี่ยนความสัมพันธ์และความรักของทุกคนไปตลอดกาล ท่ามกลางการแย่งชิงความจริง" },
+  { rank: 4, title: "The Loyalty Game (เกมล่าท้าภักดี)", tag: "ซีรีส์สืบสวน • หักเหลี่ยมเฉือนคม", badge: "ลุ้นระทึก", duration: "12 ตอนจบ", rating: "15+", poster: "https://m.media-amazon.com/images/S/pv-target-images/5903b41d2e1bb4486fa41ba59df11c4c8fe220042d38561d5db32ca181cb2876._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "เกมชิงอำนาจและความลับระหว่างองค์กรที่ไม่มีใครไว้ใจใครได้ ทุกความภักดีมีราคาที่ต้องจ่าย และทุกคนพร้อมที่จะหักหลังเพื่อเอาตัวรอด" },
+  { rank: 5, title: "เจอกันที่ออฟฟิศพรุ่งนี้นะ!", tag: "ซีรีส์โรแมนติก • คอมเมดี้ออฟฟิศ", badge: "หวานซึ้งปนฮา", duration: "16 ตอนจบ", rating: "13+", poster: "https://m.media-amazon.com/images/S/pv-target-images/b48a1d2e2760df7680bb0975e5264bce5bb0a390499e4b6ad2f7d3d2db73b185._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "ความรักกุ๊กกิ๊กสุดป่วนระหว่างบอสหนุ่มจอมเฮี้ยบกับพนักงานสาวไฟแรงที่ต้องมาทำงานร่วมกันอย่างใกล้ชิดจนเกิดเป็นความผูกพันเกินห้ามใจ" },
+  { rank: 6, title: "The Traitors (ศึกผู้ทรยศ)", tag: "เรียลลิตี้ • จิตวิทยาชิงไหวพริบ", badge: "จิตวิทยาหักมุม", duration: "ซีซัน 2 (11 ตอน)", rating: "13+", poster: "https://m.media-amazon.com/images/S/pv-target-images/179c5c249c4cf4252541fa9046c827376c6c5a083f2dc5a74ef6f5d0234a9463._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "เกมจิตวิทยาเอาชีวิตรอดในปราสาทโบราณ เพื่อหาว่าใครคือผู้ภักดี และใครคือผู้ทรยศที่แฝงตัวอยู่เพื่อขโมยเงินรางวัลทั้งหมดไปคนเดียว" },
+  { rank: 7, title: "ปมฉาว (Crossed Secrets)", tag: "ซีรีส์ระทึกขวัญ • ปริศนาฆาตกรรม", badge: "ลึกลับน่าติดตาม", duration: "8 ตอนจบ", rating: "18+", poster: "https://m.media-amazon.com/images/S/pv-target-images/84102d99d3dc71bf236e7683ca513d782fae5d4cb058e390c88b776c5b058a9d._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "การเปิดโปงคดีฆาตกรรมสะเทือนขวัญที่เชื่อมโยงกับผู้มีอิทธิพลในสังคม ยิ่งสืบลึกยิ่งพบความจริงอันน่าสะพรึงกลัวที่ถูกซ่อนไว้ใต้พรม" },
+  { rank: 8, title: "Alliance (พันธมิตรระห่ำ)", tag: "ซีรีส์แอ็กชัน • โจรกรรม", badge: "ระห่ำสะใจ", duration: "10 ตอนจบ", rating: "18+", poster: "https://m.media-amazon.com/images/S/pv-target-images/51e39a3f2a89364b4c73de5fa5cfcb6df561d567ea309bc30d4a821950c40685._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "กลุ่มโจรระดับพระกาฬจับมือกันทำภารกิจปล้นครั้งประวัติศาสตร์ที่เต็มไปด้วยแผนซ้อนแผน กลลวง และการหักหลังเพื่อเงินมหาศาล" },
+  { rank: 9, title: "ภารกิจกู้โรงเรียนท้ายแถว", tag: "ซีรีส์วัยรุ่น • กีฬาและมิตรภาพ", badge: "สร้างแรงบันดาลใจ", duration: "8 ตอนจบ", rating: "13+", poster: "https://m.media-amazon.com/images/S/pv-target-images/d8c1c456fa39f506e6efbb6019b787593c20078b53aa34bfcfba34ea3954eb37._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "กลุ่มเด็กนักเรียนกีฬาที่มีความฝันอันยิ่งใหญ่ ต่อสู้เพื่อพิสูจน์คุณค่าของตัวเองและพาทีมโรงเรียนท้ายแถวไปสู่จุดสูงสุดของการแข่งขัน" },
+  { rank: 10, title: "Batman: Caped Crusader", tag: "แอนิเมชัน • นัวร์ • ซูเปอร์ฮีโร่", badge: "คลาสสิกนัวร์", duration: "10 ตอนจบ", rating: "15+", poster: "https://m.media-amazon.com/images/S/pv-target-images/1aa1de49bf5cf08b76a084c72834b6ea058c42a8b9f0cf1bb59b2ea51025a40a._UR1920,1080_SX720_FMwebp_.jpg", synopsis: "แบทแมนในยุคคลาสสิกนัวร์ ออกปราบอาชญากรรมและความเน่าเฟะในเมืองก็อตแธมด้วยความมืดมิด ความยุติธรรม และจิตใจที่ไม่ยอมก้มหัวให้ความอยุติธรรม" }
+];
+
 async function fetchNetflixTop10Data() {
   return defaultNetflixTop10;
+}
+
+async function fetchPrimeTop10Data() {
+  try {
+    const res = await supabaseFetch("promotions?id=eq.auto-prime-top10-cache&select=*");
+    if (res && res.length > 0 && res[0].description) {
+      const parsed = JSON.parse(res[0].description);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return defaultPrimeTop10;
 }
 
 // Interactive Top 10 Movie Switcher (Select Rank 1-10)
@@ -3079,6 +3163,221 @@ window.handleNetflixMasterPurchase = function(event) {
   }
 };
 
+// ==========================================================================
+// 🍿 PRIME VIDEO ALL-IN-ONE MASTER CARD HANDLERS
+// ==========================================================================
+
+// Interactive Prime Video Top 10 Movie Switcher (Select Rank 1-10)
+window.selectPrimeTop10Movie = function(targetRank, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const list = window._primeTop10List || defaultPrimeTop10;
+  const item = list.find(m => m.rank === Number(targetRank)) || list[0];
+  if (!item) return;
+
+  window._primeTop10CurrentRank = item.rank;
+  const cardWrapper = document.querySelector(".prime-top10-card-wrapper");
+  if (!cardWrapper) return;
+
+  const imgEl = cardWrapper.querySelector(".prime-top10-banner-img");
+  const giantRankEl = cardWrapper.querySelector(".prime-giant-rank-num");
+  const titleEl = cardWrapper.querySelector(".prime-title-animated");
+  const categoryEl = cardWrapper.querySelector(".prime-category-badge");
+  const durationEl = cardWrapper.querySelector(".prime-duration-badge");
+  const ratingEl = cardWrapper.querySelector(".prime-rating-badge");
+  const synopsisEl = cardWrapper.querySelector(".prime-synopsis-text");
+
+  if (imgEl) imgEl.style.backgroundImage = `url('${item.poster}')`;
+  if (giantRankEl) giantRankEl.textContent = item.rank;
+  if (titleEl) titleEl.textContent = `อันดับ ${item.rank}: ${item.title}`;
+  if (categoryEl) categoryEl.textContent = item.tag || "ซีรีส์ & หนังฮิต";
+  if (durationEl) durationEl.textContent = item.duration || "พากย์ไทย/ซับไทย";
+  if (ratingEl) ratingEl.textContent = item.rating || "18+";
+  if (synopsisEl) synopsisEl.textContent = item.synopsis || "รับชมความบันเทิงระดับพรีเมียม 4K บน Prime Video ได้ทันที";
+
+  // Update active pill button
+  cardWrapper.querySelectorAll(".prime-picker-btn").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.dataset.rank) === item.rank);
+  });
+};
+
+// Toggle Synopsis Overlay in Prime Top 10 Card
+window.togglePrimeSynopsis = function(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const cardWrapper = document.querySelector(".prime-top10-card-wrapper");
+  if (!cardWrapper) return;
+  const overlay = cardWrapper.querySelector(".prime-synopsis-overlay");
+  const btn = cardWrapper.querySelector(".btn-prime-info-pop");
+  if (overlay) {
+    const isHidden = overlay.style.display === "none" || !overlay.classList.contains("active");
+    if (isHidden) {
+      overlay.style.display = "flex";
+      requestAnimationFrame(() => overlay.classList.add("active"));
+    } else {
+      overlay.classList.remove("active");
+      setTimeout(() => {
+        if (!overlay.classList.contains("active")) overlay.style.display = "none";
+      }, 250);
+    }
+    if (btn) btn.classList.toggle("active", isHidden);
+  }
+};
+
+// Switch Category Tab for Prime Video (จอโล๊ะ / มือถือ / ทีวี)
+window.switchPrimeCategoryTab = function(categoryKey, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  window._activePrimeTab = categoryKey;
+  const categories = window._primeCategories || {};
+  const plans = categories[categoryKey] || [];
+  if (plans.length === 0) return;
+
+  const targetPlan = plans[0];
+  window._selectedPrimePkgId = targetPlan.id;
+
+  const cardWrapper = document.querySelector(".prime-top10-card-wrapper");
+  if (cardWrapper) {
+    const container = cardWrapper.querySelector(".prime-package-selector-section");
+    if (container) {
+      container.innerHTML = generatePrimeSegmentedHtml(categories, categoryKey, targetPlan.id);
+    }
+  }
+
+  updatePrimeSelectedCardDetails(targetPlan);
+};
+
+// Select Plan / Duration Chip for Prime Video
+window.selectPrimePlan = function(pkgId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  window._selectedPrimePkgId = pkgId;
+  const allPkgs = window._primeAllPackagesFlat || [];
+  const pkg = allPkgs.find(p => String(p.id) === String(pkgId));
+  if (!pkg) return;
+
+  const cardWrapper = document.querySelector(".prime-top10-card-wrapper");
+  if (cardWrapper) {
+    cardWrapper.querySelectorAll(".prime-plan-chip").forEach(chip => {
+      chip.classList.toggle("active", String(chip.dataset.pkgId) === String(pkgId));
+    });
+  }
+
+  updatePrimeSelectedCardDetails(pkg);
+};
+
+function updatePrimeSelectedCardDetails(pkg) {
+  const cardWrapper = document.querySelector(".prime-top10-card-wrapper");
+  if (!cardWrapper || !pkg) return;
+
+  const priceEl = cardWrapper.querySelector(".prime-dyn-price");
+  const origPriceEl = cardWrapper.querySelector(".prime-dyn-orig-price");
+  const badgeEl = cardWrapper.querySelector(".prime-dyn-badge");
+  const buyLabelEl = cardWrapper.querySelector(".prime-dyn-buy-label");
+
+  if (priceEl) {
+    priceEl.textContent = `฿${pkg.price}`;
+    priceEl.style.transform = "scale(1.15)";
+    setTimeout(() => { priceEl.style.transform = "scale(1)"; }, 180);
+  }
+  if (origPriceEl) {
+    origPriceEl.textContent = pkg.originalPrice ? `฿${pkg.originalPrice}` : "";
+    origPriceEl.style.display = pkg.originalPrice ? "inline" : "none";
+  }
+  if (badgeEl) {
+    badgeEl.textContent = pkg.badge || "⚡ พร้อมใช้งาน";
+    if (pkg.isClearance) {
+      badgeEl.className = "top10-guarantee-tag prime-dyn-badge clearance-badge";
+    } else {
+      badgeEl.className = "top10-guarantee-tag prime-dyn-badge";
+    }
+  }
+  if (buyLabelEl) {
+    buyLabelEl.textContent = pkg.buyLabel || `สั่งซื้อ Prime Video (฿${pkg.price})`;
+  }
+}
+
+// Generate the Segmented Switcher HTML for Prime Video (Tabs + Chips)
+function generatePrimeSegmentedHtml(categories, activeTab, selectedPkgId) {
+  const availableTabs = [];
+  if (categories.clearance && categories.clearance.length > 0) {
+    availableTabs.push({ key: 'clearance', label: 'จอโล๊ะ', icon: getPackageSvgIcon('clearance', true), isClearance: true });
+  }
+  if (categories.mobile && categories.mobile.length > 0) {
+    availableTabs.push({ key: 'mobile', label: 'มือถือ / ไอแพด', icon: getPackageSvgIcon('mobile', false) });
+  }
+  if (categories.tv && categories.tv.length > 0) {
+    availableTabs.push({ key: 'tv', label: 'สมาร์ททีวี', icon: getPackageSvgIcon('tv', false) });
+  }
+
+  const activePlans = categories[activeTab] || [];
+
+  const tabsHtml = availableTabs.map(t => `
+    <button type="button" 
+      class="netflix-cat-tab ${t.key === activeTab ? 'active' : ''} ${t.isClearance ? 'clearance-tab' : ''}" 
+      onclick="switchPrimeCategoryTab('${t.key}', event)">
+      ${t.icon}
+      <span>${t.label}</span>
+    </button>
+  `).join('');
+
+  const plansHtml = activePlans.map(p => `
+    <button type="button" 
+      class="netflix-plan-chip prime-plan-chip ${String(p.id) === String(selectedPkgId) ? 'active' : ''} ${p.isClearance ? 'clearance-chip' : ''}" 
+      data-pkg-id="${escapeHtml(String(p.id))}" 
+      onclick="selectPrimePlan('${escapeHtml(String(p.id))}', event)"
+      title="${escapeHtml(p.name)}">
+      <span class="netflix-plan-chip-label">${escapeHtml(p.durationLabel)}</span>
+      <span class="netflix-plan-chip-price">฿${p.price}</span>
+    </button>
+  `).join('');
+
+  return `
+    <div class="netflix-cat-tabs-row">
+      ${tabsHtml}
+    </div>
+    <div class="netflix-plan-chips-row ${activeTab === 'clearance' ? 'single-deal-row' : ''}">
+      ${plansHtml}
+    </div>
+  `;
+}
+
+// Purchase action for the Dynamic Prime Video Combined Card
+window.handlePrimeMasterPurchase = function(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const allPkgs = window._primeAllPackagesFlat || [];
+  const pkg = allPkgs.find(p => String(p.id) === String(window._selectedPrimePkgId)) || allPkgs[0];
+  if (!pkg) return;
+
+  const msg = pkg.orderText || `🍿 [สั่งซื้อ Prime Video 4K] แพ็กเกจ: ${pkg.name} ราคา ฿${pkg.price} ครับ`;
+
+  if (window.liff && liff.isInClient() && liff.sendMessages) {
+    liff.sendMessages([{ type: 'text', text: msg }])
+      .then(() => {
+        showToast("ส่งคำขอสั่งซื้อเข้า LINE OA เรียบร้อย!", "success");
+        liff.closeWindow();
+      })
+      .catch(() => {
+        const encoded = encodeURIComponent(msg);
+        window.open(`https://line.me/R/oaMessage/${CONFIG.LINE_OA_HANDLE}/?${encoded}`, "_blank");
+      });
+  } else {
+    copyToClipboard(msg, "ข้อความสั่งซื้อ");
+    window.open(CONFIG.LINE_OA_LINK, "_blank");
+  }
+};
+
 async function fetchAndRenderPromotions() {
   const container = document.getElementById("promotions-container");
   if (!container) return;
@@ -3095,25 +3394,19 @@ async function fetchAndRenderPromotions() {
     promotionsData = promosRes || [];
     const allDbPackages = packagesRes || [];
 
-    // Filter Netflix packages from Supabase packages table (configured via Extension)
+    // ==========================================
+    // A. NETFLIX ALL-IN-ONE MASTER CARD SETUP
+    // ==========================================
     const netflixDbPkgs = allDbPackages.filter(p => {
       const appName = ((p.app && (p.app.name || p.app.display_name)) || "").toLowerCase();
       const pName = (p.name || "").toLowerCase();
       return appName.includes("netflix") || pName.includes("netflix");
     });
 
-    // 2. Fetch real-time Netflix clearance stock
     const clearanceInfo = await fetchNetflixClearanceStock();
-
-    // 3. Build categorized dynamic packages for Netflix
-    const categories = {
-      clearance: [],
-      mobile: [],
-      tv: []
-    };
+    const categories = { clearance: [], mobile: [], tv: [] };
     const allFlatPackages = [];
 
-    // Inject clearance deal if active
     if (clearanceInfo && clearanceInfo.stockCount > 0) {
       const clearanceItem = {
         id: "clearance",
@@ -3132,7 +3425,6 @@ async function fetchAndRenderPromotions() {
       allFlatPackages.push(clearanceItem);
     }
 
-    // Inject packages from Extension/Supabase
     if (netflixDbPkgs.length > 0) {
       netflixDbPkgs.forEach(pkg => {
         const pName = (pkg.name || "").toLowerCase();
@@ -3159,7 +3451,6 @@ async function fetchAndRenderPromotions() {
         allFlatPackages.push(planItem);
       });
     } else {
-      // Fallback default packages if none in DB
       const fallbackMobile = [
         { id: "pkg-m-7", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 7 วัน", durationLabel: "7 วัน", price: 69, originalPrice: 89, days: 7, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Netflix มือถือ 7 วัน (฿69)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 7 วัน ราคา ฿69 ครับ" },
         { id: "pkg-m-15", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 15 วัน", durationLabel: "15 วัน", price: 99, originalPrice: 119, days: 15, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Netflix มือถือ 15 วัน (฿99)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 15 วัน ราคา ฿99 ครับ" },
@@ -3175,33 +3466,28 @@ async function fetchAndRenderPromotions() {
       allFlatPackages.push(...fallbackMobile, ...fallbackTv);
     }
 
-    // Sort by duration days ascending
     if (categories.mobile) categories.mobile.sort((a, b) => (a.days || 0) - (b.days || 0));
     if (categories.tv) categories.tv.sort((a, b) => (a.days || 0) - (b.days || 0));
 
     window._netflixCategories = categories;
     window._netflixAllPackagesFlat = allFlatPackages;
 
-    // Set or preserve active tab
     let activeTab = window._activeNetflixTab;
     if (!activeTab || !categories[activeTab] || categories[activeTab].length === 0) {
       activeTab = (categories.clearance && categories.clearance.length > 0) ? 'clearance' : (categories.mobile && categories.mobile.length > 0 ? 'mobile' : 'tv');
       window._activeNetflixTab = activeTab;
     }
 
-    // Set or preserve selected package
     let selectedPkg = allFlatPackages.find(p => String(p.id) === String(window._selectedNetflixPkgId));
     if (!selectedPkg || selectedPkg.categoryKey !== activeTab) {
       selectedPkg = (categories[activeTab] && categories[activeTab][0]) || allFlatPackages[0];
       window._selectedNetflixPkgId = selectedPkg.id;
     }
 
-    // 4. Fetch Netflix TOP 10 Movies Data
     const top10List = await fetchNetflixTop10Data();
     window._netflixTop10List = top10List;
     const firstTopItem = (top10List && top10List.length > 0) ? top10List[0] : defaultNetflixTop10[0];
 
-    // Create the Unified All-In-One Netflix Master Card
     const combinedNetflixPromo = {
       id: "auto-netflix-master",
       title: `อันดับ 1: ${firstTopItem.title}`,
@@ -3214,10 +3500,116 @@ async function fetchAndRenderPromotions() {
       script_url: "https://www.netflix.com/"
     };
 
+    // ==========================================
+    // B. PRIME VIDEO ALL-IN-ONE MASTER CARD SETUP
+    // ==========================================
+    const primeDbPkgs = allDbPackages.filter(p => {
+      const appName = ((p.app && (p.app.name || p.app.display_name)) || "").toLowerCase();
+      const pName = (p.name || "").toLowerCase();
+      return appName.includes("prime") || appName.includes("amazon") || pName.includes("prime") || pName.includes("amazon");
+    });
+
+    const primeClearanceInfo = await fetchPrimeClearanceStock();
+    const primeCategories = { clearance: [], mobile: [], tv: [] };
+    const primeFlatPackages = [];
+
+    if (primeClearanceInfo && primeClearanceInfo.stockCount > 0) {
+      const primeClearanceItem = {
+        id: "clearance",
+        categoryKey: "clearance",
+        isClearance: true,
+        name: primeClearanceInfo.title || "📦 จอโล๊ะ Prime Video 4K",
+        durationLabel: `⚡ เหลือ ${primeClearanceInfo.minDays} วัน (สต็อก ${primeClearanceInfo.stockCount} จอ)`,
+        price: primeClearanceInfo.estimatedPrice || 69,
+        originalPrice: primeClearanceInfo.originalPrice || 99,
+        stockCount: primeClearanceInfo.stockCount,
+        badge: `⚡ เหลือ ${primeClearanceInfo.stockCount} จอ (เรียลไทม์)`,
+        buyLabel: `สั่งซื้อจอโล๊ะ Prime ฿${primeClearanceInfo.estimatedPrice || 69}`,
+        orderText: `⚡️ [สั่งซื้อจอโล๊ะ Prime Video] เหลือ ${primeClearanceInfo.minDays} วัน (หมด ${primeClearanceInfo.expiryText}) ราคา ฿${primeClearanceInfo.estimatedPrice || 69} ครับ`
+      };
+      primeCategories.clearance.push(primeClearanceItem);
+      primeFlatPackages.push(primeClearanceItem);
+    }
+
+    if (primeDbPkgs.length > 0) {
+      primeDbPkgs.forEach(pkg => {
+        const pName = (pkg.name || "").toLowerCase();
+        const isTv = pName.includes("tv") || pName.includes("ทีวี") || pName.includes("ทุกอุปกรณ์");
+        const catKey = isTv ? "tv" : "mobile";
+        const days = pkg.days || 30;
+        const durationLabel = days === 365 ? "รายปี" : `${days} วัน`;
+
+        const planItem = {
+          id: String(pkg.id),
+          categoryKey: catKey,
+          isClearance: false,
+          name: pkg.name,
+          durationLabel: durationLabel,
+          price: pkg.price,
+          originalPrice: pkg.original_price || (pkg.price + 30),
+          days: days,
+          badge: isTv ? "📺 สมาร์ททีวี / ทุกอุปกรณ์" : "📱 มือถือ / แท็บเล็ต",
+          buyLabel: isTv ? `สั่งซื้อ Prime Video ทีวี ${durationLabel} (฿${pkg.price})` : `สั่งซื้อ Prime Video มือถือ ${durationLabel} (฿${pkg.price})`,
+          orderText: `🍿 [สั่งซื้อ Prime Video 4K] แพ็กเกจ: ${pkg.name} (${durationLabel}) ราคา ฿${pkg.price} ครับ`
+        };
+
+        primeCategories[catKey].push(planItem);
+        primeFlatPackages.push(planItem);
+      });
+    } else {
+      const fallbackPrimeMobile = [
+        { id: "pkg-prime-m-7", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 7 วัน", durationLabel: "7 วัน", price: 39, originalPrice: 59, days: 7, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Prime Video มือถือ 7 วัน (฿39)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 7 วัน ราคา ฿39 ครับ" },
+        { id: "pkg-prime-m-15", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 15 วัน", durationLabel: "15 วัน", price: 59, originalPrice: 79, days: 15, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Prime Video มือถือ 15 วัน (฿59)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 15 วัน ราคา ฿59 ครับ" },
+        { id: "pkg-prime-m-30", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 30 วัน", durationLabel: "30 วัน", price: 79, originalPrice: 99, days: 30, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Prime Video มือถือ 30 วัน (฿79)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 30 วัน ราคา ฿79 ครับ" }
+      ];
+      const fallbackPrimeTv = [
+        { id: "pkg-prime-tv-7", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 7 วัน", durationLabel: "7 วัน", price: 49, originalPrice: 69, days: 7, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Prime Video ทีวี 7 วัน (฿49)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 7 วัน ราคา ฿49 ครับ" },
+        { id: "pkg-prime-tv-15", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 15 วัน", durationLabel: "15 วัน", price: 79, originalPrice: 99, days: 15, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Prime Video ทีวี 15 วัน (฿79)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 15 วัน ราคา ฿79 ครับ" },
+        { id: "pkg-prime-tv-30", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 30 วัน", durationLabel: "30 วัน", price: 99, originalPrice: 129, days: 30, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Prime Video ทีวี 30 วัน (฿99)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 30 วัน ราคา ฿99 ครับ" }
+      ];
+      primeCategories.mobile = fallbackPrimeMobile;
+      primeCategories.tv = fallbackPrimeTv;
+      primeFlatPackages.push(...fallbackPrimeMobile, ...fallbackPrimeTv);
+    }
+
+    if (primeCategories.mobile) primeCategories.mobile.sort((a, b) => (a.days || 0) - (b.days || 0));
+    if (primeCategories.tv) primeCategories.tv.sort((a, b) => (a.days || 0) - (b.days || 0));
+
+    window._primeCategories = primeCategories;
+    window._primeAllPackagesFlat = primeFlatPackages;
+
+    let primeActiveTab = window._activePrimeTab;
+    if (!primeActiveTab || !primeCategories[primeActiveTab] || primeCategories[primeActiveTab].length === 0) {
+      primeActiveTab = (primeCategories.clearance && primeCategories.clearance.length > 0) ? 'clearance' : (primeCategories.mobile && primeCategories.mobile.length > 0 ? 'mobile' : 'tv');
+      window._activePrimeTab = primeActiveTab;
+    }
+
+    let selectedPrimePkg = primeFlatPackages.find(p => String(p.id) === String(window._selectedPrimePkgId));
+    if (!selectedPrimePkg || selectedPrimePkg.categoryKey !== primeActiveTab) {
+      selectedPrimePkg = (primeCategories[primeActiveTab] && primeCategories[primeActiveTab][0]) || primeFlatPackages[0];
+      window._selectedPrimePkgId = selectedPrimePkg.id;
+    }
+
+    const primeTop10List = await fetchPrimeTop10Data();
+    window._primeTop10List = primeTop10List;
+    const firstPrimeTopItem = (primeTop10List && primeTop10List.length > 0) ? primeTop10List[0] : defaultPrimeTop10[0];
+
+    const combinedPrimePromo = {
+      id: "auto-prime-master",
+      title: `อันดับ 1: ${firstPrimeTopItem.title}`,
+      description: firstPrimeTopItem.synopsis,
+      promo_price: selectedPrimePkg.price,
+      original_price: selectedPrimePkg.originalPrice,
+      badge_text: "🔥 PRIME TOP 10",
+      banner_image: firstPrimeTopItem.poster,
+      is_auto_prime_master: true,
+      script_url: "https://www.primevideo.com/"
+    };
+
     // Filter other custom promotions from admin (excluding old auto clearance/top10)
     const customPromos = promotionsData.filter(p => p.is_active !== false && !p.is_auto_clearance && !p.is_auto_top10);
 
-    const activePromos = [combinedNetflixPromo, ...customPromos];
+    const activePromos = [combinedNetflixPromo, combinedPrimePromo, ...customPromos];
 
     if (!activePromos || activePromos.length === 0) {
       document.getElementById("promotions-section").style.display = "none";
@@ -3230,7 +3622,7 @@ async function fetchAndRenderPromotions() {
 
     let html = "";
     activePromos.forEach((promo, idx) => {
-      // 🌟 COMBINED ALL-IN-ONE NETFLIX MASTER CARD (Segmented Device Switcher)
+      // 🌟 1. COMBINED ALL-IN-ONE NETFLIX MASTER CARD
       if (promo.is_auto_netflix_master) {
         html += `
           <div class="promo-card vertical-card top10-card-wrapper combined-netflix-card">
@@ -3312,7 +3704,89 @@ async function fetchAndRenderPromotions() {
         return;
       }
 
-      // Other standard promotion cards (e.g. Disney, Prime, YouTube, etc.)
+      // 🌟 2. COMBINED ALL-IN-ONE PRIME VIDEO MASTER CARD (Electric Cyan Theme)
+      if (promo.is_auto_prime_master) {
+        html += `
+          <div class="promo-card vertical-card top10-card-wrapper prime-top10-card-wrapper combined-prime-card">
+            <!-- Cinema Poster Banner with Giant 3D Rank -->
+            <div class="card-banner-wrapper top10-cinematic-banner">
+              <div class="card-banner-img prime-top10-banner-img" style="background-image: url('${firstPrimeTopItem.poster}');">
+                <div class="top10-overlay-gradient"></div>
+                
+                <!-- 3D Metal Giant Rank Number in Electric Cyan -->
+                <div class="top10-giant-rank-num prime-giant-rank-num">1</div>
+
+                <!-- Top Floating Badges -->
+                <div class="top10-top-badges-row">
+                  <div class="top10-live-pill prime-live-pill"><span class="top10-pulse-dot"></span> TOP 10 ในไทย</div>
+                  <div class="top10-quality-pill prime-quality-pill">4K HDR</div>
+                </div>
+
+                <!-- In-Banner Synopsis Overlay (Slide-over, Fixed Height) -->
+                <div class="top10-synopsis-overlay prime-synopsis-overlay" style="display: none;" onclick="event.stopPropagation();">
+                  <div class="top10-synopsis-overlay-header">
+                    <div class="top10-synopsis-overlay-title">📖 เรื่องย่อ & ข้อมูล</div>
+                    <button type="button" class="btn-top10-close-synopsis" onclick="togglePrimeSynopsis(event)" title="ปิด">✕</button>
+                  </div>
+                  <div class="top10-synopsis-overlay-scroll">
+                    <p class="top10-synopsis-text prime-synopsis-text">${escapeHtml(firstPrimeTopItem.synopsis)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Body Details -->
+            <div class="vertical-card-body top10-card-body">
+              <!-- Interactive 1-10 Rank Picker Strip -->
+              <div class="top10-quick-picker-row">
+                ${defaultPrimeTop10.map(m => `
+                  <button type="button" class="top10-picker-btn prime-picker-btn ${m.rank === 1 ? 'active' : ''}" data-rank="${m.rank}" onclick="selectPrimeTop10Movie(${m.rank}, event)" title="${escapeHtml(m.title)}">
+                    ${m.rank}
+                  </button>
+                `).join('')}
+              </div>
+
+              <div class="top10-title-row">
+                <div class="promo-card-title top10-title-animated prime-title-animated">อันดับ 1: ${escapeHtml(firstPrimeTopItem.title)}</div>
+                <button type="button" class="btn-top10-info-pop btn-prime-info-pop" onclick="togglePrimeSynopsis(event)" title="ดูเรื่องย่อและรายละเอียด">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span>เรื่องย่อ</span>
+                </button>
+              </div>
+
+              <!-- Movie Tags & Meta -->
+              <div class="top10-tags-row">
+                <span class="top10-category-badge prime-category-badge">${firstPrimeTopItem.tag}</span>
+                <span class="top10-meta-badge top10-duration-badge prime-duration-badge">${firstPrimeTopItem.duration}</span>
+                <span class="top10-meta-badge top10-rating-badge prime-rating-badge">${firstPrimeTopItem.rating}</span>
+              </div>
+
+              <!-- 📦 Segmented Device & Duration Switcher (2 Compact Rows) -->
+              <div class="netflix-package-selector-section prime-package-selector-section">
+                ${generatePrimeSegmentedHtml(primeCategories, primeActiveTab, selectedPrimePkg.id)}
+              </div>
+            </div>
+
+            <!-- Footer & Dynamic Instant Purchase -->
+            <div class="vertical-card-footer">
+              <div class="vertical-price-row">
+                <div class="shopee-price-box">
+                  <span class="promo-original-price prime-dyn-orig-price" style="${selectedPrimePkg.originalPrice ? '' : 'display: none;'}">฿${selectedPrimePkg.originalPrice}</span>
+                  <span class="shopee-flash-price prime-dyn-price">฿${selectedPrimePkg.price}</span>
+                </div>
+                <span class="top10-guarantee-tag prime-dyn-badge ${selectedPrimePkg.isClearance ? 'clearance-badge' : ''}">${escapeHtml(selectedPrimePkg.badge || '⚡ พร้อมใช้งาน')}</span>
+              </div>
+              <button type="button" class="btn-shopee-buy btn-full-width btn-prime-glow" onclick="handlePrimeMasterPurchase(event)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span class="prime-dyn-buy-label">${escapeHtml(selectedPrimePkg.buyLabel || 'สั่งซื้อ Prime Video รับชมทันที')}</span>
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Other standard promotion cards (e.g. Disney, YouTube, Viu, etc.)
       const badgeText = promo.badge_text || (
         promo.promo_type === 'flash_sale' ? 'FLASH SALE' :
           promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก'
@@ -3381,7 +3855,7 @@ async function fetchAndRenderPromotions() {
       initPromoAutoSlider(activePromos.length);
     }
 
-    // Start Top 10 Cinema Slideshow with Smooth Transitions
+    // Start Netflix Top 10 Cinema Slideshow with Smooth Transitions
     if (!window._top10SlideshowTimer && window._netflixTop10List && window._netflixTop10List.length > 0) {
       let top10Idx = 0;
       window._top10SlideshowTimer = setInterval(() => {
@@ -3395,6 +3869,21 @@ async function fetchAndRenderPromotions() {
           window.selectTop10Movie(item.rank);
         }
       }, 3500);
+    }
+
+    // Start Prime Video Top 10 Cinema Slideshow with Smooth Transitions
+    if (!window._primeTop10SlideshowTimer && window._primeTop10List && window._primeTop10List.length > 0) {
+      let primeTop10Idx = 0;
+      window._primeTop10SlideshowTimer = setInterval(() => {
+        const list = window._primeTop10List || defaultPrimeTop10;
+        if (!list || list.length === 0) return;
+        primeTop10Idx = (primeTop10Idx + 1) % list.length;
+        const item = list[primeTop10Idx];
+
+        if (window.selectPrimeTop10Movie) {
+          window.selectPrimeTop10Movie(item.rank);
+        }
+      }, 3800);
     }
   } catch (err) {
     if (typeof navigator === 'undefined' || navigator.onLine) {
