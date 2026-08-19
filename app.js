@@ -3114,7 +3114,7 @@ async function fetchAndRenderPromotions() {
             data-pkg-id="${escapeHtml(String(p.id))}" 
             onclick="selectNetflixPackage('${escapeHtml(String(p.id))}', event)" 
             title="${escapeHtml(p.name)}">
-            <span>${escapeHtml(p.shortLabel)}</span>
+            <span class="netflix-pkg-pill-name">${escapeHtml(p.shortLabel)}</span>
             <span class="netflix-pkg-pill-price">฿${p.price}</span>
           </button>
         `).join('');
