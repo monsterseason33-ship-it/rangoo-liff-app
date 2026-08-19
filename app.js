@@ -3158,12 +3158,6 @@ async function fetchAndRenderPromotions() {
     }
   }
 }
-  } catch (err) {
-    if (typeof navigator === 'undefined' || navigator.onLine) {
-      console.warn("[Promotions Load Error]", err);
-    }
-  }
-}
 
 // Real-time stock polling for clearance screens (every 20 seconds when online & visible)
 if (!window._clearanceRealtimeTimer) {
