@@ -2928,9 +2928,9 @@ async function fetchNetflixTop10Data() {
 
 async function fetchPrimeTop10Data() {
   try {
-    const res = await supabaseFetch("promotions?id=eq.auto-prime-top10-cache&select=*");
-    if (res && res.length > 0 && res[0].description) {
-      const parsed = JSON.parse(res[0].description);
+    const res = await supabaseFetch("system_settings?setting_key=eq.prime_top_10_th&select=*");
+    if (res && res.length > 0 && res[0].setting_value) {
+      const parsed = JSON.parse(res[0].setting_value);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
