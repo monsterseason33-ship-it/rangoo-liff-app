@@ -3013,6 +3013,17 @@ async function fetchAndRenderPromotions() {
       return appName.includes("netflix") || pName.includes("netflix");
     });
 
+function getPackageSvgIcon(type, isClearance) {
+  if (isClearance) {
+    return `<svg class="pkg-svg-icon" width="11" height="11" viewBox="0 0 24 24" fill="#fbbf24" style="flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+  }
+  if (type === 'tv') {
+    return `<svg class="pkg-svg-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>`;
+  }
+  // Mobile / tablet default
+  return `<svg class="pkg-svg-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>`;
+}
+
     // 2. Fetch real-time Netflix clearance stock
     const clearanceInfo = await fetchNetflixClearanceStock();
 
@@ -3024,13 +3035,14 @@ async function fetchAndRenderPromotions() {
       availableNetflixPackages.push({
         id: "clearance",
         isClearance: true,
+        iconSvg: getPackageSvgIcon('clearance', true),
         name: clearanceInfo.title || "📦 จอโล๊ะ Netflix 4K",
-        shortLabel: `⚡ จอโล๊ะ ${clearanceInfo.minDays} วัน`,
+        shortLabel: `จอโล๊ะ ${clearanceInfo.minDays} วัน`,
         price: clearanceInfo.estimatedPrice || 112,
         originalPrice: clearanceInfo.originalPrice || 120,
         stockCount: clearanceInfo.stockCount,
         badge: `⚡ เหลือ ${clearanceInfo.stockCount} จอ (เรียลไทม์)`,
-        buyLabel: `⚡ สั่งซื้อจอโล๊ะ ฿${clearanceInfo.estimatedPrice || 112}`,
+        buyLabel: `สั่งซื้อจอโล๊ะ ฿${clearanceInfo.estimatedPrice || 112}`,
         orderText: `⚡️ [สั่งซื้อจอโล๊ะ Netflix] เหลือ ${clearanceInfo.minDays} วัน (หมด ${clearanceInfo.expiryText}) ราคา ฿${clearanceInfo.estimatedPrice || 112} ครับ`
       });
     }
@@ -3041,26 +3053,27 @@ async function fetchAndRenderPromotions() {
         const pName = pkg.name || "Netflix";
         const isTv = pName.toLowerCase().includes("tv") || pName.includes("ทีวี") || pName.includes("ทุกอุปกรณ์");
         const daysText = pkg.days ? `${pkg.days} วัน` : '30 วัน';
-        const shortLabel = isTv ? `📺 ทีวี ${daysText}` : `📱 มือถือ ${daysText}`;
+        const shortLabel = isTv ? `ทีวี ${daysText}` : `มือถือ ${daysText}`;
 
         availableNetflixPackages.push({
           id: String(pkg.id),
           isClearance: false,
+          iconSvg: getPackageSvgIcon(isTv ? 'tv' : 'mobile', false),
           name: pkg.name,
           shortLabel: shortLabel,
           price: pkg.price,
           originalPrice: pkg.original_price || (pkg.price + 30),
           days: pkg.days || 30,
           badge: isTv ? "📺 สมาร์ททีวี/ทุกอุปกรณ์" : "📱 มือถือ/ไอแพด/แท็บเล็ต",
-          buyLabel: `🎬 สั่งซื้อ Netflix (฿${pkg.price})`,
+          buyLabel: `สั่งซื้อ Netflix (฿${pkg.price})`,
           orderText: `🎬 [สั่งซื้อ Netflix 4K] แพ็กเกจ: ${pkg.name} ราคา ฿${pkg.price} ครับ`
         });
       });
     } else {
       // Fallback default packages if none in DB
       availableNetflixPackages.push(
-        { id: "pkg-tv-30", isClearance: false, name: "(VIP) Netflix 30 วัน (สมาร์ททีวี/ทุกอุปกรณ์)", shortLabel: "📺 ทีวี 30 วัน", price: 170, originalPrice: 199, days: 30, badge: "📺 สมาร์ททีวี/ทุกอุปกรณ์", buyLabel: "🎬 สั่งซื้อ Netflix 30 วัน (฿170)", orderText: "🎬 [สั่งซื้อ Netflix 4K] แพ็กเกจ VIP 30 วัน (สมาร์ททีวี/ทุกอุปกรณ์) ราคา ฿170 ครับ" },
-        { id: "pkg-mobile-30", isClearance: false, name: "(VIP) Netflix 30 วัน (มือถือ/แท็บเล็ต)", shortLabel: "📱 มือถือ 30 วัน", price: 120, originalPrice: 149, days: 30, badge: "📱 มือถือ/แท็บเล็ต", buyLabel: "🎬 สั่งซื้อ Netflix มือถือ (฿120)", orderText: "🎬 [สั่งซื้อ Netflix 4K] แพ็กเกจ VIP 30 วัน (มือถือ/แท็บเล็ต) ราคา ฿120 ครับ" }
+        { id: "pkg-tv-30", isClearance: false, iconSvg: getPackageSvgIcon('tv', false), name: "(VIP) Netflix 30 วัน (สมาร์ททีวี/ทุกอุปกรณ์)", shortLabel: "ทีวี 30 วัน", price: 170, originalPrice: 199, days: 30, badge: "📺 สมาร์ททีวี/ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Netflix 30 วัน (฿170)", orderText: "🎬 [สั่งซื้อ Netflix 4K] แพ็กเกจ VIP 30 วัน (สมาร์ททีวี/ทุกอุปกรณ์) ราคา ฿170 ครับ" },
+        { id: "pkg-mobile-30", isClearance: false, iconSvg: getPackageSvgIcon('mobile', false), name: "(VIP) Netflix 30 วัน (มือถือ/แท็บเล็ต)", shortLabel: "มือถือ 30 วัน", price: 120, originalPrice: 149, days: 30, badge: "📱 มือถือ/แท็บเล็ต", buyLabel: "สั่งซื้อ Netflix มือถือ (฿120)", orderText: "🎬 [สั่งซื้อ Netflix 4K] แพ็กเกจ VIP 30 วัน (มือถือ/แท็บเล็ต) ราคา ฿120 ครับ" }
       );
     }
 
@@ -3114,7 +3127,10 @@ async function fetchAndRenderPromotions() {
             data-pkg-id="${escapeHtml(String(p.id))}" 
             onclick="selectNetflixPackage('${escapeHtml(String(p.id))}', event)" 
             title="${escapeHtml(p.name)}">
-            <span class="netflix-pkg-pill-name">${escapeHtml(p.shortLabel)}</span>
+            <div class="netflix-pkg-pill-left">
+              ${p.iconSvg || ''}
+              <span class="netflix-pkg-pill-name">${escapeHtml(p.shortLabel)}</span>
+            </div>
             <span class="netflix-pkg-pill-price">฿${p.price}</span>
           </button>
         `).join('');
