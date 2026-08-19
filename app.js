@@ -2890,7 +2890,7 @@ window.selectTop10Movie = function(targetRank, event) {
   window._top10PauseUntil = Date.now() + 8000;
 };
 
-// Toggle Synopsis Drawer in Top 10 Card
+// Toggle Synopsis Overlay in Top 10 Card
 window.toggleTop10Synopsis = function(event) {
   if (event) {
     event.preventDefault();
@@ -2898,11 +2898,19 @@ window.toggleTop10Synopsis = function(event) {
   }
   const cardWrapper = document.querySelector(".top10-card-wrapper");
   if (!cardWrapper) return;
-  const box = cardWrapper.querySelector(".top10-synopsis-box");
+  const overlay = cardWrapper.querySelector(".top10-synopsis-overlay");
   const btn = cardWrapper.querySelector(".btn-top10-info-pop");
-  if (box) {
-    const isHidden = box.style.display === "none";
-    box.style.display = isHidden ? "block" : "none";
+  if (overlay) {
+    const isHidden = overlay.style.display === "none" || !overlay.classList.contains("active");
+    if (isHidden) {
+      overlay.style.display = "flex";
+      requestAnimationFrame(() => overlay.classList.add("active"));
+    } else {
+      overlay.classList.remove("active");
+      setTimeout(() => {
+        if (!overlay.classList.contains("active")) overlay.style.display = "none";
+      }, 250);
+    }
     if (btn) btn.classList.toggle("active", isHidden);
   }
 };
@@ -3034,6 +3042,17 @@ async function fetchAndRenderPromotions() {
                   <div class="top10-live-pill"><span class="top10-pulse-dot"></span> TOP 10 ในไทย</div>
                   <div class="top10-quality-pill">4K UHD</div>
                 </div>
+
+                <!-- In-Banner Synopsis Overlay (Slide-over, 100% Fixed Card Height) -->
+                <div class="top10-synopsis-overlay" style="display: none;" onclick="event.stopPropagation();">
+                  <div class="top10-synopsis-overlay-header">
+                    <div class="top10-synopsis-overlay-title">📖 เรื่องย่อ</div>
+                    <button type="button" class="btn-top10-close-synopsis" onclick="toggleTop10Synopsis(event)" title="ปิด">✕</button>
+                  </div>
+                  <div class="top10-synopsis-overlay-scroll">
+                    <p class="top10-synopsis-text">${escapeHtml(firstTopItem.synopsis)}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -3061,11 +3080,6 @@ async function fetchAndRenderPromotions() {
                 <span class="top10-category-badge">${firstTopItem.tag}</span>
                 <span class="top10-meta-badge top10-duration-badge">${firstTopItem.duration}</span>
                 <span class="top10-meta-badge top10-rating-badge">${firstTopItem.rating}</span>
-              </div>
-
-              <!-- Expandable Synopsis Box -->
-              <div class="top10-synopsis-box" style="display: none;">
-                <p class="top10-synopsis-text">${escapeHtml(firstTopItem.synopsis)}</p>
               </div>
             </div>
 

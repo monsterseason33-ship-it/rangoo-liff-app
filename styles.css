@@ -4230,25 +4230,81 @@ input:checked + .slider-toggle:before {
   font-weight: 700;
 }
 
-/* Expandable Synopsis Box */
-.top10-synopsis-box {
-  background: rgba(10, 14, 22, 0.85);
-  border: 1px dashed rgba(229, 9, 20, 0.3);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-top: 2px;
-  animation: top10SynopsisFade 0.25s ease-out;
+/* In-Banner Cinema Synopsis Overlay (Fixed Height Slide-Over) */
+.top10-synopsis-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 24, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  border-bottom: 1px solid rgba(229, 9, 20, 0.4);
 }
 
-@keyframes top10SynopsisFade {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+.top10-synopsis-overlay.active {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-.top10-synopsis-text {
+.top10-synopsis-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.top10-synopsis-overlay-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-top10-close-synopsis {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   font-size: 10.5px;
-  color: #cbd5e1;
-  line-height: 1.45;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.btn-top10-close-synopsis:hover {
+  background: rgba(229, 9, 20, 0.6);
+  border-color: rgba(229, 9, 20, 0.8);
+}
+
+.top10-synopsis-overlay-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.top10-synopsis-overlay-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.top10-synopsis-overlay-scroll .top10-synopsis-text {
+  font-size: 11px;
+  color: #e2e8f0;
+  line-height: 1.5;
   margin: 0;
 }
 
