@@ -3067,12 +3067,6 @@ async function fetchAndRenderPromotions() {
               <div class="top10-synopsis-box" style="display: none;">
                 <p class="top10-synopsis-text">${escapeHtml(firstTopItem.synopsis)}</p>
               </div>
-
-              <!-- Live Weekly Update Bar -->
-              <div class="shopee-progress-bar-container top10-progress-bar">
-                <div class="shopee-progress-fill" style="width: 100%;"></div>
-                <div class="shopee-progress-text">🔥 อัปเดตอันดับฮิตประจำสัปดาห์ (10 เรื่องเด็ด)</div>
-              </div>
             </div>
 
             <!-- Footer & Instant Purchase -->
