@@ -96,6 +96,8 @@ function startFlashSaleCountdown() {
 async function initLiff() {
   console.log("[BOSS App] Initializing WebApp Core...");
   startFlashSaleCountdown();
+  loadCachedSubscriptionsAndPromos();
+  initPullToRefresh();
 
   // Extract Customer Code / ID / CID from URL (Supports ?id=, ?code=, ?c=, ?name=, ?cid=, ?chat_id=, #hash, or /path)
   const urlParams = new URLSearchParams(window.location.search);
@@ -174,6 +176,89 @@ async function initLiff() {
   renderAdminBadge();
   initProfileModal();
   await loadAppData();
+}
+
+// Local Cache Instant Rendering
+function loadCachedSubscriptionsAndPromos() {
+  try {
+    const cachedSubs = localStorage.getItem("boss_cached_user_bindings");
+    if (cachedSubs) {
+      const parsed = JSON.parse(cachedSubs);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        userBindings = parsed;
+        renderSubscriptions();
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load cached bindings:", err);
+  }
+}
+
+// Pull to Refresh Implementation
+let touchStartY = 0;
+let isPulling = false;
+let pullIndicator = null;
+
+function initPullToRefresh() {
+  if (pullIndicator) return;
+  pullIndicator = document.createElement("div");
+  pullIndicator.id = "pull-to-refresh-indicator";
+  pullIndicator.className = "pull-refresh-box";
+  pullIndicator.innerHTML = `
+    <div class="pull-refresh-spinner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+      </svg>
+    </div>
+    <span class="pull-refresh-label">ดึงลงเพื่อรีเฟรช...</span>
+  `;
+  document.body.prepend(pullIndicator);
+
+  window.addEventListener("touchstart", (e) => {
+    if (window.scrollY === 0 && e.touches.length === 1) {
+      touchStartY = e.touches[0].clientY;
+      isPulling = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener("touchmove", (e) => {
+    if (!isPulling || window.scrollY > 0) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartY;
+    if (diff > 12) {
+      const pullDist = Math.min(70, diff * 0.42);
+      pullIndicator.style.transform = `translateX(-50%) translateY(${pullDist}px)`;
+      pullIndicator.style.opacity = `${Math.min(1, pullDist / 40)}`;
+      if (pullDist > 48) {
+        pullIndicator.querySelector(".pull-refresh-label").textContent = "ปล่อยเพื่อรีเฟรชข้อมูล";
+        pullIndicator.classList.add("ready");
+      } else {
+        pullIndicator.querySelector(".pull-refresh-label").textContent = "ดึงลงเพื่อรีเฟรช...";
+        pullIndicator.classList.remove("ready");
+      }
+    }
+  }, { passive: true });
+
+  window.addEventListener("touchend", () => {
+    if (!isPulling) return;
+    isPulling = false;
+    if (pullIndicator.classList.contains("ready")) {
+      pullIndicator.classList.add("refreshing");
+      pullIndicator.querySelector(".pull-refresh-label").textContent = "กำลังอัปเดตข้อมูล...";
+      setTimeout(async () => {
+        try {
+          await loadAppData();
+          showToast("🔄 อัปเดตข้อมูลล่าสุดเรียบร้อยแล้ว", "success");
+        } catch (e) { }
+        pullIndicator.style.transform = "translateX(-50%) translateY(0)";
+        pullIndicator.style.opacity = "0";
+        pullIndicator.className = "pull-refresh-box";
+      }, 600);
+    } else {
+      pullIndicator.style.transform = "translateX(-50%) translateY(0)";
+      pullIndicator.style.opacity = "0";
+    }
+  }, { passive: true });
 }
 
 // Calculate age from birthdate
@@ -588,6 +673,9 @@ async function loadAppData() {
     }
 
     userBindings = bindings || [];
+    try {
+      localStorage.setItem("boss_cached_user_bindings", JSON.stringify(userBindings));
+    } catch (e) { }
     renderAdminBadge();
     renderSubscriptions();
     renderHistoryTab();
@@ -862,6 +950,9 @@ function renderSubscriptions() {
       progressPercent = Math.min(100, Math.max(0, Math.round((diffDays / totalPkgDays) * 100)));
     }
 
+    const launchAppUrl = getStreamingAppLaunchUrl(sub.app_name);
+    const isNearExpiry = diffDays > 0 && diffDays <= 5 && !isBroken;
+
     card.innerHTML = `
       <div class="sub-card-header">
         <div class="app-pill">
@@ -877,7 +968,7 @@ function renderSubscriptions() {
         </span>
       </div>
 
-      <div class="sub-progress-container">
+      <div class="sub-progress-container" title="ระยะเวลาคงเหลือ ${progressPercent}%">
         <div class="sub-progress-fill ${expiryBadgeClass}" style="width: ${progressPercent}%;"></div>
       </div>
 
@@ -903,8 +994,8 @@ function renderSubscriptions() {
               <span>อีเมล:</span>
             </div>
             <div class="credential-val-box">
-              <span class="credential-text email-text" onclick="copyToClipboard('${escapeHtml(email)}', 'อีเมล')" title="แตะเพื่อคัดลอกอีเมล">${escapeHtml(email)}</span>
-              <button class="copy-pill-btn copy-icon-only" onclick="copyToClipboard('${escapeHtml(email)}', 'อีเมล')" title="คัดลอกอีเมล">
+              <span class="credential-text email-text" onclick="copyToClipboard('${escapeHtml(email)}', 'อีเมล', this)" title="แตะเพื่อคัดลอกอีเมล">${escapeHtml(email)}</span>
+              <button class="copy-pill-btn copy-icon-only" onclick="copyToClipboard('${escapeHtml(email)}', 'อีเมล', this)" title="คัดลอกอีเมล">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </button>
             </div>
@@ -916,13 +1007,52 @@ function renderSubscriptions() {
               <span>รหัสผ่าน:</span>
             </div>
             <div class="credential-val-box">
-              <span class="credential-text pass-text ${isPasswordVisible ? '' : 'masked'}" onclick="copyToClipboard('${escapeHtml(rawPassword)}', 'รหัสผ่าน')" title="แตะเพื่อคัดลอกรหัสผ่าน">${escapeHtml(displayedPassword)}</span>
+              <span class="credential-text pass-text ${isPasswordVisible ? '' : 'masked'}" onclick="copyToClipboard('${escapeHtml(rawPassword)}', 'รหัสผ่าน', this)" title="แตะเพื่อคัดลอกรหัสผ่าน">${escapeHtml(displayedPassword)}</span>
               <button class="eye-pill-btn" onclick="togglePasswordVisibility('${sub.id}')" title="ซ่อน/แสดงรหัสผ่าน">${eyeSvg}</button>
-              <button class="copy-pill-btn copy-icon-only" onclick="copyToClipboard('${escapeHtml(rawPassword)}', 'รหัสผ่าน')" title="คัดลอกรหัสผ่าน">
+              <button class="copy-pill-btn copy-icon-only" onclick="copyToClipboard('${escapeHtml(rawPassword)}', 'รหัสผ่าน', this)" title="คัดลอกรหัสผ่าน">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </button>
             </div>
           </div>
+
+          <!-- One-Click Quick Copy All Button -->
+          <button type="button" class="btn-copy-all-credentials" onclick="copyAllSubscriptionDetails('${sub.id}', event)" title="คัดลอกข้อมูลทั้งหมด (อีเมล, รหัสผ่าน, จอ, PIN) ในคลิกเดียว">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>คัดลอกข้อมูลทั้งหมด</span>
+          </button>
+
+          ${(sub.app_name || "").toLowerCase().includes("netflix") ? `
+            <!-- Netflix OTP Guide Button & Collapsible Panel -->
+            <div class="netflix-login-guide-wrapper">
+              <button type="button" class="btn-netflix-guide-toggle" onclick="toggleNetflixLoginGuide('${sub.id}', event)" title="ดูวิธีเข้าสู่ระบบ Netflix เมื่อระบบถาม OTP">
+                <div class="guide-btn-content">
+                  <span class="guide-bulb-icon">💡</span>
+                  <span>วิธีเข้าใช้งาน (หากระบบถาม OTP)</span>
+                </div>
+                <svg class="guide-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div id="netflix-guide-${sub.id}" class="netflix-guide-content" style="display: none;">
+                <div class="netflix-guide-header">
+                  <span style="font-size: 13px;">💡</span>
+                  <span style="font-weight: 700; color: #fca5a5;">วิธีเข้าใช้งาน (หากระบบถาม OTP)</span>
+                </div>
+                <div class="netflix-guide-list">
+                  <div class="netflix-guide-item">
+                    <span class="guide-step-badge">1</span>
+                    <div class="guide-step-text">ให้ลูกค้าแตะที่ <span class="guide-highlight">"ขอความช่วยเหลือ"</span> <i>(Get Help)</i></div>
+                  </div>
+                  <div class="netflix-guide-item">
+                    <span class="guide-step-badge">2</span>
+                    <div class="guide-step-text">เลือกตัวเลือก <span class="guide-highlight">"กรอกรหัสผ่าน"</span> <i>(Enter Password)</i></div>
+                  </div>
+                  <div class="netflix-guide-item">
+                    <span class="guide-step-badge">3</span>
+                    <div class="guide-step-text">แล้วนำรหัสผ่านด้านบนไปกรอกเพื่อเข้าสู่ระบบได้เลยน้า</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ` : ''}
         </div>
 
         <div class="sub-info-grid">
@@ -934,7 +1064,7 @@ function renderSubscriptions() {
             <div class="profile-val-container">
               <span class="info-tile-val profile-name-val">${escapeHtml(profile)}</span>
               ${pin && pin !== '-' ? `
-                <div class="pin-badge" onclick="event.stopPropagation(); copyToClipboard('${escapeHtml(pin)}', 'รหัส PIN ${escapeHtml(pin)}')" title="แตะเพื่อคัดลอก PIN: ${escapeHtml(pin)}">
+                <div class="pin-badge" onclick="event.stopPropagation(); copyToClipboard('${escapeHtml(pin)}', 'รหัส PIN ${escapeHtml(pin)}', this)" title="แตะเพื่อคัดลอก PIN: ${escapeHtml(pin)}">
                   <div class="pin-badge-lock">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                   </div>
@@ -968,10 +1098,23 @@ function renderSubscriptions() {
         </div>
       </div>
 
-      <div class="card-actions">
-        <button class="btn action-btn-support" style="width: 100%;" onclick="openProblemModal('${escapeHtml(sub.app_name)}', '${sub.id}')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-          แจ้งปัญหา
+      <!-- Action Buttons Row (Launch App / Quick Renew / Report Problem) -->
+      <div class="sub-card-actions-row">
+        ${launchAppUrl ? `
+          <a href="${launchAppUrl}" target="_blank" rel="noopener noreferrer" class="btn-launch-app" title="เปิดหน้าเว็บหรือแอปพลิเคชัน ${escapeHtml(sub.app_name)}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            <span>เข้าใช้งาน ${escapeHtml(sub.app_name)}</span>
+          </a>
+        ` : ''}
+        ${isNearExpiry ? `
+          <button type="button" class="btn-renew-sub" onclick="handleQuickRenewal('${escapeHtml(sub.app_name)}', '${escapeHtml(getFormattedPackageName(sub))}')" title="ต่ออายุแพ็กเกจนี้ทันที">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span>ต่ออายุ</span>
+          </button>
+        ` : ''}
+        <button type="button" class="btn-card-support" onclick="openProblemModal('${escapeHtml(sub.app_name)}', '${sub.id}')" title="แจ้งปัญหาบัญชีนี้">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <span>แจ้งปัญหา</span>
         </button>
       </div>
     `;
@@ -1051,6 +1194,27 @@ function togglePasswordVisibility(subId) {
   visiblePasswordsMap[subId] = !visiblePasswordsMap[subId];
   renderSubscriptions();
 }
+
+// Netflix Login Guide Toggle Handler
+function toggleNetflixLoginGuide(subId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const guideEl = document.getElementById(`netflix-guide-${subId}`);
+  const btnEl = event?.currentTarget || (event?.target ? event.target.closest('.btn-netflix-guide-toggle') : null) || document.querySelector(`button[onclick*="toggleNetflixLoginGuide('${subId}'"]`);
+  if (guideEl) {
+    const isHidden = guideEl.style.display === "none";
+    if (isHidden) {
+      guideEl.style.display = "block";
+      if (btnEl) btnEl.classList.add("active");
+    } else {
+      guideEl.style.display = "none";
+      if (btnEl) btnEl.classList.remove("active");
+    }
+  }
+}
+window.toggleNetflixLoginGuide = toggleNetflixLoginGuide;
 
 // Order Type Switcher Handler (New vs Renewal)
 function setOrderType(type) {
@@ -1628,14 +1792,90 @@ function handleSearchChange(query) {
 }
 
 // 5. Utility Functions
-function copyToClipboard(text, label = "") {
+function copyToClipboard(text, label = "", targetElement = null) {
   if (!text) return;
   navigator.clipboard.writeText(text).then(() => {
     showToast(label ? `คัดลอก ${label} เรียบร้อยแล้ว` : `คัดลอกเรียบร้อย: ${text}`, "success");
+    
+    // Visual Micro-Interaction Feedback
+    if (targetElement) {
+      targetElement.classList.add("copy-success-bounce");
+      setTimeout(() => {
+        targetElement.classList.remove("copy-success-bounce");
+      }, 1200);
+    }
   }).catch(err => {
     console.error("Failed to copy text:", err);
     showToast("ไม่สามารถคัดลอกได้", "warning");
   });
+}
+
+// Copy All Subscription Credentials in 1 Tap
+function copyAllSubscriptionDetails(subId, event) {
+  const sub = (userBindings || []).find(b => b.id === subId);
+  if (!sub) return;
+
+  const acc = sub.account || {};
+  const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📧\s*([^\n]+)/) || "-";
+  const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "-";
+  const profile = acc.profile_name || extractPattern(sub.raw_account_data, /โปรไฟล์:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /👤\s*([^\n]+)/) || "จอ 1";
+  const pin = acc.pin_code || extractPattern(sub.raw_account_data, /(?:รหัส\s*)?PIN:\s*([^\n]+)/i) || extractPattern(sub.raw_account_data, /📌\s*(?:รหัส\s*)?PIN:\s*([^\n]+)/i) || extractPattern(sub.raw_account_data, /🔒\s*(?:รหัส\s*)?PIN:\s*([^\n]+)/i) || "-";
+  const device = sub.device_type || acc.device_type || "มือถือ / PC";
+
+  const formattedExpiry = sub.expiry_date
+    ? new Date(sub.expiry_date).toLocaleString('th-TH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) + " น."
+    : "-";
+
+  const textToCopy = `🎬 แอป: ${sub.app_name}
+⭐ แพ็กเกจ: ${getFormattedPackageName(sub)}
+📧 อีเมล: ${email}
+🔑 รหัสผ่าน: ${rawPassword}
+👤 โปรไฟล์: ${profile}${pin && pin !== '-' ? ` (PIN: ${pin})` : ''}
+📱 อุปกรณ์: ${device}
+📅 วันหมดอายุ: ${formattedExpiry}`;
+
+  const targetBtn = event ? (event.currentTarget || event.target) : null;
+  copyToClipboard(textToCopy, `ข้อมูล ${sub.app_name} ทั้งหมด`, targetBtn);
+}
+
+// Direct Streaming Web & App Launch URLs
+function getStreamingAppLaunchUrl(appName) {
+  const name = (appName || "").toLowerCase();
+  if (name.includes("netflix")) return "https://www.netflix.com/browse";
+  if (name.includes("prime") || name.includes("amazon")) return "https://www.primevideo.com/";
+  if (name.includes("disney") || name.includes("ดิสนีย์") || name.includes("hotstar")) return "https://www.hotstar.com/th";
+  if (name.includes("monomax") || name.includes("โมโน")) return "https://www.monomax.me/";
+  if (name.includes("iqiyi") || name.includes("อ้ายฉีอี้")) return "https://www.iq.com/";
+  if (name.includes("wetv")) return "https://wetv.vip/th";
+  if (name.includes("viu") || name.includes("วิว")) return "https://www.viu.com/";
+  if (name.includes("hbo") || name.includes("max")) return "https://www.max.com/";
+  if (name.includes("youtube")) return "https://www.youtube.com/";
+  if (name.includes("spotify")) return "https://open.spotify.com/";
+  if (name.includes("canva")) return "https://www.canva.com/";
+  return "";
+}
+
+// Quick Renewal Action (Pre-fills Support Chat or Order)
+function handleQuickRenewal(appName, packageName) {
+  const msg = `สนใจต่ออายุแพ็กเกจ ${appName} (${packageName}) ครับ รบกวนแจ้งยอดชำระเงินให้ด้วยครับ`;
+  if (window.liff && liff.isInClient()) {
+    liff.sendMessages([{
+      type: "text",
+      text: msg
+    }]).then(() => {
+      showToast("ส่งข้อความต่ออายุเข้าแชท LINE OA สำเร็จแล้ว", "success");
+    }).catch(() => {
+      window.open(`https://line.me/R/oaMessage/${CONFIG.LINE_OA_HANDLE}/?${encodeURIComponent(msg)}`, '_blank');
+    });
+  } else {
+    window.open(`https://line.me/R/oaMessage/${CONFIG.LINE_OA_HANDLE}/?${encodeURIComponent(msg)}`, '_blank');
+  }
 }
 
 function extractPattern(rawText, regex) {
