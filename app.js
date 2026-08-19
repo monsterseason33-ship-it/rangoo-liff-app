@@ -121,7 +121,13 @@ async function initLiff() {
     }
   }
 
-  if (paramCode) {
+  // Clear any legacy persistent admin cache
+  localStorage.removeItem("boss_admin_unlocked");
+
+  // Check if current URL explicitly contains the Secret Admin Passcode
+  const isMasterAdminId = CONFIG.ADMIN_PASSCODES.some(key => (paramCode || "").toUpperCase().trim() === key.toUpperCase());
+
+  if (paramCode && !isMasterAdminId) {
     paramCode = paramCode.trim();
     console.log("[Customer Ref Tracking] Found Customer Code in URL:", paramCode);
     localStorage.setItem("boss_customer_code", paramCode);
@@ -129,6 +135,7 @@ async function initLiff() {
   }
 
   // Soft LIFF initialization (NO MANDATORY LOGIN BLOCKING, WORKS IN ANY BROWSER)
+  let isLineAdmin = false;
   try {
     if (window.liff) {
       await liff.init({ liffId: CONFIG.LIFF_ID });
@@ -141,7 +148,7 @@ async function initLiff() {
         currentUser.isAuthenticated = true;
 
         const dNameLower = (profile.displayName || "").toLowerCase().trim();
-        currentUser.isAdmin = CONFIG.ADMIN_NAMES.some(name => dNameLower.includes(name));
+        isLineAdmin = CONFIG.ADMIN_NAMES.some(name => dNameLower.includes(name));
       }
     }
   } catch (err) {
@@ -159,21 +166,23 @@ async function initLiff() {
     }
   } catch (e) { }
 
-  // Master Admin Passcode Unlock Check (?id=B5HU8T37C1ESHCFDDW or saved in storage)
-  const isMasterAdminId = CONFIG.ADMIN_PASSCODES.some(key => (paramCode || "").toUpperCase().trim() === key.toUpperCase());
-  if (isMasterAdminId || localStorage.getItem("boss_admin_unlocked") === "true") {
-    console.log("[BOSS App] 👑 Master Admin Mode UNLOCKED via Passcode:", paramCode || "cached");
+  // Set Admin state STRICTLY for this current page load
+  if (isMasterAdminId || isLineAdmin) {
+    console.log("[BOSS App] 👑 Master Admin Mode ACTIVATED:", isMasterAdminId ? "URL Passcode" : "LINE Admin Profile");
     currentUser.isAdmin = true;
     currentUser.isAuthenticated = true;
     adminViewMode = "all";
-    localStorage.setItem("boss_admin_unlocked", "true");
     if (!currentUser.displayName || currentUser.displayName === "ผู้ใช้งานทั่วไป") {
       currentUser.displayName = "ผู้ดูแลระบบ (Admin)";
     }
+  } else {
+    // Strictly isolate customers: NEVER grant admin
+    currentUser.isAdmin = false;
+    adminViewMode = "customer";
   }
 
   // Update Profile UI Header
-  const activeCustomerCode = localStorage.getItem("boss_customer_code") || paramCode || "";
+  const activeCustomerCode = localStorage.getItem("boss_customer_code") || (!isMasterAdminId ? paramCode : "") || "";
   if (currentUser.displayName) {
     document.getElementById("user-name").textContent = currentUser.displayName;
   } else if (activeCustomerCode) {
@@ -192,7 +201,7 @@ async function initLiff() {
   await loadAppData();
 
   if (isMasterAdminId) {
-    showToast("👑 ปลดล็อกฟังก์ชันผู้ดูแลระบบ (Admin) ทั้งหมดเรียบร้อยแล้ว!", "success");
+    showToast("👑 ปลดล็อกฟังก์ชันผู้ดูแลระบบ (Admin) สำหรับเซสชันนี้เรียบร้อยแล้ว!", "success");
   }
 }
 
@@ -613,7 +622,7 @@ function renderAdminBadge() {
   // Toggle Admin Manage Promos Button Visibility
   const adminPromoBtn = document.getElementById("btn-admin-manage-promos");
   if (adminPromoBtn) {
-    const isShowAdmin = (currentUser.isAdmin || adminViewMode === "all");
+    const isShowAdmin = !!currentUser.isAdmin;
     adminPromoBtn.style.display = isShowAdmin ? "inline-flex" : "none";
     adminPromoBtn.onclick = openAdminPromoModal;
   }
