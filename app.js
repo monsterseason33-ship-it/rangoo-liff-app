@@ -3303,14 +3303,14 @@ function updatePrimeSelectedCardDetails(pkg) {
 // Generate the Segmented Switcher HTML for Prime Video (Tabs + Chips)
 function generatePrimeSegmentedHtml(categories, activeTab, selectedPkgId) {
   const availableTabs = [];
-  if (categories.clearance && categories.clearance.length > 0) {
-    availableTabs.push({ key: 'clearance', label: 'จอโล๊ะ', icon: getPackageSvgIcon('clearance', true), isClearance: true });
+  if (categories.tv && categories.tv.length > 0) {
+    availableTabs.push({ key: 'tv', label: 'ทุกอุปกรณ์ / สมาร์ททีวี', icon: getPackageSvgIcon('tv', false) });
   }
   if (categories.mobile && categories.mobile.length > 0) {
     availableTabs.push({ key: 'mobile', label: 'มือถือ / ไอแพด', icon: getPackageSvgIcon('mobile', false) });
   }
-  if (categories.tv && categories.tv.length > 0) {
-    availableTabs.push({ key: 'tv', label: 'สมาร์ททีวี', icon: getPackageSvgIcon('tv', false) });
+  if (categories.clearance && categories.clearance.length > 0) {
+    availableTabs.push({ key: 'clearance', label: 'จอโล๊ะ', icon: getPackageSvgIcon('clearance', true), isClearance: true });
   }
 
   const activePlans = categories[activeTab] || [];
@@ -3575,7 +3575,7 @@ async function fetchAndRenderPromotions() {
 
     let primeActiveTab = window._activePrimeTab;
     if (!primeActiveTab || !primeCategories[primeActiveTab] || primeCategories[primeActiveTab].length === 0) {
-      primeActiveTab = (primeCategories.clearance && primeCategories.clearance.length > 0) ? 'clearance' : (primeCategories.mobile && primeCategories.mobile.length > 0 ? 'mobile' : 'tv');
+      primeActiveTab = (primeCategories.tv && primeCategories.tv.length > 0) ? 'tv' : ((primeCategories.mobile && primeCategories.mobile.length > 0) ? 'mobile' : 'clearance');
       window._activePrimeTab = primeActiveTab;
     }
 
