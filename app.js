@@ -3529,23 +3529,33 @@ async function fetchAndRenderPromotions() {
     if (primeDbPkgs.length > 0) {
       primeDbPkgs.forEach(pkg => {
         const pName = (pkg.name || "").toLowerCase();
-        const isTv = pName.includes("tv") || pName.includes("ทีวี") || pName.includes("ทุกอุปกรณ์");
+        // Prime Video: Default is "tv" (ทุกอุปกรณ์ / สมาร์ททีวี) unless explicitly specified as mobile-only
+        const isMobileOnly = pName.includes("เฉพาะมือถือ") || pName.includes("มือถือเท่านั้น");
+        const isTv = !isMobileOnly;
         const catKey = isTv ? "tv" : "mobile";
         const days = pkg.days || 30;
         const durationLabel = days === 365 ? "รายปี" : `${days} วัน`;
+
+        // Friendly label for chips
+        let chipLabel = durationLabel;
+        if (pName.includes("หาร 5") || pName.includes("shared")) {
+          chipLabel = `หาร 5 (${durationLabel})`;
+        } else if (pName.includes("หาร 3") || pName.includes("non-stop")) {
+          chipLabel = `หาร 3 (${durationLabel})`;
+        }
 
         const planItem = {
           id: String(pkg.id),
           categoryKey: catKey,
           isClearance: false,
           name: pkg.name,
-          durationLabel: durationLabel,
+          durationLabel: chipLabel,
           price: pkg.price,
           originalPrice: pkg.original_price || (pkg.price + 30),
           days: days,
-          badge: isTv ? "📺 สมาร์ททีวี / ทุกอุปกรณ์" : "📱 มือถือ / แท็บเล็ต",
-          buyLabel: isTv ? `สั่งซื้อ Prime Video ทีวี ${durationLabel} (฿${pkg.price})` : `สั่งซื้อ Prime Video มือถือ ${durationLabel} (฿${pkg.price})`,
-          orderText: `🍿 [สั่งซื้อ Prime Video 4K] แพ็กเกจ: ${pkg.name} (${durationLabel}) ราคา ฿${pkg.price} ครับ`
+          badge: isTv ? "📺 ทุกอุปกรณ์ (TV / มือถือ / PC)" : "📱 มือถือ / แท็บเล็ต",
+          buyLabel: isTv ? `สั่งซื้อ Prime Video ทุกอุปกรณ์ ${durationLabel} (฿${pkg.price})` : `สั่งซื้อ Prime Video มือถือ ${durationLabel} (฿${pkg.price})`,
+          orderText: `🍿 [สั่งซื้อ Prime Video 4K ทุกอุปกรณ์] แพ็กเกจ: ${pkg.name} (${durationLabel}) ราคา ฿${pkg.price} ครับ`
         };
 
         primeCategories[catKey].push(planItem);
