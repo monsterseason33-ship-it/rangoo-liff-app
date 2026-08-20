@@ -3437,7 +3437,7 @@ async function fetchAndRenderPromotions() {
           price: pkg.price,
           originalPrice: pkg.original_price || (pkg.price + 30),
           days: days,
-          badge: isTv ? "📺 สมาร์ททีวี / ทุกอุปกรณ์" : "📱 มือถือ / แท็บเล็ต",
+          badge: `🛡️ รับประกันตลอด ${durationLabel}`,
           buyLabel: isTv ? `สั่งซื้อ Netflix ทีวี ${durationLabel} (฿${pkg.price})` : `สั่งซื้อ Netflix มือถือ ${durationLabel} (฿${pkg.price})`,
           orderText: `🎬 [สั่งซื้อ Netflix 4K] แพ็กเกจ: ${pkg.name} (${durationLabel}) ราคา ฿${pkg.price} ครับ`
         };
@@ -3447,14 +3447,14 @@ async function fetchAndRenderPromotions() {
       });
     } else {
       const fallbackMobile = [
-        { id: "pkg-m-7", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 7 วัน", durationLabel: "7 วัน", price: 69, originalPrice: 89, days: 7, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Netflix มือถือ 7 วัน (฿69)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 7 วัน ราคา ฿69 ครับ" },
-        { id: "pkg-m-15", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 15 วัน", durationLabel: "15 วัน", price: 99, originalPrice: 119, days: 15, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Netflix มือถือ 15 วัน (฿99)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 15 วัน ราคา ฿99 ครับ" },
-        { id: "pkg-m-30", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 30 วัน", durationLabel: "30 วัน", price: 120, originalPrice: 149, days: 30, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Netflix มือถือ 30 วัน (฿120)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 30 วัน ราคา ฿120 ครับ" }
+        { id: "pkg-m-7", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 7 วัน", durationLabel: "7 วัน", price: 69, originalPrice: 89, days: 7, badge: "🛡️ รับประกันตลอด 7 วัน", buyLabel: "สั่งซื้อ Netflix มือถือ 7 วัน (฿69)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 7 วัน ราคา ฿69 ครับ" },
+        { id: "pkg-m-15", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 15 วัน", durationLabel: "15 วัน", price: 99, originalPrice: 119, days: 15, badge: "🛡️ รับประกันตลอด 15 วัน", buyLabel: "สั่งซื้อ Netflix มือถือ 15 วัน (฿99)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 15 วัน ราคา ฿99 ครับ" },
+        { id: "pkg-m-30", categoryKey: "mobile", isClearance: false, name: "Netflix มือถือ 30 วัน", durationLabel: "30 วัน", price: 120, originalPrice: 149, days: 30, badge: "🛡️ รับประกันตลอด 30 วัน", buyLabel: "สั่งซื้อ Netflix มือถือ 30 วัน (฿120)", orderText: "🎬 [สั่งซื้อ Netflix 4K] มือถือ 30 วัน ราคา ฿120 ครับ" }
       ];
       const fallbackTv = [
-        { id: "pkg-tv-7", categoryKey: "tv", isClearance: false, name: "Netflix สมาร์ททีวี 7 วัน", durationLabel: "7 วัน", price: 79, originalPrice: 99, days: 7, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Netflix ทีวี 7 วัน (฿79)", orderText: "🎬 [สั่งซื้อ Netflix 4K] ทีวี 7 วัน ราคา ฿79 ครับ" },
-        { id: "pkg-tv-15", categoryKey: "tv", isClearance: false, name: "Netflix สมาร์ททีวี 15 วัน", durationLabel: "15 วัน", price: 109, originalPrice: 139, days: 15, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Netflix ทีวี 15 วัน (฿109)", orderText: "🎬 [สั่งซื้อ Netflix 4K] ทีวี 15 วัน ราคา ฿109 ครับ" },
-        { id: "pkg-tv-30", categoryKey: "tv", isClearance: false, name: "Netflix สมาร์ททีวี 30 วัน", durationLabel: "30 วัน", price: 170, originalPrice: 199, days: 30, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Netflix ทีวี 30 วัน (฿170)", orderText: "🎬 [สั่งซื้อ Netflix 4K] ทีวี 30 วัน ราคา ฿170 ครับ" }
+        { id: "pkg-tv-7", categoryKey: "tv", isClearance: false, name: "Netflix สมาร์ททีวี 7 วัน", durationLabel: "7 วัน", price: 79, originalPrice: 99, days: 7, badge: "🛡️ รับประกันตลอด 7 วัน", buyLabel: "สั่งซื้อ Netflix ทีวี 7 วัน (฿79)", orderText: "🎬 [สั่งซื้อ Netflix 4K] ทีวี 7 วัน ราคา ฿79 ครับ" },
+        { id: "pkg-tv-15", categoryKey: "tv", isClearance: false, name: "Netflix สมาร์ททีวี 15 วัน", durationLabel: "15 วัน", price: 109, originalPrice: 139, days: 15, badge: "🛡️ รับประกันตลอด 15 วัน", buyLabel: "สั่งซื้อ Netflix ทีวี 15 วัน (฿109)", orderText: "🎬 [สั่งซื้อ Netflix 4K] ทีวี 15 วัน ราคา ฿109 ครับ" },
+        { id: "pkg-tv-30", categoryKey: "tv", isClearance: false, name: "Netflix สมาร์ททีวี 30 วัน", durationLabel: "30 วัน", price: 170, originalPrice: 199, days: 30, badge: "🛡️ รับประกันตลอด 30 วัน", buyLabel: "สั่งซื้อ Netflix ทีวี 30 วัน (฿170)", orderText: "🎬 [สั่งซื้อ Netflix 4K] ทีวี 30 วัน ราคา ฿170 ครับ" }
       ];
       categories.mobile = fallbackMobile;
       categories.tv = fallbackTv;
@@ -3544,6 +3544,16 @@ async function fetchAndRenderPromotions() {
           chipLabel = `หาร 3 จอ`;
         }
 
+        // Distinct benefit/guarantee badge
+        let benefitBadge = "🛡️ รับประกันตลอด 30 วัน";
+        if (pName.includes("หาร 3") || pName.includes("non-stop")) {
+          benefitBadge = "⚡ ดูลื่นยาวๆ จอไม่ชน";
+        } else if (pName.includes("หาร 5") || pName.includes("shared")) {
+          benefitBadge = "🛋️ สายชิลล์ ประหยัดสุดคุ้ม";
+        } else if (days) {
+          benefitBadge = `🛡️ รับประกันตลอด ${durationLabel}`;
+        }
+
         const planItem = {
           id: String(pkg.id),
           categoryKey: catKey,
@@ -3553,7 +3563,7 @@ async function fetchAndRenderPromotions() {
           price: pkg.price,
           originalPrice: pkg.original_price || (pkg.price + 30),
           days: days,
-          badge: isTv ? "📺 ทุกอุปกรณ์ (TV / มือถือ / PC)" : "📱 มือถือ / แท็บเล็ต",
+          badge: benefitBadge,
           buyLabel: isTv ? `สั่งซื้อ Prime Video ทุกอุปกรณ์ ${durationLabel} (฿${pkg.price})` : `สั่งซื้อ Prime Video มือถือ ${durationLabel} (฿${pkg.price})`,
           orderText: `🍿 [สั่งซื้อ Prime Video 4K ทุกอุปกรณ์] แพ็กเกจ: ${pkg.name} (${durationLabel}) ราคา ฿${pkg.price} ครับ`
         };
@@ -3563,14 +3573,14 @@ async function fetchAndRenderPromotions() {
       });
     } else {
       const fallbackPrimeMobile = [
-        { id: "pkg-prime-m-7", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 7 วัน", durationLabel: "7 วัน", price: 39, originalPrice: 59, days: 7, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Prime Video มือถือ 7 วัน (฿39)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 7 วัน ราคา ฿39 ครับ" },
-        { id: "pkg-prime-m-15", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 15 วัน", durationLabel: "15 วัน", price: 59, originalPrice: 79, days: 15, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Prime Video มือถือ 15 วัน (฿59)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 15 วัน ราคา ฿59 ครับ" },
-        { id: "pkg-prime-m-30", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 30 วัน", durationLabel: "30 วัน", price: 79, originalPrice: 99, days: 30, badge: "📱 มือถือ / แท็บเล็ต", buyLabel: "สั่งซื้อ Prime Video มือถือ 30 วัน (฿79)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 30 วัน ราคา ฿79 ครับ" }
+        { id: "pkg-prime-m-7", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 7 วัน", durationLabel: "7 วัน", price: 39, originalPrice: 59, days: 7, badge: "🛡️ รับประกันตลอด 7 วัน", buyLabel: "สั่งซื้อ Prime Video มือถือ 7 วัน (฿39)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 7 วัน ราคา ฿39 ครับ" },
+        { id: "pkg-prime-m-15", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 15 วัน", durationLabel: "15 วัน", price: 59, originalPrice: 79, days: 15, badge: "🛡️ รับประกันตลอด 15 วัน", buyLabel: "สั่งซื้อ Prime Video มือถือ 15 วัน (฿59)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 15 วัน ราคา ฿59 ครับ" },
+        { id: "pkg-prime-m-30", categoryKey: "mobile", isClearance: false, name: "Prime Video มือถือ 30 วัน", durationLabel: "30 วัน", price: 79, originalPrice: 99, days: 30, badge: "🛡️ รับประกันตลอด 30 วัน", buyLabel: "สั่งซื้อ Prime Video มือถือ 30 วัน (฿79)", orderText: "🍿 [สั่งซื้อ Prime Video] มือถือ 30 วัน ราคา ฿79 ครับ" }
       ];
       const fallbackPrimeTv = [
-        { id: "pkg-prime-tv-7", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 7 วัน", durationLabel: "7 วัน", price: 49, originalPrice: 69, days: 7, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Prime Video ทีวี 7 วัน (฿49)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 7 วัน ราคา ฿49 ครับ" },
-        { id: "pkg-prime-tv-15", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 15 วัน", durationLabel: "15 วัน", price: 79, originalPrice: 99, days: 15, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Prime Video ทีวี 15 วัน (฿79)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 15 วัน ราคา ฿79 ครับ" },
-        { id: "pkg-prime-tv-30", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 30 วัน", durationLabel: "30 วัน", price: 99, originalPrice: 129, days: 30, badge: "📺 สมาร์ททีวี / ทุกอุปกรณ์", buyLabel: "สั่งซื้อ Prime Video ทีวี 30 วัน (฿99)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 30 วัน ราคา ฿99 ครับ" }
+        { id: "pkg-prime-tv-7", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 7 วัน", durationLabel: "7 วัน", price: 49, originalPrice: 69, days: 7, badge: "🛡️ รับประกันตลอด 7 วัน", buyLabel: "สั่งซื้อ Prime Video ทีวี 7 วัน (฿49)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 7 วัน ราคา ฿49 ครับ" },
+        { id: "pkg-prime-tv-15", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 15 วัน", durationLabel: "15 วัน", price: 79, originalPrice: 99, days: 15, badge: "🛡️ รับประกันตลอด 15 วัน", buyLabel: "สั่งซื้อ Prime Video ทีวี 15 วัน (฿79)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 15 วัน ราคา ฿79 ครับ" },
+        { id: "pkg-prime-tv-30", categoryKey: "tv", isClearance: false, name: "Prime Video สมาร์ททีวี 30 วัน", durationLabel: "30 วัน", price: 99, originalPrice: 129, days: 30, badge: "🛡️ รับประกันตลอด 30 วัน", buyLabel: "สั่งซื้อ Prime Video ทีวี 30 วัน (฿99)", orderText: "🍿 [สั่งซื้อ Prime Video] ทีวี 30 วัน ราคา ฿99 ครับ" }
       ];
       primeCategories.mobile = fallbackPrimeMobile;
       primeCategories.tv = fallbackPrimeTv;
