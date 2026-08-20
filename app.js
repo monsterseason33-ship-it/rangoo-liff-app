@@ -3536,12 +3536,12 @@ async function fetchAndRenderPromotions() {
         const days = pkg.days || 30;
         const durationLabel = days === 365 ? "รายปี" : `${days} วัน`;
 
-        // Friendly label for chips
+        // Friendly compact label for chips
         let chipLabel = durationLabel;
         if (pName.includes("หาร 5") || pName.includes("shared")) {
-          chipLabel = `หาร 5 (${durationLabel})`;
+          chipLabel = `หาร 5 จอ`;
         } else if (pName.includes("หาร 3") || pName.includes("non-stop")) {
-          chipLabel = `หาร 3 (${durationLabel})`;
+          chipLabel = `หาร 3 จอ`;
         }
 
         const planItem = {
