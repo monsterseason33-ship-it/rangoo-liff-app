@@ -12,7 +12,12 @@ const CONFIG = {
 // Initialize Supabase JS Client for Realtime WebSocket
 if (window.supabase) {
   try {
-    window.supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+    const fetchFunc = window._nativeFetch || (typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : null);
+    window.supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {
+      global: {
+        fetch: fetchFunc ? ((...args) => fetchFunc(...args)) : undefined
+      }
+    });
   } catch (e) {
     console.warn("Failed to init Supabase client:", e);
   }
@@ -41,7 +46,7 @@ let selectedSortOption = "default";
 let lastOrderSummaryText = "";
 let promotionsData = [];
 
-// Helper: Call Supabase REST API
+// Helper: Call Supabase REST API (Immune to LINE LIFF SDK fetch hijacking)
 async function supabaseFetch(endpoint, options = {}) {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     throw new Error("ERR_INTERNET_DISCONNECTED");
@@ -55,21 +60,59 @@ async function supabaseFetch(endpoint, options = {}) {
     ...options.headers
   };
 
-  try {
-    const res = await fetch(url, { ...options, headers });
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Supabase API Error ${res.status}: ${errText}`);
+  const fetchFunc = window._nativeFetch || (typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : null);
+
+  if (typeof fetchFunc === 'function') {
+    try {
+      const res = await fetchFunc(url, { ...options, headers });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Supabase API Error ${res.status}: ${errText}`);
+      }
+      if (res.status === 204) return null;
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
+    } catch (err) {
+      // If error is related to LINE LIFF SDK fetch monkey-patching (e.g. M_ID), fall through to XHR fallback
+      const errMsg = err?.message || String(err);
+      if (!errMsg.includes("M_ID") && !errMsg.includes("reading 'M_ID'")) {
+        if (typeof navigator === 'undefined' || navigator.onLine) {
+          console.error("[Supabase Fetch Error]", errMsg);
+        }
+        throw err;
+      }
+      console.warn("[Supabase Fetch] Intercepted by LIFF, executing resilient XHR fallback...");
     }
-    if (res.status === 204) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : null;
-  } catch (err) {
-    if (typeof navigator === 'undefined' || navigator.onLine) {
-      console.error("[Supabase Fetch Error]", err.message || err);
-    }
-    throw err;
   }
+
+  // Resilient XHR Fallback to guarantee 100% immunity against any 3rd-party fetch hijacking
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open(options.method || "GET", url, true);
+      Object.keys(headers).forEach(k => {
+        if (headers[k] !== undefined && headers[k] !== null) {
+          xhr.setRequestHeader(k, headers[k]);
+        }
+      });
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.status === 204 || !xhr.responseText) return resolve(null);
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch (e) {
+            resolve(xhr.responseText);
+          }
+        } else {
+          reject(new Error(`Supabase API Error ${xhr.status}: ${xhr.responseText}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Supabase XHR Network Error"));
+      xhr.send(options.body || null);
+    } catch (e) {
+      reject(e);
+    }
+  });
 }
 
 // Real-Time Flash Sale Digital Countdown Timer
@@ -925,6 +968,7 @@ function renderSubscriptions() {
     // Extract Account Info from Binding or Linked Account
     const acc = sub.account || {};
     const isBroken = acc.status === "broken" || acc.status === "มีปัญหา" || !!acc.problem_type || sub.status === "broken";
+    const isExpired = !isBroken && (diffMs <= 0 || sub.status === "expired");
 
     let expiryBadgeClass = "expiry-active";
     let expiryText = `เหลือ ${diffDays} วัน`;
@@ -932,13 +976,15 @@ function renderSubscriptions() {
     if (isBroken) {
       expiryBadgeClass = "expiry-broken";
       expiryText = "⚠️ บัญชีมีปัญหา";
-    } else if (diffMs <= 0) {
+    } else if (isExpired) {
       expiryBadgeClass = "expiry-expired";
       expiryText = "หมดอายุแล้ว";
     } else if (diffDays <= 3) {
       expiryBadgeClass = "expiry-warning";
       expiryText = `ใกล้หมดอายุ (เหลือ ${diffDays} วัน)`;
     }
+
+    card.className = `sub-card ${appStyle.cardClass}${isExpired ? ' is-expired' : ''}`;
 
     const email = acc.email || extractPattern(sub.raw_account_data, /อีเมล:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /📧\s*([^\n]+)/) || "ไม่ระบุ";
     const rawPassword = acc.password || extractPattern(sub.raw_account_data, /รหัสผ่าน:\s*([^\n]+)/) || extractPattern(sub.raw_account_data, /🔑\s*([^\n]+)/) || "ไม่ระบุ";
@@ -973,47 +1019,25 @@ function renderSubscriptions() {
     // Calculate Progress Bar percentage safely based on actual package duration (sub.days)
     const totalPkgDays = getSubscriptionTotalDays(sub);
     let progressPercent = 0;
-    if (diffDays > 0) {
+    if (!isExpired && diffDays > 0) {
       progressPercent = Math.min(100, Math.max(0, Math.round((diffDays / totalPkgDays) * 100)));
     }
 
     const launchAppUrl = getStreamingAppLaunchUrl(sub.app_name);
-    const isNearExpiry = diffDays > 0 && diffDays <= 5 && !isBroken;
+    const isNearExpiry = !isExpired && diffDays > 0 && diffDays <= 5 && !isBroken;
 
-    card.innerHTML = `
-      <div class="sub-card-header">
-        <div class="app-pill">
-          ${appStyle.iconHtml}
-          <div>
-            <div class="app-name-text">${escapeHtml(sub.app_name)}</div>
-            ${currentUser.isAdmin ? `<span style="font-size: 10px; color: #fde047;">ลูกค้า: ${escapeHtml(sub.customer_name)}</span>` : ''}
-          </div>
+    // Credentials / Locked Section Rendering
+    let credentialSectionHtml = "";
+    if (isExpired) {
+      credentialSectionHtml = `
+        <div class="sub-expired-notice">
+          <div class="sub-expired-notice-icon">🔒</div>
+          <div class="sub-expired-notice-title">สิทธิ์การใช้งานนี้หมดอายุแล้ว</div>
+          <div class="sub-expired-notice-desc">ข้อมูลการเข้าสู่ระบบและรหัสผ่านถูกปิดการเข้าถึงเพื่อความปลอดภัย หากต้องการใช้งานต่อ สามารถกดปุ่ม "ต่ออายุแพ็กเกจนี้" ด้านล่างได้ทันทีครับ</div>
         </div>
-        <span class="expiry-badge ${expiryBadgeClass}">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          ${expiryText}
-        </span>
-      </div>
-
-      <div class="sub-progress-container" title="ระยะเวลาคงเหลือ ${progressPercent}%">
-        <div class="sub-progress-fill ${expiryBadgeClass}" style="width: ${progressPercent}%;"></div>
-      </div>
-
-      <div class="sub-details">
-        ${isBroken ? `
-          <div class="sub-broken-banner">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            <span>บัญชีนี้อยู่ระหว่างการตรวจสอบ/แก้ไขปัญหาจากทางร้าน หากเข้าใช้งานไม่ได้ สามารถกดปุ่ม "แจ้งปัญหา" ด้านล่างได้ทันทีครับ</span>
-          </div>
-        ` : ''}
-        <div class="sub-pkg-banner">
-          <span class="sub-pkg-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            แพ็คเกจ:
-          </span>
-          <span class="sub-pkg-title">${escapeHtml(getFormattedPackageName(sub))}</span>
-        </div>
-
+      `;
+    } else {
+      credentialSectionHtml = `
         <div class="sub-credential-card">
           <div class="credential-row">
             <div class="credential-label">
@@ -1081,6 +1105,104 @@ function renderSubscriptions() {
             </div>
           ` : ''}
         </div>
+      `;
+    }
+
+    // PIN Display Rendering
+    let pinBadgeHtml = "";
+    if (isExpired) {
+      pinBadgeHtml = `
+        <div class="pin-badge-expired" title="สิทธิ์การใช้งานหมดอายุแล้ว">
+          <span style="font-size: 10px;">🔒</span>
+          <span>PIN: ••••</span>
+        </div>
+      `;
+    } else if (pin && pin !== '-') {
+      pinBadgeHtml = `
+        <div class="pin-badge" onclick="event.stopPropagation(); copyToClipboard('${escapeHtml(pin)}', 'รหัส PIN ${escapeHtml(pin)}', this)" title="แตะเพื่อคัดลอก PIN: ${escapeHtml(pin)}">
+          <div class="pin-badge-lock">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <span class="pin-badge-tag">PIN</span>
+          <span class="pin-badge-code">${escapeHtml(pin)}</span>
+          <svg class="pin-badge-copy-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        </div>
+      `;
+    }
+
+    // Actions Row Rendering
+    let actionsRowHtml = "";
+    if (isExpired) {
+      actionsRowHtml = `
+        <div class="sub-card-actions-row">
+          <button type="button" class="btn-renew-expired-hero" onclick="handleQuickRenewal('${escapeHtml(sub.app_name)}', '${escapeHtml(getFormattedPackageName(sub))}')" title="สั่งซื้อต่ออายุแพ็กเกจนี้ทันที">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span>🛒 ต่ออายุแพ็กเกจนี้</span>
+          </button>
+          <button type="button" class="btn-card-support" onclick="openProblemModal('${escapeHtml(sub.app_name)}', '${sub.id}')" title="แจ้งปัญหาบัญชีนี้">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>แจ้งปัญหา</span>
+          </button>
+        </div>
+      `;
+    } else {
+      actionsRowHtml = `
+        <div class="sub-card-actions-row">
+          ${launchAppUrl ? `
+            <a href="${launchAppUrl}" target="_blank" rel="noopener noreferrer" class="btn-launch-app" title="เปิดหน้าเว็บหรือแอปพลิเคชัน ${escapeHtml(sub.app_name)}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              <span>เข้าใช้งาน ${escapeHtml(sub.app_name)}</span>
+            </a>
+          ` : ''}
+          ${isNearExpiry ? `
+            <button type="button" class="btn-renew-sub" onclick="handleQuickRenewal('${escapeHtml(sub.app_name)}', '${escapeHtml(getFormattedPackageName(sub))}')" title="ต่ออายุแพ็กเกจนี้ทันที">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>ต่ออายุ</span>
+            </button>
+          ` : ''}
+          <button type="button" class="btn-card-support" onclick="openProblemModal('${escapeHtml(sub.app_name)}', '${sub.id}')" title="แจ้งปัญหาบัญชีนี้">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>แจ้งปัญหา</span>
+          </button>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="sub-card-header">
+        <div class="app-pill">
+          ${appStyle.iconHtml}
+          <div>
+            <div class="app-name-text">${escapeHtml(sub.app_name)}</div>
+            ${currentUser.isAdmin ? `<span style="font-size: 10px; color: #fde047;">ลูกค้า: ${escapeHtml(sub.customer_name)}</span>` : ''}
+          </div>
+        </div>
+        <span class="expiry-badge ${expiryBadgeClass}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          ${expiryText}
+        </span>
+      </div>
+
+      <div class="sub-progress-container" title="ระยะเวลาคงเหลือ ${progressPercent}%">
+        <div class="sub-progress-fill ${expiryBadgeClass}" style="width: ${progressPercent}%;"></div>
+      </div>
+
+      <div class="sub-details">
+        ${isBroken ? `
+          <div class="sub-broken-banner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>บัญชีนี้อยู่ระหว่างการตรวจสอบ/แก้ไขปัญหาจากทางร้าน หากเข้าใช้งานไม่ได้ สามารถกดปุ่ม "แจ้งปัญหา" ด้านล่างได้ทันทีครับ</span>
+          </div>
+        ` : ''}
+        <div class="sub-pkg-banner">
+          <span class="sub-pkg-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            แพ็คเกจ:
+          </span>
+          <span class="sub-pkg-title">${escapeHtml(getFormattedPackageName(sub))}</span>
+        </div>
+
+        ${credentialSectionHtml}
 
         <div class="sub-info-grid">
           <div class="info-tile">
@@ -1090,16 +1212,7 @@ function renderSubscriptions() {
             </span>
             <div class="profile-val-container">
               <span class="info-tile-val profile-name-val">${escapeHtml(profile)}</span>
-              ${pin && pin !== '-' ? `
-                <div class="pin-badge" onclick="event.stopPropagation(); copyToClipboard('${escapeHtml(pin)}', 'รหัส PIN ${escapeHtml(pin)}', this)" title="แตะเพื่อคัดลอก PIN: ${escapeHtml(pin)}">
-                  <div class="pin-badge-lock">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                  </div>
-                  <span class="pin-badge-tag">PIN</span>
-                  <span class="pin-badge-code">${escapeHtml(pin)}</span>
-                  <svg class="pin-badge-copy-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                </div>
-              ` : ''}
+              ${pinBadgeHtml}
             </div>
           </div>
 
@@ -1126,24 +1239,7 @@ function renderSubscriptions() {
       </div>
 
       <!-- Action Buttons Row (Launch App / Quick Renew / Report Problem) -->
-      <div class="sub-card-actions-row">
-        ${launchAppUrl ? `
-          <a href="${launchAppUrl}" target="_blank" rel="noopener noreferrer" class="btn-launch-app" title="เปิดหน้าเว็บหรือแอปพลิเคชัน ${escapeHtml(sub.app_name)}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            <span>เข้าใช้งาน ${escapeHtml(sub.app_name)}</span>
-          </a>
-        ` : ''}
-        ${isNearExpiry ? `
-          <button type="button" class="btn-renew-sub" onclick="handleQuickRenewal('${escapeHtml(sub.app_name)}', '${escapeHtml(getFormattedPackageName(sub))}')" title="ต่ออายุแพ็กเกจนี้ทันที">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            <span>ต่ออายุ</span>
-          </button>
-        ` : ''}
-        <button type="button" class="btn-card-support" onclick="openProblemModal('${escapeHtml(sub.app_name)}', '${sub.id}')" title="แจ้งปัญหาบัญชีนี้">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          <span>แจ้งปัญหา</span>
-        </button>
-      </div>
+      ${actionsRowHtml}
     `;
 
     container.appendChild(card);

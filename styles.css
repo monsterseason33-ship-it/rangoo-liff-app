@@ -1006,6 +1006,103 @@ body.support-tab-active .container {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 0 35px rgba(248, 113, 113, 0.28);
 }
 
+/* Expired Subscription Card & Security Locked State */
+.sub-card.is-expired {
+  border-color: rgba(244, 63, 94, 0.32);
+  background: radial-gradient(circle at 15% 15%, rgba(244, 63, 94, 0.08) 0%, rgba(15, 23, 42, 0.96) 75%);
+}
+
+.sub-card.is-expired:hover {
+  border-color: rgba(244, 63, 94, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 63, 94, 0.18);
+}
+
+.sub-expired-notice {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%);
+  border: 1px dashed rgba(244, 63, 94, 0.35);
+  border-radius: 14px;
+  padding: 14px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 10px 0;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.sub-expired-notice-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(244, 63, 94, 0.16);
+  border: 1px solid rgba(244, 63, 94, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f43f5e;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+
+.sub-expired-notice-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fca5a5;
+  letter-spacing: -0.2px;
+}
+
+.sub-expired-notice-desc {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+  max-width: 320px;
+}
+
+.pin-badge-expired {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2.5px 8.5px;
+  border-radius: 9999px;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.btn-renew-expired-hero {
+  flex: 1;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45);
+  transition: all 0.22s ease;
+  font-family: inherit;
+}
+
+.btn-renew-expired-hero:hover {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-renew-expired-hero:active {
+  transform: scale(0.98);
+}
+
 .sub-card-header {
   display: flex;
   align-items: center;
@@ -4965,4 +5062,92 @@ input:checked + .slider-toggle:before {
     grid-template-columns: repeat(3, 1fr);
     gap: 22px;
   }
+}
+
+/* =========================================================================
+   🔒 EXPIRED SUBSCRIPTION CARD & NOTICE STYLING
+   ========================================================================= */
+
+.sub-card.is-expired {
+  opacity: 0.92;
+  border-color: rgba(244, 63, 94, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.sub-card.is-expired:hover {
+  opacity: 1;
+  border-color: rgba(244, 63, 94, 0.45);
+}
+
+.sub-expired-notice {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px dashed rgba(244, 63, 94, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: center;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(8px);
+}
+
+.sub-expired-notice-icon {
+  font-size: 20px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.sub-expired-notice-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fb7185;
+}
+
+.sub-expired-notice-desc {
+  font-size: 10.5px;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.pin-badge-expired {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: #fb7185;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.btn-renew-expired-hero {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-renew-expired-hero:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.5);
+}
+
+.btn-renew-expired-hero:active {
+  transform: scale(0.97);
 }

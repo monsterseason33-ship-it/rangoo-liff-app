@@ -7,11 +7,14 @@
   <meta name="referrer" content="no-referrer">
   <title>BOSS Premium - Customer Portal</title>
   <link rel="icon" type="image/svg+xml"
-    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4af37'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>">
+  <!-- Preserve un-monkey-patched Native Fetch before LINE LIFF SDK loads -->
+  <script>
+    window._nativeFetch = (typeof window !== 'undefined' && window.fetch) ? window.fetch.bind(window) : null;
+  </script>
   <!-- LINE LIFF SDK & Supabase JS SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="styles.css?v=3.0">
+  <link rel="stylesheet" href="styles.css?v=3.2">
 </head>
 
 <body>
@@ -937,7 +940,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=3.2"></script>
 </body>
 
 </html>
