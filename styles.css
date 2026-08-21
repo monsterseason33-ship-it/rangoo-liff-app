@@ -4504,6 +4504,10 @@ input:checked + .slider-toggle:before {
   grid-template-columns: 1fr;
 }
 
+.netflix-plan-chips-row.two-deals-row {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .netflix-plan-chip {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);

@@ -2866,67 +2866,90 @@ async function fetchNetflixClearanceStock() {
       return diffDays > 0 && diffDays < 30;
     });
 
-    const stockCount = clearanceAccounts.length;
-    if (stockCount === 0) return null;
+    if (clearanceAccounts.length === 0) return [];
 
-    // Sort clearance accounts by expiry_date descending (pick freshest clearance screen)
-    clearanceAccounts.sort((a, b) => new Date(b.expiry_date) - new Date(a.expiry_date));
-    const targetAccount = clearanceAccounts[0];
-
-    const expDateObj = new Date(targetAccount.expiry_date);
-    const startOfExpDay = new Date(expDateObj.getFullYear(), expDateObj.getMonth(), expDateObj.getDate());
-    const remDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
-
-    const expiryFormattedText = formatShortThaiDate(expDateObj);
-
-    // 1. Detect device type of the target clearance account
-    const isTv = targetAccount.device_type
-      ? (targetAccount.device_type.toLowerCase() === 'tv' || targetAccount.device_type.includes('ทีวี'))
-      : (/จอ\s*5/.test(targetAccount.profile_name || "") || (targetAccount.profile_name || "").toLowerCase().includes("tv"));
-
-    // 2. Fetch or reuse catalogPackages to match exact package tiers like Extension content.js
+    // Fetch or reuse catalogPackages to match exact package tiers like Extension content.js
     if (!catalogPackages || catalogPackages.length === 0) {
       catalogPackages = await supabaseFetch("packages?select=*&order=price.asc") || [];
     }
 
-    let netflixPackages = (catalogPackages || []).filter(p => {
-      const pName = (p.name || "").toLowerCase();
-      const isTvPkg = pName.includes("tv") || pName.includes("ทีวี") || pName.includes("ทุกอุปกรณ์");
-      const isNf = pName.includes("netflix") || (p.app && (p.app.name || "").toLowerCase().includes("netflix"));
-      return isNf && isTvPkg === isTv;
+    // Group clearance accounts by remaining days & device type
+    const groups = {};
+    clearanceAccounts.forEach(acc => {
+      const expDate = new Date(acc.expiry_date);
+      const startOfExpDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+      const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays <= 0 || diffDays >= 30) return;
+
+      const isTv = acc.device_type
+        ? (acc.device_type.toLowerCase() === 'tv' || acc.device_type.includes('ทีวี'))
+        : (/จอ\s*5/.test(acc.profile_name || "") || (acc.profile_name || "").toLowerCase().includes("tv"));
+
+      const groupKey = `${diffDays}_${isTv ? 'tv' : 'mobile'}`;
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          days: diffDays,
+          isTv: isTv,
+          accounts: []
+        };
+      }
+      groups[groupKey].accounts.push(acc);
     });
 
-    if (netflixPackages.length === 0) {
-      netflixPackages = isTv
-        ? [{ days: 7, price: 79 }, { days: 15, price: 109 }, { days: 30, price: 170 }]
-        : [{ days: 7, price: 69 }, { days: 15, price: 99 }, { days: 30, price: 120 }];
-    }
+    const resultList = [];
 
-    netflixPackages.sort((a, b) => (a.days || 30) - (b.days || 30));
+    Object.values(groups).forEach(grp => {
+      const { days, isTv, accounts: accList } = grp;
+      accList.sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
+      const firstAcc = accList[0];
+      const expDateObj = new Date(firstAcc.expiry_date);
+      const expiryFormattedText = formatShortThaiDate(expDateObj);
 
-    // 3. Find matching package duration tier (Tier classification identical to Extension content.js)
-    let matchedPkg = netflixPackages.find(p => remDays <= (p.days || 30));
-    if (!matchedPkg) {
-      matchedPkg = netflixPackages[netflixPackages.length - 1];
-    }
+      let netflixPackages = (catalogPackages || []).filter(p => {
+        const pName = (p.name || "").toLowerCase();
+        const isTvPkg = pName.includes("tv") || pName.includes("ทีวี") || pName.includes("ทุกอุปกรณ์");
+        const isNf = pName.includes("netflix") || (p.app && (p.app.name || "").toLowerCase().includes("netflix"));
+        return isNf && isTvPkg === isTv;
+      });
 
-    const pkgDays = matchedPkg.days || 30;
-    const basePrice = matchedPkg.price || (isTv ? 170 : 120);
-    const calculatedPrice = Math.round((remDays / pkgDays) * basePrice);
-    const originalPrice = basePrice;
-    const deviceTitle = isTv ? "สมาร์ททีวี/ทุกอุปกรณ์" : "มือถือ/แท็บเล็ต";
+      if (netflixPackages.length === 0) {
+        netflixPackages = isTv
+          ? [{ days: 7, price: 79 }, { days: 15, price: 109 }, { days: 30, price: 170 }]
+          : [{ days: 7, price: 69 }, { days: 15, price: 99 }, { days: 30, price: 130 }];
+      }
 
-    return {
-      stockCount: stockCount,
-      minDays: remDays,
-      estimatedPrice: calculatedPrice,
-      originalPrice: originalPrice,
-      expiryText: expiryFormattedText,
-      title: `📦 จอโล๊ะ Netflix 4K (${deviceTitle})`,
-      description: `⚡️ [โละเคลียร์สต็อก] เหลือ ${remDays} วัน (หมด ${expiryFormattedText}) เพียง ${calculatedPrice}.-`
-    };
+      netflixPackages.sort((a, b) => (a.days || 30) - (b.days || 30));
+
+      let matchedPkg = netflixPackages.find(p => days <= (p.days || 30)) || netflixPackages[netflixPackages.length - 1];
+      const pkgDays = matchedPkg.days || 30;
+      const basePrice = matchedPkg.price || (isTv ? 170 : 130);
+      const calculatedPrice = Math.round((days / pkgDays) * basePrice);
+      const originalPrice = basePrice;
+      const deviceTitle = isTv ? "สมาร์ททีวี" : "มือถือ/แท็บเล็ต";
+      const stockCount = accList.length;
+
+      resultList.push({
+        id: `clearance-${days}-${isTv ? 'tv' : 'mobile'}`,
+        categoryKey: "clearance",
+        isClearance: true,
+        deviceType: isTv ? "tv" : "mobile",
+        name: `📦 จอโล๊ะ Netflix 4K (${deviceTitle}) เหลือ ${days} วัน`,
+        durationLabel: `⚡ เหลือ ${days} วัน (${stockCount} จอ)`,
+        price: calculatedPrice,
+        originalPrice: originalPrice,
+        days: days,
+        stockCount: stockCount,
+        badge: `⚡ เหลือ ${stockCount} จอ (${deviceTitle})`,
+        buyLabel: `สั่งซื้อจอโล๊ะ ฿${calculatedPrice}`,
+        orderText: `⚡️ [สั่งซื้อจอโล๊ะ Netflix] เหลือ ${days} วัน (หมด ${expiryFormattedText}) ราคา ฿${calculatedPrice} ครับ`
+      });
+    });
+
+    resultList.sort((a, b) => a.days - b.days || a.price - b.price);
+    return resultList;
   } catch (err) {
-    return null;
+    console.warn("Failed to fetch netflix clearance stock:", err);
+    return [];
   }
 }
 
@@ -2934,32 +2957,29 @@ async function fetchNetflixClearanceStock() {
 async function fetchPrimeClearanceStock() {
   try {
     const res = await supabaseFetch("accounts?status=eq.available&select=*,app:apps(*)&order=expiry_date.asc");
-    if (!res || res.length === 0) return null;
+    if (!res || res.length === 0) return [];
 
-    const primeClearanceAccounts = res.filter(acc => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const primeClearanceAccounts = (res || []).filter(acc => {
       const appName = ((acc.app && (acc.app.name || acc.app.display_name)) || "").toLowerCase();
       if (!appName.includes("prime") && !appName.includes("amazon")) return false;
       if (!acc.expiry_date) return false;
 
       const expiry = new Date(acc.expiry_date);
-      const now = new Date();
-      const diffMs = expiry - now;
-      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const startOfExpDay = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+      const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
       return diffDays >= 1 && diffDays <= 29;
     });
 
-    if (primeClearanceAccounts.length === 0) return null;
+    if (primeClearanceAccounts.length === 0) return [];
 
-    const stockCount = primeClearanceAccounts.length;
-    const targetAccount = primeClearanceAccounts[0];
-    const expiry = new Date(targetAccount.expiry_date);
-    const now = new Date();
-    const remDays = Math.max(1, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
-    const expiryFormattedText = `${expiry.getDate()} ${MONTHS_TH[expiry.getMonth()] || ''}`;
+    if (!catalogPackages || catalogPackages.length === 0) {
+      catalogPackages = await supabaseFetch("packages?select=*,app:apps(*)") || [];
+    }
 
-    // Look up packages for Prime
-    const allPackages = await supabaseFetch("packages?select=*,app:apps(*)");
-    let primePackages = (allPackages || []).filter(p => {
+    let primePackages = (catalogPackages || []).filter(p => {
       const appName = ((p.app && (p.app.name || p.app.display_name)) || "").toLowerCase();
       const pName = (p.name || "").toLowerCase();
       return appName.includes("prime") || pName.includes("prime");
@@ -2971,23 +2991,58 @@ async function fetchPrimeClearanceStock() {
 
     primePackages.sort((a, b) => (a.days || 30) - (b.days || 30));
 
-    let matchedPkg = primePackages.find(p => remDays <= (p.days || 30)) || primePackages[primePackages.length - 1];
-    const pkgDays = matchedPkg.days || 30;
-    const basePrice = matchedPkg.price || 99;
-    const calculatedPrice = Math.max(29, Math.round((remDays / pkgDays) * basePrice));
-    const originalPrice = basePrice;
+    const groups = {};
+    primeClearanceAccounts.forEach(acc => {
+      const expiry = new Date(acc.expiry_date);
+      const startOfExpDay = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+      const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays <= 0 || diffDays >= 30) return;
 
-    return {
-      stockCount: stockCount,
-      minDays: remDays,
-      estimatedPrice: calculatedPrice,
-      originalPrice: originalPrice,
-      expiryText: expiryFormattedText,
-      title: `📦 จอโล๊ะ Prime Video`,
-      description: `⚡️ [โละเคลียร์สต็อก] เหลือ ${remDays} วัน (หมด ${expiryFormattedText}) เพียง ${calculatedPrice}.-`
-    };
+      if (!groups[diffDays]) {
+        groups[diffDays] = {
+          days: diffDays,
+          accounts: []
+        };
+      }
+      groups[diffDays].accounts.push(acc);
+    });
+
+    const resultList = [];
+    Object.values(groups).forEach(grp => {
+      const { days, accounts: accList } = grp;
+      accList.sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
+      const firstAcc = accList[0];
+      const expiry = new Date(firstAcc.expiry_date);
+      const expiryFormattedText = formatShortThaiDate(expiry);
+
+      let matchedPkg = primePackages.find(p => days <= (p.days || 30)) || primePackages[primePackages.length - 1];
+      const pkgDays = matchedPkg.days || 30;
+      const basePrice = matchedPkg.price || 99;
+      const calculatedPrice = Math.max(29, Math.round((days / pkgDays) * basePrice));
+      const originalPrice = basePrice;
+      const stockCount = accList.length;
+
+      resultList.push({
+        id: `clearance-prime-${days}`,
+        categoryKey: "clearance",
+        isClearance: true,
+        name: `📦 จอโล๊ะ Prime Video 4K เหลือ ${days} วัน`,
+        durationLabel: `⚡ เหลือ ${days} วัน (${stockCount} จอ)`,
+        price: calculatedPrice,
+        originalPrice: originalPrice,
+        days: days,
+        stockCount: stockCount,
+        badge: `⚡ เหลือ ${stockCount} จอ (เรียลไทม์)`,
+        buyLabel: `สั่งซื้อจอโล๊ะ Prime ฿${calculatedPrice}`,
+        orderText: `⚡️ [สั่งซื้อจอโล๊ะ Prime Video] เหลือ ${days} วัน (หมด ${expiryFormattedText}) ราคา ฿${calculatedPrice} ครับ`
+      });
+    });
+
+    resultList.sort((a, b) => a.days - b.days || a.price - b.price);
+    return resultList;
   } catch (err) {
-    return null;
+    console.warn("Failed to fetch prime clearance stock:", err);
+    return [];
   }
 }
 
@@ -3195,6 +3250,13 @@ function generateNetflixSegmentedHtml(categories, activeTab, selectedPkgId) {
   }
 
   const activePlans = categories[activeTab] || [];
+  const plansCount = activePlans.length;
+  let chipsRowClass = "netflix-plan-chips-row";
+  if (plansCount === 1) {
+    chipsRowClass += " single-deal-row";
+  } else if (plansCount === 2) {
+    chipsRowClass += " two-deals-row";
+  }
 
   const tabsHtml = availableTabs.map(t => `
     <button type="button" 
@@ -3220,7 +3282,7 @@ function generateNetflixSegmentedHtml(categories, activeTab, selectedPkgId) {
     <div class="netflix-cat-tabs-row">
       ${tabsHtml}
     </div>
-    <div class="netflix-plan-chips-row ${activeTab === 'clearance' ? 'single-deal-row' : ''}">
+    <div class="${chipsRowClass}">
       ${plansHtml}
     </div>
   `;
@@ -3410,6 +3472,13 @@ function generatePrimeSegmentedHtml(categories, activeTab, selectedPkgId) {
   }
 
   const activePlans = categories[activeTab] || [];
+  const plansCount = activePlans.length;
+  let chipsRowClass = "netflix-plan-chips-row";
+  if (plansCount === 1) {
+    chipsRowClass += " single-deal-row";
+  } else if (plansCount === 2) {
+    chipsRowClass += " two-deals-row";
+  }
 
   const tabsHtml = availableTabs.map(t => `
     <button type="button" 
@@ -3435,7 +3504,7 @@ function generatePrimeSegmentedHtml(categories, activeTab, selectedPkgId) {
     <div class="netflix-cat-tabs-row">
       ${tabsHtml}
     </div>
-    <div class="netflix-plan-chips-row ${activeTab === 'clearance' ? 'single-deal-row' : ''}">
+    <div class="${chipsRowClass}">
       ${plansHtml}
     </div>
   `;
@@ -3494,26 +3563,15 @@ async function fetchAndRenderPromotions() {
       return appName.includes("netflix") || pName.includes("netflix");
     });
 
-    const clearanceInfo = await fetchNetflixClearanceStock();
+    const clearanceItems = await fetchNetflixClearanceStock();
     const categories = { clearance: [], mobile: [], tv: [] };
     const allFlatPackages = [];
 
-    if (clearanceInfo && clearanceInfo.stockCount > 0) {
-      const clearanceItem = {
-        id: "clearance",
-        categoryKey: "clearance",
-        isClearance: true,
-        name: clearanceInfo.title || "📦 จอโล๊ะ Netflix 4K",
-        durationLabel: `⚡ เหลือ ${clearanceInfo.minDays} วัน (สต็อก ${clearanceInfo.stockCount} จอ)`,
-        price: clearanceInfo.estimatedPrice || 112,
-        originalPrice: clearanceInfo.originalPrice || 120,
-        stockCount: clearanceInfo.stockCount,
-        badge: `⚡ เหลือ ${clearanceInfo.stockCount} จอ (เรียลไทม์)`,
-        buyLabel: `สั่งซื้อจอโล๊ะ ฿${clearanceInfo.estimatedPrice || 112}`,
-        orderText: `⚡️ [สั่งซื้อจอโล๊ะ Netflix] เหลือ ${clearanceInfo.minDays} วัน (หมด ${clearanceInfo.expiryText}) ราคา ฿${clearanceInfo.estimatedPrice || 112} ครับ`
-      };
-      categories.clearance.push(clearanceItem);
-      allFlatPackages.push(clearanceItem);
+    if (Array.isArray(clearanceItems) && clearanceItems.length > 0) {
+      clearanceItems.forEach(item => {
+        categories.clearance.push(item);
+        allFlatPackages.push(item);
+      });
     }
 
     if (netflixDbPkgs.length > 0) {
@@ -3600,26 +3658,15 @@ async function fetchAndRenderPromotions() {
       return appName.includes("prime") || appName.includes("amazon") || pName.includes("prime") || pName.includes("amazon");
     });
 
-    const primeClearanceInfo = await fetchPrimeClearanceStock();
+    const primeClearanceItems = await fetchPrimeClearanceStock();
     const primeCategories = { clearance: [], mobile: [], tv: [] };
     const primeFlatPackages = [];
 
-    if (primeClearanceInfo && primeClearanceInfo.stockCount > 0) {
-      const primeClearanceItem = {
-        id: "clearance",
-        categoryKey: "clearance",
-        isClearance: true,
-        name: primeClearanceInfo.title || "📦 จอโล๊ะ Prime Video 4K",
-        durationLabel: `⚡ เหลือ ${primeClearanceInfo.minDays} วัน (สต็อก ${primeClearanceInfo.stockCount} จอ)`,
-        price: primeClearanceInfo.estimatedPrice || 69,
-        originalPrice: primeClearanceInfo.originalPrice || 99,
-        stockCount: primeClearanceInfo.stockCount,
-        badge: `⚡ เหลือ ${primeClearanceInfo.stockCount} จอ (เรียลไทม์)`,
-        buyLabel: `สั่งซื้อจอโล๊ะ Prime ฿${primeClearanceInfo.estimatedPrice || 69}`,
-        orderText: `⚡️ [สั่งซื้อจอโล๊ะ Prime Video] เหลือ ${primeClearanceInfo.minDays} วัน (หมด ${primeClearanceInfo.expiryText}) ราคา ฿${primeClearanceInfo.estimatedPrice || 69} ครับ`
-      };
-      primeCategories.clearance.push(primeClearanceItem);
-      primeFlatPackages.push(primeClearanceItem);
+    if (Array.isArray(primeClearanceItems) && primeClearanceItems.length > 0) {
+      primeClearanceItems.forEach(item => {
+        primeCategories.clearance.push(item);
+        primeFlatPackages.push(item);
+      });
     }
 
     if (primeDbPkgs.length > 0) {
