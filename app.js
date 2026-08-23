@@ -840,8 +840,11 @@ function getAppCardStyle(appName) {
 
 // Helper: Get formatted & app-aware package name for WebApp display
 function getFormattedPackageName(sub) {
-  if (!sub) return "แพ็คเกจปกติ";
-  return sub.package_name || (sub.app_name ? `${sub.app_name} Premium` : "แพ็คเกจปกติ");
+  if (!sub) return "แพ็กเกจปกติ";
+  let name = sub.package_name || (sub.app_name ? `${sub.app_name} Premium` : "แพ็กเกจปกติ");
+  // Clean raw decorative emojis from package name
+  name = name.replace(/^[🔹⭐🌟✨🔸•\-\s]+/, '').replace(/[\s➔→👉]+$/, '').trim();
+  return name || "แพ็กเกจปกติ";
 }
 
 // Helper: Render device type with beautiful SVG icons
@@ -908,44 +911,23 @@ function renderSubscriptions() {
     const q = activeSearchQuery.toLowerCase();
     activeSubs = activeSubs.filter(sub => {
       const acc = sub.account || {};
-      const appName = (sub.app_name || "").toLowerCase();
-      const pkgName = (sub.package_name || "").toLowerCase();
-      const email = (acc.email || "").toLowerCase();
-      const profile = (acc.profile_name || "").toLowerCase();
-      const pin = (acc.pin_code || "").toLowerCase();
-      const customer = (sub.customer_name || "").toLowerCase();
-      const rawData = (sub.raw_account_data || "").toLowerCase();
-      return appName.includes(q) || pkgName.includes(q) || email.includes(q) || profile.includes(q) || pin.includes(q) || customer.includes(q) || rawData.includes(q);
+      const appMatch = (sub.app_name || "").toLowerCase().includes(q);
+      const emailMatch = (acc.email || "").toLowerCase().includes(q);
+      const pkgMatch = (sub.package_name || "").toLowerCase().includes(q);
+      return appMatch || emailMatch || pkgMatch;
     });
   }
 
   if (badge) {
-    badge.textContent = `${activeSubs.length} รายการ`;
-  }
-
-  if (activeSearchQuery) {
-    const filterBanner = document.createElement("div");
-    filterBanner.className = "active-search-filter-banner";
-    filterBanner.innerHTML = `
-      <span>🔍 ค้นหา: "<b>${escapeHtml(activeSearchQuery)}</b>" (พบ ${activeSubs.length} สิทธิ์)</span>
-      <button type="button" class="active-search-clear-btn" onclick="clearSearchInput()">✕ ล้าง</button>
-    `;
-    container.appendChild(filterBanner);
+    badge.textContent = activeSubs.length;
   }
 
   if (activeSubs.length === 0) {
     const emptyEl = document.createElement("div");
     emptyEl.className = "empty-state";
-    emptyEl.innerHTML = activeSearchQuery ? `
+    emptyEl.innerHTML = `
       <div class="empty-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      </div>
-      <div class="empty-title">ไม่พบสิทธิ์ที่ตรงกับ "${escapeHtml(activeSearchQuery)}"</div>
-      <div class="empty-desc">ลองค้นหาด้วยคำอื่น หรือกดล้างการค้นหาเพื่อดูทั้งหมด</div>
-      <button class="btn btn-outline" style="margin-top: 10px;" onclick="clearSearchInput()">ล้างการค้นหา</button>
-    ` : `
-      <div class="empty-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
       </div>
       <div class="empty-title">ไม่พบสิทธิ์การใช้งาน</div>
       <div class="empty-desc">คุณยังไม่มีสิทธิ์เข้าใช้งานแอปในขณะนี้ หรือสิทธิ์เดิมหมดอายุแล้ว</div>
@@ -975,7 +957,7 @@ function renderSubscriptions() {
 
     if (isBroken) {
       expiryBadgeClass = "expiry-broken";
-      expiryText = "⚠️ บัญชีมีปัญหา";
+      expiryText = "บัญชีมีปัญหา";
     } else if (isExpired) {
       expiryBadgeClass = "expiry-expired";
       expiryText = "หมดอายุแล้ว";
@@ -1031,7 +1013,14 @@ function renderSubscriptions() {
     if (isExpired) {
       credentialSectionHtml = `
         <div class="sub-expired-notice">
-          <div class="sub-expired-notice-icon">🔒</div>
+          <div class="sub-expired-notice-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="3" ry="3" fill="rgba(244, 63, 94, 0.16)"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2.2"></path>
+              <circle cx="12" cy="16.5" r="1.5" fill="currentColor"></circle>
+              <path d="M12 18v1.5" stroke="currentColor" stroke-width="2"></path>
+            </svg>
+          </div>
           <div class="sub-expired-notice-title">สิทธิ์การใช้งานนี้หมดอายุแล้ว</div>
           <div class="sub-expired-notice-desc">ข้อมูลการเข้าสู่ระบบและรหัสผ่านถูกปิดการเข้าถึงเพื่อความปลอดภัย หากต้องการใช้งานต่อ สามารถกดปุ่ม "ต่ออายุแพ็กเกจนี้" ด้านล่างได้ทันทีครับ</div>
         </div>
@@ -1071,14 +1060,14 @@ function renderSubscriptions() {
             <div class="netflix-login-guide-wrapper">
               <button type="button" class="btn-netflix-guide-toggle" onclick="toggleNetflixLoginGuide('${sub.id}', event)" title="ดูวิธีเข้าสู่ระบบ Netflix เมื่อระบบถาม OTP">
                 <div class="guide-btn-content">
-                  <span class="guide-bulb-icon">💡</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fde047" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6v1a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z"></path></svg>
                   <span>วิธีเข้าใช้งาน (หากระบบถาม OTP)</span>
                 </div>
                 <svg class="guide-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </button>
               <div id="netflix-guide-${sub.id}" class="netflix-guide-content" style="display: none;">
                 <div class="netflix-guide-header">
-                  <span style="font-size: 13px;">💡</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6v1a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z"></path></svg>
                   <span style="font-weight: 700; color: #fca5a5;">วิธีเข้าใช้งาน (หากระบบถาม OTP)</span>
                 </div>
                 <div class="netflix-guide-list">
@@ -1107,7 +1096,7 @@ function renderSubscriptions() {
     if (isExpired) {
       pinBadgeHtml = `
         <div class="pin-badge-expired" title="สิทธิ์การใช้งานหมดอายุแล้ว">
-          <span style="font-size: 10px;">🔒</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           <span>PIN: ••••</span>
         </div>
       `;
@@ -1131,7 +1120,7 @@ function renderSubscriptions() {
         <div class="sub-card-actions-row">
           <button type="button" class="btn-renew-expired-hero" onclick="handleQuickRenewal('${escapeHtml(sub.app_name)}', '${escapeHtml(getFormattedPackageName(sub))}')" title="สั่งซื้อต่ออายุแพ็กเกจนี้ทันที">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            <span>🛒 ต่ออายุแพ็กเกจนี้</span>
+            <span>ต่ออายุแพ็กเกจนี้</span>
           </button>
           <button type="button" class="btn-card-support" onclick="openProblemModal('${escapeHtml(sub.app_name)}', '${sub.id}')" title="แจ้งปัญหาบัญชีนี้">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -1172,8 +1161,11 @@ function renderSubscriptions() {
           </div>
         </div>
         <span class="expiry-badge ${expiryBadgeClass}">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          ${expiryText}
+          ${isBroken
+            ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`
+            : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`
+          }
+          <span>${expiryText}</span>
         </span>
       </div>
 
@@ -1225,8 +1217,9 @@ function renderSubscriptions() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold-light, #fde047)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
               วันเวลาหมดอายุสิทธิ์
             </span>
-            <span class="info-tile-val expiry-time-val">
-              📅 ${formattedExpiryDateTime}
+            <span class="info-tile-val expiry-time-val" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue-bright, #38bdf8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; flex-shrink: 0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span>${formattedExpiryDateTime}</span>
             </span>
           </div>
         </div>
@@ -3075,6 +3068,117 @@ async function fetchPrimeTop10Data() {
   return defaultPrimeTop10;
 }
 
+// 🌟 Live Disney+ Hotstar Thailand Top 10 Catalog (Verified High-Res Posters & Titles)
+const defaultDisneyTop10 = [
+  { rank: 1, title: "Shōgun (โชกุน ศึกชิงอำนาจ)", tag: "ซีรีส์ดราม่ามหากาพย์ • ซามูไร", badge: "ยอดนิยมอันดับ 1", duration: "10 ตอนจบ", rating: "18+", poster: "https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg", synopsis: "เรื่องราวมหากาพย์การเมืองและสงครามแย่งชิงอำนาจในยุคศักดินาญี่ปุ่นระหว่างลอร์ดโทรานากะและกะลาสีเรือชาวอังกฤษ ผู้เปลี่ยนสมดุลแห่งประวัติศาสตร์" },
+  { rank: 2, title: "Loki (โลกิ เทพเจ้าแห่งความปั่นป่วน)", tag: "ซีรีส์มาร์เวลไซไฟ • แฟนตาซี", badge: "มาร์เวลฟอร์มยักษ์", duration: "ซีซัน 2 (6 ตอน)", rating: "13+", poster: "https://image.tmdb.org/t/p/w500/voHUmluYmKyleFk9a3xgHyKvKT5.jpg", synopsis: "โลกิ เทพแห่งความปั่นป่วน ต้องร่วมมือกับองค์กร TVA ออกเดินทางข้ามมิติเวลาเพื่อปกป้องเส้นเวลาศักดิ์สิทธิ์จากการล่มสลายของพหุภพ" },
+  { rank: 3, title: "Moving (ย้ายร่างล่า)", tag: "ซีรีส์เกาหลีแอ็กชัน • ซูเปอร์ฮีโร่", badge: "ซีรีส์เกาหลีอันดับ 1", duration: "20 ตอนจบ", rating: "18+", poster: "https://image.tmdb.org/t/p/w500/a35T0pUee1zYkQvWz8F617k2eQy.jpg", synopsis: "กลุ่มวัยรุ่นที่ซ่อนพลังวิเศษเอาไว้ และพ่อแม่ของพวกเขาที่มีอดีตอันเจ็บปวด ต้องร่วมมือกันปกป้องครอบครัวจากหน่วยสังหารลึกลับ" },
+  { rank: 4, title: "Deadpool & Wolverine (เดดพูล & วูล์ฟเวอรีน)", tag: "หนังแอ็กชันคอมเมดี้ • ซูเปอร์ฮีโร่", badge: "ฮิตถล่มทลาย", duration: "2 ชม. 8 นาที", rating: "18+", poster: "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg", synopsis: "การจับคู่สุดกวนและเดือดระห่ำระหว่าง เดดพูล และ วูล์ฟเวอรีน ในภารกิจกอบกู้จักรวาลที่เต็มไปด้วยมุกฮาและฉากแอ็กชันดิบเถื่อนสะใจ" },
+  { rank: 5, title: "Inside Out 2 (มหัศจรรย์อารมณ์อลเวง 2)", tag: "แอนิเมชันดิสนีย์พิกซาร์ • ซึ้งกินใจ", badge: "แอนิเมชันแห่งปี", duration: "1 ชม. 36 นาที", rating: "ทั่วไป", poster: "https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg", synopsis: "เมื่อไรลีย์ก้าวเข้าสู่วัยรุ่น ศูนย์บัญชาการทางอารมณ์ต้องต้อนรับสมาชิกใหม่ 'ความวิตกกังวล' และผองเพื่อน ที่จะมาป่วนชีวิตเธอให้โตขึ้นอีกขั้น" },
+  { rank: 6, title: "The Mandalorian (เดอะแมนดาโลเรียน)", tag: "สตาร์ วอร์ส ไซไฟ • ผจญภัยอวกาศ", badge: "สตาร์วอร์สยอดฮิต", duration: "ซีซัน 3 (8 ตอน)", rating: "13+", poster: "https://image.tmdb.org/t/p/w500/eU1i6eHXlzMOlEq0ku1R07Ym7wp.jpg", synopsis: "การเดินทางของนักล่าค่าหัวชาวแมนดาโลเรียนและ กรูโก (เบบี้โยดา) ท่องไปในกาแล็กซีอันกว้างใหญ่เพื่อค้นหาตัวตนและปกป้องวิถีแห่งแมนดาลอร์" },
+  { rank: 7, title: "Moana 2 (โมอาน่า 2)", tag: "แอนิเมชันผจญภัย • มหาสมุทร", badge: "เพลงเพราะภาพสวย", duration: "1 ชม. 40 นาที", rating: "ทั่วไป", poster: "https://image.tmdb.org/t/p/w500/4YZpsylIHsvQwW0VeGE9sl3jAOh.jpg", synopsis: "โมอาน่าได้รับการเรียกจากบรรพบุรุษให้ออกเดินเรือข้ามมหาสมุทรโอเชียเนียสู่ดินแดนที่ไม่เคยมีใครไปถึง พร้อมกับมาวอีและลูกเรือหน้าใหม่" },
+  { rank: 8, title: "A Shop for Killers (ร้านขายของมือสังหาร)", tag: "ซีรีส์เกาหลีระทึกขวัญ • แอ็กชันดุเดือด", badge: "บู๊มันส์หยด", duration: "8 ตอนจบ", rating: "18+", poster: "https://image.tmdb.org/t/p/w500/52c6rR4BwFpM7gV5b0487B2t8eF.jpg", synopsis: "หลานสาวที่ค้นพบความจริงว่าห้างสรรพสินค้าเกษตรกรรมของคุณอาที่เสียชีวิตไป แท้จริงแล้วเป็นแหล่งขายอาวุธและอุปกรณ์ลับของเหล่านักฆ่าระดับโลก" },
+  { rank: 9, title: "Percy Jackson and the Olympians (เพอร์ซีย์ แจ็กสัน)", tag: "ซีรีส์แฟนตาซี • เทพเจ้ากรีก", badge: "แฟนตาซีฟอร์มยักษ์", duration: "8 ตอนจบ", rating: "13+", poster: "https://image.tmdb.org/t/p/w500/k2tD2c3nFj6h78b9hX9g7bN9w8P.jpg", synopsis: "เพอร์ซีย์ แจ็กสัน มนุษย์กึ่งเทพวัยรุ่น ออกเดินทางตามหาสายฟ้าของซุสที่หายไป เพื่อล้างมลทินและยับยั้งสงครามระหว่างเหล่าทวยเทพบนยอดเขาโอลิมปัส" },
+  { rank: 10, title: "Kingdom of the Planet of the Apes (อาณาจักรแห่งพิภพวานร)", tag: "มหากาพย์ไซไฟ • แอ็กชันผจญภัย", badge: "ไซไฟตระการตา", duration: "2 ชม. 25 นาที", rating: "13+", poster: "https://image.tmdb.org/t/p/w500/gKkl37BQuKTanygYQG1pyYgLVgf.jpg", synopsis: "หลายชั่วอายุคนหลังยุคของซีซาร์ วานรหนุ่มออกเดินทางแสวงหาอิสรภาพและกำหนดชะตากรรมใหม่ที่มนุษย์และวานรต้องเผชิญร่วมกัน" }
+];
+
+async function fetchDisneyTop10Data() {
+  return defaultDisneyTop10;
+}
+
+// 3. Fetch Disney+ Clearance Stock (Auto-detect accounts nearing expiry 1-29 days)
+async function fetchDisneyClearanceStock() {
+  try {
+    const res = await supabaseFetch("accounts?status=eq.available&select=*,app:apps(*)&order=expiry_date.asc");
+    if (!res || res.length === 0) return [];
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const disneyClearanceAccounts = (res || []).filter(acc => {
+      const appName = ((acc.app && (acc.app.name || acc.app.display_name)) || "").toLowerCase();
+      if (!appName.includes("disney") && !appName.includes("ดิสนีย์") && !appName.includes("hotstar")) return false;
+      if (!acc.expiry_date) return false;
+
+      const expiry = new Date(acc.expiry_date);
+      const startOfExpDay = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+      const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+      return diffDays >= 1 && diffDays <= 29;
+    });
+
+    if (disneyClearanceAccounts.length === 0) return [];
+
+    if (!catalogPackages || catalogPackages.length === 0) {
+      catalogPackages = await supabaseFetch("packages?select=*,app:apps(*)") || [];
+    }
+
+    let disneyPackages = (catalogPackages || []).filter(p => {
+      const appName = ((p.app && (p.app.name || p.app.display_name)) || "").toLowerCase();
+      const pName = (p.name || "").toLowerCase();
+      return appName.includes("disney") || pName.includes("disney") || appName.includes("ดิสนีย์") || pName.includes("ดิสนีย์");
+    });
+
+    if (disneyPackages.length === 0) {
+      disneyPackages = [{ days: 7, price: 39 }, { days: 15, price: 59 }, { days: 30, price: 89 }];
+    }
+
+    disneyPackages.sort((a, b) => (a.days || 30) - (b.days || 30));
+
+    const groups = {};
+    disneyClearanceAccounts.forEach(acc => {
+      const expiry = new Date(acc.expiry_date);
+      const startOfExpDay = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+      const diffDays = Math.round((startOfExpDay - startOfToday) / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays <= 0 || diffDays >= 30) return;
+
+      if (!groups[diffDays]) {
+        groups[diffDays] = {
+          days: diffDays,
+          accounts: []
+        };
+      }
+      groups[diffDays].accounts.push(acc);
+    });
+
+    const resultList = [];
+    Object.values(groups).forEach(grp => {
+      const { days, accounts: accList } = grp;
+      accList.sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
+      const firstAcc = accList[0];
+      const expiry = new Date(firstAcc.expiry_date);
+      const expiryFormattedText = formatShortThaiDate(expiry);
+
+      let matchedPkg = disneyPackages.find(p => days <= (p.days || 30)) || disneyPackages[disneyPackages.length - 1];
+      const pkgDays = matchedPkg.days || 30;
+      const basePrice = matchedPkg.price || 89;
+      const calculatedPrice = Math.max(25, Math.round((days / pkgDays) * basePrice));
+      const originalPrice = basePrice;
+      const stockCount = accList.length;
+
+      resultList.push({
+        id: `clearance-disney-${days}`,
+        categoryKey: "clearance",
+        isClearance: true,
+        name: `📦 จอโล๊ะ Disney+ Hotstar เหลือ ${days} วัน`,
+        durationLabel: `⚡ เหลือ ${days} วัน (${stockCount} จอ)`,
+        price: calculatedPrice,
+        originalPrice: originalPrice,
+        days: days,
+        stockCount: stockCount,
+        badge: `⚡ เหลือ ${stockCount} จอ (เรียลไทม์)`,
+        buyLabel: `สั่งซื้อจอโล๊ะ Disney+ ฿${calculatedPrice}`,
+        orderText: `⚡️ [สั่งซื้อจอโล๊ะ Disney+ Hotstar] เหลือ ${days} วัน (หมด ${expiryFormattedText}) ราคา ฿${calculatedPrice} ครับ`
+      });
+    });
+
+    resultList.sort((a, b) => a.days - b.days || a.price - b.price);
+    return resultList;
+  } catch (err) {
+    console.warn("Failed to fetch disney clearance stock:", err);
+    return [];
+  }
+}
+
 // Interactive Top 10 Movie Switcher (Select Rank 1-10)
 window.selectTop10Movie = function(targetRank, event) {
   if (event) {
@@ -3532,6 +3636,228 @@ window.handlePrimeMasterPurchase = function(event) {
   }
 };
 
+// ==========================================================================
+// 🏰 DISNEY+ HOTSTAR ALL-IN-ONE MASTER CARD HANDLERS
+// ==========================================================================
+
+// Interactive Disney+ Hotstar Top 10 Movie Switcher (Select Rank 1-10)
+window.selectDisneyTop10Movie = function(targetRank, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const list = window._disneyTop10List || defaultDisneyTop10;
+  const item = list.find(m => m.rank === Number(targetRank)) || list[0];
+  if (!item) return;
+
+  window._disneyTop10CurrentRank = item.rank;
+  const cardWrapper = document.querySelector(".disney-top10-card-wrapper");
+  if (!cardWrapper) return;
+
+  const imgEl = cardWrapper.querySelector(".disney-top10-banner-img");
+  const giantRankEl = cardWrapper.querySelector(".disney-giant-rank-num");
+  const titleEl = cardWrapper.querySelector(".disney-title-animated");
+  const categoryEl = cardWrapper.querySelector(".disney-category-badge");
+  const durationEl = cardWrapper.querySelector(".disney-duration-badge");
+  const ratingEl = cardWrapper.querySelector(".disney-rating-badge");
+  const synopsisEl = cardWrapper.querySelector(".disney-synopsis-text");
+
+  if (imgEl) imgEl.style.backgroundImage = `url('${item.poster}')`;
+  if (giantRankEl) giantRankEl.textContent = item.rank;
+  if (titleEl) titleEl.textContent = `อันดับ ${item.rank}: ${item.title}`;
+  if (categoryEl) categoryEl.textContent = item.tag || "ซีรีส์ & หนังฮิต";
+  if (durationEl) durationEl.textContent = item.duration || "พากย์ไทย/ซับไทย";
+  if (ratingEl) ratingEl.textContent = item.rating || "18+";
+  if (synopsisEl) synopsisEl.textContent = item.synopsis || "รับชมความบันเทิงระดับพรีเมียม 4K บน Disney+ Hotstar ได้ทันที";
+
+  // Update active pill button
+  cardWrapper.querySelectorAll(".disney-picker-btn").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.dataset.rank) === item.rank);
+  });
+};
+
+// Toggle Synopsis Overlay in Disney Top 10 Card
+window.toggleDisneySynopsis = function(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const cardWrapper = document.querySelector(".disney-top10-card-wrapper");
+  if (!cardWrapper) return;
+  const overlay = cardWrapper.querySelector(".disney-synopsis-overlay");
+  const btn = cardWrapper.querySelector(".btn-disney-info-pop");
+  if (overlay) {
+    const isHidden = overlay.style.display === "none" || !overlay.classList.contains("active");
+    if (isHidden) {
+      overlay.style.display = "flex";
+      requestAnimationFrame(() => overlay.classList.add("active"));
+    } else {
+      overlay.classList.remove("active");
+      setTimeout(() => {
+        if (!overlay.classList.contains("active")) overlay.style.display = "none";
+      }, 250);
+    }
+    if (btn) btn.classList.toggle("active", isHidden);
+  }
+};
+
+// Switch Category Tab for Disney+ Hotstar (จอโล๊ะ / มือถือ / ทีวี)
+window.switchDisneyCategoryTab = function(categoryKey, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  window._activeDisneyTab = categoryKey;
+  const categories = window._disneyCategories || {};
+  const plans = categories[categoryKey] || [];
+  if (plans.length === 0) return;
+
+  const targetPlan = plans[0];
+  window._selectedDisneyPkgId = targetPlan.id;
+
+  const cardWrapper = document.querySelector(".disney-top10-card-wrapper");
+  if (cardWrapper) {
+    const container = cardWrapper.querySelector(".disney-package-selector-section");
+    if (container) {
+      container.innerHTML = generateDisneySegmentedHtml(categories, categoryKey, targetPlan.id);
+    }
+  }
+
+  updateDisneySelectedCardDetails(targetPlan);
+};
+
+// Select Plan / Duration Chip for Disney+ Hotstar
+window.selectDisneyPlan = function(pkgId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  window._selectedDisneyPkgId = pkgId;
+  const allPkgs = window._disneyAllPackagesFlat || [];
+  const pkg = allPkgs.find(p => String(p.id) === String(pkgId));
+  if (!pkg) return;
+
+  const cardWrapper = document.querySelector(".disney-top10-card-wrapper");
+  if (cardWrapper) {
+    cardWrapper.querySelectorAll(".disney-plan-chip").forEach(chip => {
+      chip.classList.toggle("active", String(chip.dataset.pkgId) === String(pkgId));
+    });
+  }
+
+  updateDisneySelectedCardDetails(pkg);
+};
+
+function updateDisneySelectedCardDetails(pkg) {
+  const cardWrapper = document.querySelector(".disney-top10-card-wrapper");
+  if (!cardWrapper || !pkg) return;
+
+  const priceEl = cardWrapper.querySelector(".disney-dyn-price");
+  const origPriceEl = cardWrapper.querySelector(".disney-dyn-orig-price");
+  const badgeEl = cardWrapper.querySelector(".disney-dyn-badge");
+  const buyLabelEl = cardWrapper.querySelector(".disney-dyn-buy-label");
+
+  if (priceEl) {
+    priceEl.textContent = `฿${pkg.price}`;
+    priceEl.style.transform = "scale(1.15)";
+    setTimeout(() => { priceEl.style.transform = "scale(1)"; }, 180);
+  }
+  if (origPriceEl) {
+    origPriceEl.textContent = pkg.originalPrice ? `฿${pkg.originalPrice}` : "";
+    origPriceEl.style.display = pkg.originalPrice ? "inline" : "none";
+  }
+  if (badgeEl) {
+    badgeEl.textContent = pkg.badge || "⚡ พร้อมใช้งาน";
+    if (pkg.isClearance) {
+      badgeEl.className = "top10-guarantee-tag disney-dyn-badge clearance-badge";
+    } else {
+      badgeEl.className = "top10-guarantee-tag disney-dyn-badge";
+    }
+  }
+  if (buyLabelEl) {
+    buyLabelEl.textContent = pkg.buyLabel || `สั่งซื้อ Disney+ (฿${pkg.price})`;
+  }
+}
+
+// Generate the Segmented Switcher HTML for Disney+ Hotstar (Tabs + Chips)
+function generateDisneySegmentedHtml(categories, activeTab, selectedPkgId) {
+  const availableTabs = [];
+  if (categories.clearance && categories.clearance.length > 0) {
+    availableTabs.push({ key: 'clearance', label: 'จอโล๊ะ', icon: getPackageSvgIcon('clearance', true), isClearance: true });
+  }
+  if (categories.mobile && categories.mobile.length > 0) {
+    availableTabs.push({ key: 'mobile', label: 'มือถือ / ไอแพด', icon: getPackageSvgIcon('mobile', false) });
+  }
+  if (categories.tv && categories.tv.length > 0) {
+    availableTabs.push({ key: 'tv', label: 'สมาร์ททีวี / 4K', icon: getPackageSvgIcon('tv', false) });
+  }
+
+  const activePlans = categories[activeTab] || [];
+  const plansCount = activePlans.length;
+  let chipsRowClass = "netflix-plan-chips-row";
+  if (plansCount === 1) {
+    chipsRowClass += " single-deal-row";
+  } else if (plansCount === 2) {
+    chipsRowClass += " two-deals-row";
+  }
+
+  const tabsHtml = availableTabs.map(t => `
+    <button type="button" 
+      class="netflix-cat-tab ${t.key === activeTab ? 'active' : ''} ${t.isClearance ? 'clearance-tab' : ''}" 
+      onclick="switchDisneyCategoryTab('${t.key}', event)">
+      ${t.icon}
+      <span>${t.label}</span>
+    </button>
+  `).join('');
+
+  const plansHtml = activePlans.map(p => `
+    <button type="button" 
+      class="netflix-plan-chip disney-plan-chip ${String(p.id) === String(selectedPkgId) ? 'active' : ''} ${p.isClearance ? 'clearance-chip' : ''}" 
+      data-pkg-id="${escapeHtml(String(p.id))}" 
+      onclick="selectDisneyPlan('${escapeHtml(String(p.id))}', event)"
+      title="${escapeHtml(p.name)}">
+      <span class="netflix-plan-chip-label">${escapeHtml(p.durationLabel)}</span>
+      <span class="netflix-plan-chip-price">฿${p.price}</span>
+    </button>
+  `).join('');
+
+  return `
+    <div class="netflix-cat-tabs-row">
+      ${tabsHtml}
+    </div>
+    <div class="${chipsRowClass}">
+      ${plansHtml}
+    </div>
+  `;
+}
+
+// Purchase action for the Dynamic Disney+ Hotstar Combined Card
+window.handleDisneyMasterPurchase = function(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const allPkgs = window._disneyAllPackagesFlat || [];
+  const pkg = allPkgs.find(p => String(p.id) === String(window._selectedDisneyPkgId)) || allPkgs[0];
+  if (!pkg) return;
+
+  const msg = pkg.orderText || `🏰 [สั่งซื้อ Disney+ Hotstar 4K] แพ็กเกจ: ${pkg.name} ราคา ฿${pkg.price} ครับ`;
+
+  if (window.liff && liff.isInClient() && liff.sendMessages) {
+    liff.sendMessages([{ type: 'text', text: msg }])
+      .then(() => {
+        showToast("ส่งคำขอสั่งซื้อเข้า LINE OA เรียบร้อย!", "success");
+        liff.closeWindow();
+      })
+      .catch(() => {
+        const encoded = encodeURIComponent(msg);
+        window.open(`https://line.me/R/oaMessage/${CONFIG.LINE_OA_HANDLE}/?${encoded}`, "_blank");
+      });
+  } else {
+    copyToClipboard(msg, "ข้อความสั่งซื้อ");
+    window.open(CONFIG.LINE_OA_LINK, "_blank");
+  }
+};
+
 async function fetchAndRenderPromotions() {
   const container = document.getElementById("promotions-container");
   if (!container) return;
@@ -3758,10 +4084,122 @@ async function fetchAndRenderPromotions() {
       script_url: "https://www.primevideo.com/"
     };
 
+    // ==========================================
+    // C. DISNEY+ ALL-IN-ONE MASTER CARD SETUP
+    // ==========================================
+    const disneyDbPkgs = allDbPackages.filter(p => {
+      const appName = ((p.app && (p.app.name || p.app.display_name)) || "").toLowerCase();
+      const pName = (p.name || "").toLowerCase();
+      return appName.includes("disney") || appName.includes("ดิสนีย์") || appName.includes("hotstar") || pName.includes("disney") || pName.includes("ดิสนีย์") || pName.includes("hotstar");
+    });
+
+    const disneyClearanceItems = await fetchDisneyClearanceStock();
+    const disneyCategories = { clearance: [], mobile: [], tv: [] };
+    const disneyFlatPackages = [];
+
+    if (Array.isArray(disneyClearanceItems) && disneyClearanceItems.length > 0) {
+      disneyClearanceItems.forEach(item => {
+        disneyCategories.clearance.push(item);
+        disneyFlatPackages.push(item);
+      });
+    }
+
+    if (disneyDbPkgs.length > 0) {
+      disneyDbPkgs.forEach(pkg => {
+        const pName = (pkg.name || "").toLowerCase();
+        const isTv = pName.includes("tv") || pName.includes("ทีวี") || pName.includes("พรีเมียม") || pName.includes("premium") || pName.includes("ทุกอุปกรณ์");
+        const isMobileOnly = pName.includes("เฉพาะมือถือ") || pName.includes("มือถือเท่านั้น") || (pName.includes("มือถือ") && !isTv);
+        const catKey = isMobileOnly ? "mobile" : "tv";
+        const days = pkg.days || 30;
+        const durationLabel = days === 365 ? "รายปี" : `${days} วัน`;
+
+        // Friendly compact label for chips
+        let chipLabel = durationLabel;
+        if (pName.includes("หาร 4") || pName.includes("4 จอ")) {
+          chipLabel = `หาร 4 จอ`;
+        } else if (pName.includes("หาร 2") || pName.includes("2 จอ")) {
+          chipLabel = `หาร 2 จอ`;
+        }
+
+        // Distinct benefit/guarantee badge
+        let benefitBadge = `🛡️ รับประกันตลอด ${durationLabel}`;
+        if (pName.includes("imax") || pName.includes("4k")) {
+          benefitBadge = "✨ คมชัด 4K IMAX Enhanced";
+        } else if (pName.includes("รายปี") || days >= 365) {
+          benefitBadge = "👑 ดูยาว 365 วันสุดคุ้ม";
+        }
+
+        const planItem = {
+          id: String(pkg.id),
+          categoryKey: catKey,
+          isClearance: false,
+          name: pkg.name,
+          durationLabel: chipLabel,
+          price: pkg.price,
+          originalPrice: pkg.original_price || (pkg.price + 30),
+          days: days,
+          badge: benefitBadge,
+          buyLabel: isTv ? `สั่งซื้อ Disney+ พรีเมียม/ทีวี ${durationLabel} (฿${pkg.price})` : `สั่งซื้อ Disney+ มือถือ ${durationLabel} (฿${pkg.price})`,
+          orderText: `🏰 [สั่งซื้อ Disney+ Hotstar 4K] แพ็กเกจ: ${pkg.name} (${durationLabel}) ราคา ฿${pkg.price} ครับ`
+        };
+
+        disneyCategories[catKey].push(planItem);
+        disneyFlatPackages.push(planItem);
+      });
+    } else {
+      const fallbackDisneyMobile = [
+        { id: "pkg-disney-m-7", categoryKey: "mobile", isClearance: false, name: "Disney+ มือถือ 7 วัน", durationLabel: "7 วัน", price: 39, originalPrice: 59, days: 7, badge: "🛡️ รับประกันตลอด 7 วัน", buyLabel: "สั่งซื้อ Disney+ มือถือ 7 วัน (฿39)", orderText: "🏰 [สั่งซื้อ Disney+ Hotstar] มือถือ 7 วัน ราคา ฿39 ครับ" },
+        { id: "pkg-disney-m-15", categoryKey: "mobile", isClearance: false, name: "Disney+ มือถือ 15 วัน", durationLabel: "15 วัน", price: 59, originalPrice: 79, days: 15, badge: "🛡️ รับประกันตลอด 15 วัน", buyLabel: "สั่งซื้อ Disney+ มือถือ 15 วัน (฿59)", orderText: "🏰 [สั่งซื้อ Disney+ Hotstar] มือถือ 15 วัน ราคา ฿59 ครับ" },
+        { id: "pkg-disney-m-30", categoryKey: "mobile", isClearance: false, name: "Disney+ มือถือ 30 วัน", durationLabel: "30 วัน", price: 79, originalPrice: 99, days: 30, badge: "🛡️ รับประกันตลอด 30 วัน", buyLabel: "สั่งซื้อ Disney+ มือถือ 30 วัน (฿79)", orderText: "🏰 [สั่งซื้อ Disney+ Hotstar] มือถือ 30 วัน ราคา ฿79 ครับ" }
+      ];
+      const fallbackDisneyTv = [
+        { id: "pkg-disney-tv-7", categoryKey: "tv", isClearance: false, name: "Disney+ พรีเมียมทีวี 7 วัน", durationLabel: "7 วัน", price: 49, originalPrice: 69, days: 7, badge: "✨ คมชัด 4K IMAX Enhanced", buyLabel: "สั่งซื้อ Disney+ พรีเมียม 7 วัน (฿49)", orderText: "🏰 [สั่งซื้อ Disney+ Hotstar] พรีเมียมทีวี 7 วัน ราคา ฿49 ครับ" },
+        { id: "pkg-disney-tv-15", categoryKey: "tv", isClearance: false, name: "Disney+ พรีเมียมทีวี 15 วัน", durationLabel: "15 วัน", price: 79, originalPrice: 109, days: 15, badge: "✨ คมชัด 4K IMAX Enhanced", buyLabel: "สั่งซื้อ Disney+ พรีเมียม 15 วัน (฿79)", orderText: "🏰 [สั่งซื้อ Disney+ Hotstar] พรีเมียมทีวี 15 วัน ราคา ฿79 ครับ" },
+        { id: "pkg-disney-tv-30", categoryKey: "tv", isClearance: false, name: "Disney+ พรีเมียมทีวี 30 วัน", durationLabel: "30 วัน", price: 119, originalPrice: 149, days: 30, badge: "✨ คมชัด 4K IMAX Enhanced", buyLabel: "สั่งซื้อ Disney+ พรีเมียม 30 วัน (฿119)", orderText: "🏰 [สั่งซื้อ Disney+ Hotstar] พรีเมียมทีวี 30 วัน ราคา ฿119 ครับ" }
+      ];
+      disneyCategories.mobile = fallbackDisneyMobile;
+      disneyCategories.tv = fallbackDisneyTv;
+      disneyFlatPackages.push(...fallbackDisneyMobile, ...fallbackDisneyTv);
+    }
+
+    if (disneyCategories.mobile) disneyCategories.mobile.sort((a, b) => (a.days || 0) - (b.days || 0));
+    if (disneyCategories.tv) disneyCategories.tv.sort((a, b) => (a.days || 0) - (b.days || 0));
+
+    window._disneyCategories = disneyCategories;
+    window._disneyAllPackagesFlat = disneyFlatPackages;
+
+    let disneyActiveTab = window._activeDisneyTab;
+    if (!disneyActiveTab || !disneyCategories[disneyActiveTab] || disneyCategories[disneyActiveTab].length === 0) {
+      disneyActiveTab = (disneyCategories.tv && disneyCategories.tv.length > 0) ? 'tv' : ((disneyCategories.mobile && disneyCategories.mobile.length > 0) ? 'mobile' : 'clearance');
+      window._activeDisneyTab = disneyActiveTab;
+    }
+
+    let selectedDisneyPkg = disneyFlatPackages.find(p => String(p.id) === String(window._selectedDisneyPkgId));
+    if (!selectedDisneyPkg || selectedDisneyPkg.categoryKey !== disneyActiveTab) {
+      selectedDisneyPkg = (disneyCategories[disneyActiveTab] && disneyCategories[disneyActiveTab][0]) || disneyFlatPackages[0];
+      window._selectedDisneyPkgId = selectedDisneyPkg.id;
+    }
+
+    const disneyTop10List = await fetchDisneyTop10Data();
+    window._disneyTop10List = disneyTop10List;
+    const firstDisneyTopItem = (disneyTop10List && disneyTop10List.length > 0) ? disneyTop10List[0] : defaultDisneyTop10[0];
+
+    const combinedDisneyPromo = {
+      id: "auto-disney-master",
+      title: `อันดับ 1: ${firstDisneyTopItem.title}`,
+      description: firstDisneyTopItem.synopsis,
+      promo_price: selectedDisneyPkg.price,
+      original_price: selectedDisneyPkg.originalPrice,
+      badge_text: "🔥 DISNEY+ TOP 10",
+      banner_image: firstDisneyTopItem.poster,
+      is_auto_disney_master: true,
+      script_url: "https://www.hotstar.com/th"
+    };
+
     // Filter other custom promotions from admin (excluding old auto clearance/top10)
     const customPromos = promotionsData.filter(p => p.is_active !== false && !p.is_auto_clearance && !p.is_auto_top10);
 
-    const activePromos = [combinedNetflixPromo, combinedPrimePromo, ...customPromos];
+    const activePromos = [combinedNetflixPromo, combinedPrimePromo, combinedDisneyPromo, ...customPromos];
 
     if (!activePromos || activePromos.length === 0) {
       document.getElementById("promotions-section").style.display = "none";
@@ -3938,7 +4376,89 @@ async function fetchAndRenderPromotions() {
         return;
       }
 
-      // Other standard promotion cards (e.g. Disney, YouTube, Viu, etc.)
+      // 🌟 3. COMBINED ALL-IN-ONE DISNEY+ MASTER CARD (Royal Deep Blue & Glow Theme)
+      if (promo.is_auto_disney_master) {
+        html += `
+          <div class="promo-card vertical-card top10-card-wrapper disney-top10-card-wrapper combined-disney-card">
+            <!-- Cinema Poster Banner with Giant 3D Rank -->
+            <div class="card-banner-wrapper top10-cinematic-banner">
+              <div class="card-banner-img disney-top10-banner-img" style="background-image: url('${firstDisneyTopItem.poster}');">
+                <div class="top10-overlay-gradient"></div>
+                
+                <!-- 3D Metal Giant Rank Number in Disney Blue -->
+                <div class="top10-giant-rank-num disney-giant-rank-num">1</div>
+
+                <!-- Top Floating Badges -->
+                <div class="top10-top-badges-row">
+                  <div class="top10-live-pill disney-live-pill"><span class="top10-pulse-dot"></span> TOP 10 ในไทย</div>
+                  <div class="top10-quality-pill disney-quality-pill">4K IMAX</div>
+                </div>
+
+                <!-- In-Banner Synopsis Overlay (Slide-over, Fixed Height) -->
+                <div class="top10-synopsis-overlay disney-synopsis-overlay" style="display: none;" onclick="event.stopPropagation();">
+                  <div class="top10-synopsis-overlay-header">
+                    <div class="top10-synopsis-overlay-title">📖 เรื่องย่อ & ข้อมูล</div>
+                    <button type="button" class="btn-top10-close-synopsis" onclick="toggleDisneySynopsis(event)" title="ปิด">✕</button>
+                  </div>
+                  <div class="top10-synopsis-overlay-scroll">
+                    <p class="top10-synopsis-text disney-synopsis-text">${escapeHtml(firstDisneyTopItem.synopsis)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Body Details -->
+            <div class="vertical-card-body top10-card-body">
+              <!-- Interactive 1-10 Rank Picker Strip -->
+              <div class="top10-quick-picker-row">
+                ${defaultDisneyTop10.map(m => `
+                  <button type="button" class="top10-picker-btn disney-picker-btn ${m.rank === 1 ? 'active' : ''}" data-rank="${m.rank}" onclick="selectDisneyTop10Movie(${m.rank}, event)" title="${escapeHtml(m.title)}">
+                    ${m.rank}
+                  </button>
+                `).join('')}
+              </div>
+
+              <div class="top10-title-row">
+                <div class="promo-card-title top10-title-animated disney-title-animated">อันดับ 1: ${escapeHtml(firstDisneyTopItem.title)}</div>
+                <button type="button" class="btn-top10-info-pop btn-disney-info-pop" onclick="toggleDisneySynopsis(event)" title="ดูเรื่องย่อและรายละเอียด">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span>เรื่องย่อ</span>
+                </button>
+              </div>
+
+              <!-- Movie Tags & Meta -->
+              <div class="top10-tags-row">
+                <span class="top10-category-badge disney-category-badge">${firstDisneyTopItem.tag}</span>
+                <span class="top10-meta-badge top10-duration-badge disney-duration-badge">${firstDisneyTopItem.duration}</span>
+                <span class="top10-meta-badge top10-rating-badge disney-rating-badge">${firstDisneyTopItem.rating}</span>
+              </div>
+
+              <!-- 📦 Segmented Device & Duration Switcher (2 Compact Rows) -->
+              <div class="netflix-package-selector-section disney-package-selector-section">
+                ${generateDisneySegmentedHtml(disneyCategories, disneyActiveTab, selectedDisneyPkg.id)}
+              </div>
+            </div>
+
+            <!-- Footer & Dynamic Instant Purchase -->
+            <div class="vertical-card-footer">
+              <div class="vertical-price-row">
+                <div class="shopee-price-box">
+                  <span class="promo-original-price disney-dyn-orig-price" style="${selectedDisneyPkg.originalPrice ? '' : 'display: none;'}">฿${selectedDisneyPkg.originalPrice}</span>
+                  <span class="shopee-flash-price disney-dyn-price">฿${selectedDisneyPkg.price}</span>
+                </div>
+                <span class="top10-guarantee-tag disney-dyn-badge ${selectedDisneyPkg.isClearance ? 'clearance-badge' : ''}">${escapeHtml(selectedDisneyPkg.badge || '⚡ พร้อมใช้งาน')}</span>
+              </div>
+              <button type="button" class="btn-shopee-buy btn-full-width btn-disney-glow" onclick="handleDisneyMasterPurchase(event)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span class="disney-dyn-buy-label">${escapeHtml(selectedDisneyPkg.buyLabel || 'สั่งซื้อ Disney+ Hotstar รับชมทันที')}</span>
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Other standard promotion cards (e.g. YouTube, Viu, etc.)
       const badgeText = promo.badge_text || (
         promo.promo_type === 'flash_sale' ? 'FLASH SALE' :
           promo.promo_type === 'bundle' ? 'ซื้อคู่คุ้มกว่า' : 'เคลียร์สต๊อก'
@@ -4036,6 +4556,21 @@ async function fetchAndRenderPromotions() {
           window.selectPrimeTop10Movie(item.rank);
         }
       }, 3800);
+    }
+
+    // Start Disney+ Top 10 Cinema Slideshow with Smooth Transitions
+    if (!window._disneyTop10SlideshowTimer && window._disneyTop10List && window._disneyTop10List.length > 0) {
+      let disneyTop10Idx = 0;
+      window._disneyTop10SlideshowTimer = setInterval(() => {
+        const list = window._disneyTop10List || defaultDisneyTop10;
+        if (!list || list.length === 0) return;
+        disneyTop10Idx = (disneyTop10Idx + 1) % list.length;
+        const item = list[disneyTop10Idx];
+
+        if (window.selectDisneyTop10Movie) {
+          window.selectDisneyTop10Movie(item.rank);
+        }
+      }, 4000);
     }
   } catch (err) {
     if (typeof navigator === 'undefined' || navigator.onLine) {
