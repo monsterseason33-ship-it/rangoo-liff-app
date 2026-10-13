@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#060913">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BOSS Stock">
+  <meta name="description" content="BOSS Mobile Stock - ระบบเช็คสต็อกและคัดลอกบัญชีพรีเมียม 1-Tap บนมือถือ">
+  <title>BOSS Mobile Stock - สต็อกพร้อมขาย</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2338bdf8'><path d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/></svg>">
+  <link rel="apple-touch-icon"
+    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
+
+  <link rel="stylesheet" href="styles.css?v=1.0">
+</head>
+
+<body>
+
+  <!-- Toast Notification Stack -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand-wrap">
+        <div class="brand-icon">📦</div>
+        <div class="brand-titles">
+          <div class="brand-title">BOSS STOCK</div>
+          <div>
+            <button type="button" id="shop-badge-btn" class="shop-badge-btn" title="แตะเพื่อสลับสาขาร้านค้า">
+              🏪 <span id="shop-name-badge">ร้านกู</span>
+              <span style="font-size: 9px; opacity: 0.8;">▼</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" id="btn-refresh" class="icon-btn" title="รีเฟรชสต็อก">🔄</button>
+      </div>
+    </div>
+
+    <!-- Real-time Search Bar -->
+    <div class="search-bar-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" class="search-input" placeholder="ค้นหาแอป, แพ็กเกจ, หรืออีเมล..." autocomplete="off">
+      <button type="button" id="search-clear" class="search-clear-btn">✕</button>
+    </div>
+  </header>
+
+  <!-- Stock Summary Metrics -->
+  <section class="metrics-row">
+    <div class="metric-card">
+      <span class="metric-label">🟢 จอว่างพร้อมส่ง</span>
+      <span id="stat-screens" class="metric-val emerald">0</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">📦 บัญชีหลัก</span>
+      <span id="stat-accounts" class="metric-val highlight">0</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">🎬 แอปที่มีสต็อก</span>
+      <span id="stat-apps" class="metric-val">0</span>
+    </div>
+  </section>
+
+  <!-- App Filter Chips (Touch Scrollable) -->
+  <nav class="chips-container" id="chips-container">
+    <button type="button" class="chip-btn active">🌐 ทั้งหมด</button>
+  </nav>
+
+  <!-- Quick Tools Bar -->
+  <section class="quick-tools-bar">
+    <span class="tool-left">กรองบัญชีหมดอายุออก 100% (เรียลไทม์)</span>
+    <div class="tool-right">
+      <button type="button" id="btn-toggle-pwd" class="pill-tool-btn">🙈 ซ่อนรหัส</button>
+    </div>
+  </section>
+
+  <!-- Main Feed: Grouped by App & Package -->
+  <main class="stock-feed" id="stock-feed">
+    <div class="empty-state">
+      <div class="empty-icon">⏳</div>
+      <div class="empty-title">กำลังดึงข้อมูลสต็อก...</div>
+    </div>
+  </main>
+
+  <!-- Fixed Bottom Bar for Mobile -->
+  <footer class="bottom-bar">
+    <button type="button" id="btn-copy-all-stock" class="btn-main-action primary">
+      📋 1-Tap ก็อปปี้สต็อกทั้งหมด (ส่งร้าน)
+    </button>
+  </footer>
+
+  <!-- Modal: Shop Switcher -->
+  <div id="shop-modal-overlay" class="modal-overlay" onclick="if(event.target===this)closeShopModal()">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <span class="modal-title">🏪 เลือกร้านค้า / สาขา</span>
+        <button type="button" class="modal-close-btn" onclick="closeShopModal()">✕</button>
+      </div>
+      <div id="shop-list-container" style="display:flex; flex-direction:column; gap:8px;">
+        <!-- Dynamically injected shops -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=1.0"></script>
+</body>
+
+</html>
