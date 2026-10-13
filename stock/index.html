@@ -57,17 +57,17 @@
 
   <!-- Stock Summary Metrics -->
   <section class="metrics-row">
-    <div class="metric-card">
-      <span class="metric-label">🟢 จอว่างพร้อมส่ง</span>
+    <div class="metric-card emerald-card">
+      <span class="metric-label"><span class="live-pulse-dot"></span> จอว่างพร้อมส่ง</span>
       <span id="stat-screens" class="metric-val emerald">0</span>
     </div>
-    <div class="metric-card">
+    <div class="metric-card sky-card">
       <span class="metric-label">📦 บัญชีหลัก</span>
       <span id="stat-accounts" class="metric-val highlight">0</span>
     </div>
-    <div class="metric-card">
-      <span class="metric-label">🎬 แอปที่มีสต็อก</span>
-      <span id="stat-apps" class="metric-val">0</span>
+    <div class="metric-card purple-card">
+      <span class="metric-label">🎬 แอปพร้อมขาย</span>
+      <span id="stat-apps" class="metric-val purple">0</span>
     </div>
   </section>
 
@@ -78,7 +78,7 @@
 
   <!-- Quick Tools Bar -->
   <section class="quick-tools-bar">
-    <span class="tool-left">กรองบัญชีหมดอายุออก 100% (เรียลไทม์)</span>
+    <span class="tool-left">⚡ กรองบัญชีหมดอายุออก 100% (เรียลไทม์)</span>
     <div class="tool-right">
       <button type="button" id="btn-toggle-pwd" class="pill-tool-btn">🙈 ซ่อนรหัส</button>
     </div>
@@ -95,7 +95,9 @@
   <!-- Fixed Bottom Bar for Mobile -->
   <footer class="bottom-bar">
     <button type="button" id="btn-copy-all-stock" class="btn-main-action primary">
-      📋 1-Tap ก็อปปี้สต็อกทั้งหมด (ส่งร้าน)
+      <span>📋</span>
+      <span>1-Tap ก็อปปี้สต็อกทั้งหมด (ส่งร้าน)</span>
+      <span id="bottom-stat-badge" class="bottom-stat-pill">0 จอ</span>
     </button>
   </footer>
 
