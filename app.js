@@ -1,8 +1,8 @@
 // ⚡ BOSS Premium (shop_rangoo) LIFF Customer Web App Core Logic
 const CONFIG = {
   LIFF_ID: "2010909658-zc9CaFLN",
-  SUPABASE_URL: "https://teeporxvxrwzwmnsnjyw.supabase.co",
-  SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk",
+  SUPABASE_URL: "https://winter-boat-b3d1.monsterseason33.workers.dev",
+  SUPABASE_KEY: "cloudflare_d1_unlimited",
   ADMIN_NAMES: ["boss", "ร้านกู", "admin", "เจ้าของร้าน"], // Auto-detect admin users
   ADMIN_PASSCODES: ["B5HU8T37C1ESHCFDDW", "b5hu8t37c1eshcfddw"], // Secret Admin Passcodes for Full Unlock
   LINE_OA_LINK: "https://line.me/R/ti/p/@676aljmg",

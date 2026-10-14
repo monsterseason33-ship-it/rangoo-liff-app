@@ -13,10 +13,10 @@ const PRESET_SHOPS = [
   },
   {
     id: "shop_rangoo",
-    name: "ร้านกู",
-    type: "supabase",
-    url: "https://teeporxvxrwzwmnsnjyw.supabase.co",
-    key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk"
+    name: "ร้านกู (Cloudflare D1)",
+    type: "cloudflare_d1",
+    url: "https://winter-boat-b3d1.monsterseason33.workers.dev",
+    key: "cloudflare_d1_unlimited"
   }
 ];
 

@@ -1,5 +1,5 @@
-const SUPABASE_URL = "https://teeporxvxrwzwmnsnjyw.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZXBvcnh2eHJ3endtbnNuanl3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDU3NjcxMCwiZXhwIjoyMTAwMTUyNzEwfQ.Bgjp3EEFzRYAolKKb485LaRdShztnKJj3g7EDC8zGkk";
+const SUPABASE_URL = "https://winter-boat-b3d1.monsterseason33.workers.dev";
+const SUPABASE_KEY = "cloudflare_d1_unlimited";
 
 async function testQueries() {
   const headers = {
