@@ -809,18 +809,27 @@ window.copyAccountScript = async function(groupKey, emailKey, btnEl) {
 // 2. Copy Single Screen Handover
 window.copySingleScreen = async function(appName, email, password, screenName, pinTxt, expiryDisplay, screenId, btnEl) {
   haptic();
-  let text = `🎬 *${appName.toUpperCase()}*\n`;
+
+  const cleanId = (screenId && screenId !== "-" && screenId !== "undefined" && screenId !== "null") 
+    ? String(screenId).trim().replace(/^#/, '') 
+    : "";
+  const headerTitle = cleanId 
+    ? `🎬 *${(appName || '').toUpperCase()}* #${cleanId}` 
+    : `🎬 *${(appName || '').toUpperCase()}*`;
+
+  const cleanScreenName = (screenName || "จอว่าง").trim();
+  const formattedProfile = cleanScreenName.startsWith("🟢") 
+    ? cleanScreenName 
+    : `🟢 ${cleanScreenName}`;
+
+  const cleanPin = (pinTxt || "🔓 ไม่มี PIN").trim().replace(/^🔢\s*/, "");
+
+  let text = `${headerTitle}\n`;
   text += `──────────────────────────\n`;
   text += `🔹 อีเมลล์: ${email}\n`;
   text += `🔑 รหัสผ่าน: ${password}\n`;
-  if (expiryDisplay && expiryDisplay !== "-") {
-    text += `📅 วันหมดอายุ: ${expiryDisplay}\n`;
-  }
-  text += `👤 โปรไฟล์: 🟢 ${screenName}\n`;
-  if (screenId && screenId !== "-" && screenId !== "undefined" && screenId !== "") {
-    text += `🆔 ID จอ: #${screenId}\n`;
-  }
-  text += `🔢 ${pinTxt}\n`;
+  text += `👤 โปรไฟล์: ${formattedProfile}\n`;
+  text += `🔢 ${cleanPin}\n`;
   text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   text += `🙏 ขอบคุณที่อุดหนุนครับ เข้าใช้งานได้ทันทีเลยครับ ✨`;
 
