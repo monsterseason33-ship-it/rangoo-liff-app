@@ -8,8 +8,17 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Skip caching if running in unsupported scheme like chrome-extension://
+  if (!self.location.protocol.startsWith('http')) {
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS).catch(err => {
+        console.warn('SW cache.addAll skipped or unsupported scheme:', err);
+      });
+    })
   );
   self.skipWaiting();
 });
@@ -26,7 +35,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first, fallback to cache
+  // Only handle http / https requests (ignore chrome-extension://, file://, etc.)
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

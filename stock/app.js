@@ -30,8 +30,8 @@ let searchQuery = "";
 let isPasswordHidden = false;
 let appGroups = {};
 
-// Register Service Worker for PWA
-if ('serviceWorker' in navigator) {
+// Register Service Worker for PWA (Only on web http / https protocols)
+if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed', err));
   });
@@ -117,6 +117,88 @@ function initUIEventListeners() {
   const shopBadgeBtn = document.getElementById("shop-badge-btn");
   if (shopBadgeBtn) {
     shopBadgeBtn.addEventListener("click", openShopModal);
+  }
+
+  // Chips Event Delegation (App filters)
+  const chipsContainer = document.getElementById("chips-container");
+  if (chipsContainer) {
+    chipsContainer.addEventListener("click", (e) => {
+      const chip = e.target.closest(".chip-btn");
+      if (chip && chip.dataset.appId) {
+        selectChip(chip.dataset.appId);
+      }
+    });
+  }
+
+  // Stock Feed Event Delegation (100% CSP compliant)
+  const feed = document.getElementById("stock-feed");
+  if (feed) {
+    feed.addEventListener("click", (e) => {
+      // 1. Send single screen
+      const sendBtn = e.target.closest(".btn-screen-send");
+      if (sendBtn) {
+        e.stopPropagation();
+        const d = sendBtn.dataset;
+        copySingleScreen(d.appName, d.email, d.password, d.screenName, d.pinTxt, d.expiry, d.screenId, sendBtn);
+        return;
+      }
+
+      // 2. Copy entire app stock
+      const copyAppBtn = e.target.closest(".group-copy-app-btn");
+      if (copyAppBtn) {
+        e.stopPropagation();
+        copyAppStockScript(copyAppBtn.dataset.appId);
+        return;
+      }
+
+      // 3. Copy account script
+      const copyAccBtn = e.target.closest(".btn-copy-account-script");
+      if (copyAccBtn) {
+        e.stopPropagation();
+        copyAccountScript(copyAccBtn.dataset.groupKey, copyAccBtn.dataset.emailKey, copyAccBtn);
+        return;
+      }
+
+      // 4. Inline toggle password
+      const pwdToggleBtn = e.target.closest(".btn-inline-pwd-toggle");
+      if (pwdToggleBtn) {
+        e.stopPropagation();
+        toggleInlinePwd(pwdToggleBtn);
+        return;
+      }
+
+      // 5. Copy single value (from mini copy button or capsule or screen ID tag)
+      const copyValTarget = e.target.closest("[data-copy-val]");
+      if (copyValTarget) {
+        e.stopPropagation();
+        const val = copyValTarget.dataset.copyVal;
+        const label = copyValTarget.dataset.copyLabel || "ข้อมูล";
+        const animBtn = copyValTarget.querySelector(".btn-mini-copy") || copyValTarget;
+        copySingleValue(val, label, animBtn);
+        return;
+      }
+    });
+  }
+
+  // Modal shop switch & close events
+  const shopOverlay = document.getElementById("shop-modal-overlay");
+  if (shopOverlay) {
+    shopOverlay.addEventListener("click", (e) => {
+      if (e.target === shopOverlay) closeShopModal();
+    });
+  }
+  const closeShopBtn = document.getElementById("btn-close-shop-modal");
+  if (closeShopBtn) {
+    closeShopBtn.addEventListener("click", closeShopModal);
+  }
+  const shopListContainer = document.getElementById("shop-list-container");
+  if (shopListContainer) {
+    shopListContainer.addEventListener("click", (e) => {
+      const itemBtn = e.target.closest(".shop-item-btn");
+      if (itemBtn && itemBtn.dataset.shopId) {
+        selectShop(itemBtn.dataset.shopId);
+      }
+    });
   }
 }
 
@@ -409,7 +491,7 @@ function renderChips() {
   });
 
   let html = `
-    <button type="button" class="chip-btn ${activeAppFilter === 'all' ? 'active' : ''}" onclick="selectChip('all')">
+    <button type="button" class="chip-btn ${activeAppFilter === 'all' ? 'active' : ''}" data-app-id="all">
       <span>🌐</span>
       <span>ทั้งหมด</span>
       <span class="chip-count">${overallScreens}</span>
@@ -430,7 +512,7 @@ function renderChips() {
       : ``;
 
     html += `
-      <button type="button" class="chip-btn ${isCurrentActive ? 'active' : ''}" style="${dynamicStyle}" onclick="selectChip('${appId}')">
+      <button type="button" class="chip-btn ${isCurrentActive ? 'active' : ''}" style="${dynamicStyle}" data-app-id="${escapeHtml(appId)}">
         <span>${theme.icon}</span>
         <span>${escapeHtml(appName)}</span>
         <span class="chip-count" style="${isCurrentActive ? `background: ${theme.color}; color: #04101e;` : ''}">${count}</span>
@@ -498,7 +580,7 @@ function renderStockFeed() {
             </div>
             ${group.pkgName ? `<span class="group-pkg-name">[${escapeHtml(group.pkgName)}]</span>` : ""}
           </div>
-          <button type="button" class="group-copy-app-btn" onclick="copyAppStockScript('${group.appId}')" title="คัดลอกสต็อกทั้งแอปนี้">
+          <button type="button" class="group-copy-app-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกสต็อกทั้งแอปนี้">
             📋 ก็อปปี้ทั้งแอป (${group.totalScreens})
           </button>
         </div>
@@ -547,19 +629,19 @@ function renderStockFeed() {
             <!-- Email row with 1-tap copy capsule -->
             <div class="cred-item">
               <span class="cred-label">🔹 อีเมล:</span>
-              <div class="cred-pill-box" onclick="copySingleValue('${escapeHtml(acc.email)}', 'อีเมล', this.querySelector('.btn-mini-copy'))" title="แตะเพื่อคัดลอกอีเมล">
+              <div class="cred-pill-box" data-copy-val="${escapeHtml(acc.email)}" data-copy-label="อีเมล" title="แตะเพื่อคัดลอกอีเมล">
                 <span class="cred-val">${escapeHtml(acc.email)}</span>
-                <button type="button" class="btn-mini-copy" onclick="event.stopPropagation(); copySingleValue('${escapeHtml(acc.email)}', 'อีเมล', this)">คัดลอก</button>
+                <button type="button" class="btn-mini-copy" data-copy-val="${escapeHtml(acc.email)}" data-copy-label="อีเมล">คัดลอก</button>
               </div>
             </div>
 
             <!-- Password row with inline toggle + 1-tap copy capsule -->
             <div class="cred-item">
               <span class="cred-label">🔑 รหัส:</span>
-              <div class="cred-pill-box" onclick="copySingleValue('${escapeHtml(acc.password)}', 'รหัสผ่าน', this.querySelector('.btn-mini-copy'))" title="แตะเพื่อคัดลอกรหัสผ่าน">
+              <div class="cred-pill-box" data-copy-val="${escapeHtml(acc.password)}" data-copy-label="รหัสผ่าน" title="แตะเพื่อคัดลอกรหัสผ่าน">
                 <span class="cred-val pwd" data-real-pwd="${escapeHtml(acc.password)}" data-hidden="${isPasswordHidden ? 'true' : 'false'}">${escapeHtml(pwdText)}</span>
-                <button type="button" class="btn-inline-pwd-toggle" onclick="event.stopPropagation(); toggleInlinePwd(this)" title="ซ่อน/แสดงรหัส">${isPasswordHidden ? '👁️' : '🙈'}</button>
-                <button type="button" class="btn-mini-copy" onclick="event.stopPropagation(); copySingleValue('${escapeHtml(acc.password)}', 'รหัสผ่าน', this)">คัดลอก</button>
+                <button type="button" class="btn-inline-pwd-toggle" title="ซ่อน/แสดงรหัส">${isPasswordHidden ? '👁️' : '🙈'}</button>
+                <button type="button" class="btn-mini-copy" data-copy-val="${escapeHtml(acc.password)}" data-copy-label="รหัสผ่าน">คัดลอก</button>
               </div>
             </div>
 
@@ -584,18 +666,31 @@ function renderStockFeed() {
                 const pName = s.profile_name || "จอว่าง";
                 const hasPin = Boolean(s.pin_code && s.pin_code !== "-" && s.pin_code.trim() !== "");
                 const pinTxt = hasPin ? `🔒 PIN: ${s.pin_code}` : "🔓 ไม่มี PIN";
+                const screenId = s.display_id || s.id || "";
                 return `
                   <div class="screen-item">
-                    <div class="screen-name-col">
-                      <span class="live-pulse-dot"></span>
-                      <span class="screen-slot-badge">${escapeHtml(pName)}</span>
-                    </div>
-                    <div class="screen-actions-col">
+                    <div class="screen-info-col">
+                      <div class="screen-primary-info">
+                        <span class="live-pulse-dot"></span>
+                        <span class="screen-slot-badge">${escapeHtml(pName)}</span>
+                        ${screenId ? `
+                          <span class="screen-id-tag" data-copy-val="${escapeHtml(String(screenId))}" data-copy-label="ID จอ" title="แตะเพื่อคัดลอก ID จอ">
+                            🆔 #${escapeHtml(String(screenId))}
+                          </span>
+                        ` : ''}
+                      </div>
                       <span class="screen-pin-tag ${hasPin ? 'has-pin' : ''}">${escapeHtml(pinTxt)}</span>
-                      <button type="button" class="btn-screen-send" onclick="copySingleScreen('${escapeHtml(group.appName)}', '${escapeHtml(acc.email)}', '${escapeHtml(acc.password)}', '${escapeHtml(pName)}', '${escapeHtml(pinTxt)}', '${escapeHtml(expiryDisplay)}', this)">
-                        🚀 ส่งจอนี้
-                      </button>
                     </div>
+                    <button type="button" class="btn-screen-send"
+                      data-app-name="${escapeHtml(group.appName)}"
+                      data-email="${escapeHtml(acc.email)}"
+                      data-password="${escapeHtml(acc.password)}"
+                      data-screen-name="${escapeHtml(pName)}"
+                      data-pin-txt="${escapeHtml(pinTxt)}"
+                      data-expiry="${escapeHtml(expiryDisplay)}"
+                      data-screen-id="${escapeHtml(String(screenId))}">
+                      🚀 ส่งจอนี้
+                    </button>
                   </div>
                 `;
               }).join("")}
@@ -603,7 +698,7 @@ function renderStockFeed() {
           </div>
 
           <!-- Hero 1-Tap Copy Account Script Button -->
-          <button type="button" class="btn-copy-account-script" onclick="copyAccountScript('${groupKey}', '${emailKey}', this)">
+          <button type="button" class="btn-copy-account-script" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}">
             <span>📋</span>
             <span>1-Tap ก็อปปี้สคริปต์บัญชีนี้ (พร้อมส่ง)</span>
           </button>
@@ -685,7 +780,9 @@ window.copyAccountScript = async function(groupKey, emailKey, btnEl) {
   sortedScreens.forEach(s => {
     const profName = s.profile_name || "จอว่าง";
     const pinStr = (s.pin_code && s.pin_code !== "-") ? `PIN: ${s.pin_code}` : "ไม่มี PIN";
-    text += `    • 🟢 ${profName} | ${pinStr}\n`;
+    const screenId = s.display_id || s.id || "";
+    const idTxt = screenId ? ` (ID: #${screenId})` : "";
+    text += `    • 🟢 ${profName}${idTxt} | ${pinStr}\n`;
   });
   text += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
@@ -710,7 +807,7 @@ window.copyAccountScript = async function(groupKey, emailKey, btnEl) {
 };
 
 // 2. Copy Single Screen Handover
-window.copySingleScreen = async function(appName, email, password, screenName, pinTxt, expiryDisplay, btnEl) {
+window.copySingleScreen = async function(appName, email, password, screenName, pinTxt, expiryDisplay, screenId, btnEl) {
   haptic();
   let text = `🎬 *${appName.toUpperCase()}*\n`;
   text += `──────────────────────────\n`;
@@ -720,6 +817,9 @@ window.copySingleScreen = async function(appName, email, password, screenName, p
     text += `📅 วันหมดอายุ: ${expiryDisplay}\n`;
   }
   text += `👤 โปรไฟล์: 🟢 ${screenName}\n`;
+  if (screenId && screenId !== "-" && screenId !== "undefined" && screenId !== "") {
+    text += `🆔 ID จอ: #${screenId}\n`;
+  }
   text += `🔢 ${pinTxt}\n`;
   text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   text += `🙏 ขอบคุณที่อุดหนุนครับ เข้าใช้งานได้ทันทีเลยครับ ✨`;
@@ -816,7 +916,9 @@ window.copyAppStockScript = async function(appId) {
       sortedScreens.forEach(s => {
         const profName = s.profile_name || "จอว่าง";
         const pinStr = (s.pin_code && s.pin_code !== "-") ? `PIN: ${s.pin_code}` : "ไม่มี PIN";
-        text += `    • 🟢 ${profName} | ${pinStr}\n`;
+        const screenId = s.display_id || s.id || "";
+        const idTxt = screenId ? ` (ID: #${screenId})` : "";
+        text += `    • 🟢 ${profName}${idTxt} | ${pinStr}\n`;
       });
 
       if (eIdx < emailKeys.length - 1) text += `\n`;
@@ -1003,7 +1105,7 @@ function openShopModal() {
   if (!overlay || !list) return;
 
   list.innerHTML = PRESET_SHOPS.map(shop => `
-    <button type="button" class="shop-item-btn ${shop.id === currentShop.id ? 'active' : ''}" onclick="selectShop('${shop.id}')">
+    <button type="button" class="shop-item-btn ${shop.id === currentShop.id ? 'active' : ''}" data-shop-id="${shop.id}">
       <div style="display:flex; flex-direction:column; text-align:left;">
         <span style="font-weight:700;">🏪 ${escapeHtml(shop.name)}</span>
         <span style="font-size:10.5px; color:var(--text-dim);">${shop.type === 'supabase' ? 'Supabase REST API' : 'Cloudflare D1 Worker'}</span>

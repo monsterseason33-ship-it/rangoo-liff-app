@@ -95,18 +95,20 @@
   <!-- Fixed Bottom Bar for Mobile -->
   <footer class="bottom-bar">
     <button type="button" id="btn-copy-all-stock" class="btn-main-action primary">
-      <span>📋</span>
-      <span>1-Tap ก็อปปี้สต็อกทั้งหมด (ส่งร้าน)</span>
+      <div class="btn-main-action-left">
+        <span>📋</span>
+        <span class="btn-main-action-title">1-Tap ก็อปปี้สต็อกทั้งหมด (ส่งร้าน)</span>
+      </div>
       <span id="bottom-stat-badge" class="bottom-stat-pill">0 จอ</span>
     </button>
   </footer>
 
   <!-- Modal: Shop Switcher -->
-  <div id="shop-modal-overlay" class="modal-overlay" onclick="if(event.target===this)closeShopModal()">
+  <div id="shop-modal-overlay" class="modal-overlay">
     <div class="modal-sheet">
       <div class="modal-header">
         <span class="modal-title">🏪 เลือกร้านค้า / สาขา</span>
-        <button type="button" class="modal-close-btn" onclick="closeShopModal()">✕</button>
+        <button type="button" class="modal-close-btn" id="btn-close-shop-modal">✕</button>
       </div>
       <div id="shop-list-container" style="display:flex; flex-direction:column; gap:8px;">
         <!-- Dynamically injected shops -->
