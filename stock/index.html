@@ -56,7 +56,7 @@
     </div>
   </header>
 
-  <!-- Navigation Segmented Tabs (Stock Feed vs Bindings Search & Troubleshooting) -->
+  <!-- Navigation Segmented Tabs (Stock Feed vs Customer Bindings) -->
   <div class="view-mode-tabs-wrapper">
     <nav class="view-mode-tabs" id="view-mode-tabs">
       <button type="button" id="tab-btn-stock" class="mode-tab-btn active" data-view="stock">
@@ -66,7 +66,7 @@
       </button>
       <button type="button" id="tab-btn-bindings" class="mode-tab-btn" data-view="bindings">
         <span class="mode-tab-icon">🔍</span>
-        <span class="mode-tab-title">ค้นหาการผูกสิทธิ์ & แก้ปัญหา</span>
+        <span class="mode-tab-title">ค้นหา & จัดการสิทธิ์</span>
         <span id="tab-badge-bindings" class="mode-tab-badge purple">0 สิทธิ์</span>
       </button>
     </nav>
@@ -252,41 +252,34 @@
   <!-- 🔍 VIEW 2: ค้นหาการผูกสิทธิ์ & แก้ปัญหา (Customer Bindings & Support)    -->
   <!-- ===================================================================== -->
   <div id="section-bindings-view" class="view-section" style="display: none;">
-    <!-- Bindings Summary Metrics -->
-    <section class="metrics-row bindings-metrics-row">
-      <div class="metric-card purple-card">
-        <span class="metric-label">👥 ผูกสิทธิ์ทั้งหมด</span>
+    <!-- Bindings Summary Metrics (Tap to Filter) -->
+    <section class="metrics-row bindings-metrics-row" id="bindings-metrics-interactive">
+      <div class="metric-card purple-card interactive-metric active" data-filter="all" title="แตะเพื่อดูสิทธิ์ทั้งหมด">
+        <span class="metric-label">👥 สิทธิ์ทั้งหมด</span>
         <span id="stat-bind-total" class="metric-val purple">0</span>
       </div>
-      <div class="metric-card emerald-card">
+      <div class="metric-card emerald-card interactive-metric" data-filter="active" title="แตะเพื่อกรองเฉพาะที่กำลังใช้งาน">
         <span class="metric-label"><span class="live-pulse-dot"></span> กำลังใช้งาน</span>
         <span id="stat-bind-active" class="metric-val emerald">0</span>
       </div>
-      <div class="metric-card amber-card">
+      <div class="metric-card amber-card interactive-metric" data-filter="expiring" title="แตะเพื่อกรองที่ใกล้หมดอายุ">
         <span class="metric-label">⏰ ใกล้หมดอายุ (&lt;3วัน)</span>
         <span id="stat-bind-expiring" class="metric-val amber">0</span>
       </div>
-      <div class="metric-card gray-card">
+      <div class="metric-card gray-card interactive-metric" data-filter="reverted" title="แตะเพื่อกรองที่ดีดคืนสต็อกแล้ว">
         <span class="metric-label">⚪ ดีดคืนสต็อกแล้ว</span>
         <span id="stat-bind-reverted" class="metric-val muted">0</span>
       </div>
     </section>
 
-    <!-- Binding Search & Control Panel -->
+    <!-- Binding Control Hub (Randomizer & Filter Hub) -->
     <div id="binding-search-panel" class="prem-card binding-search-card">
       <div class="binding-card-title-row">
         <div class="form-action-title">
           <span class="accent-dot purple-dot"></span>
-          <span>ค้นหาการผูกสิทธิ์ & ตรวจสอบข้อมูลลูกค้า</span>
+          <span>ค้นหา & จัดการสิทธิ์ลูกค้า</span>
         </div>
-        <span id="binding-search-badge" class="binding-search-pill">แสดงสด</span>
-      </div>
-
-      <!-- Search Input with Clear Button -->
-      <div class="binding-input-wrapper">
-        <span class="binding-search-icon">🔍</span>
-        <input type="text" id="binding-search-input" class="prem-input binding-search-input" placeholder="พิมพ์ชื่อลูกค้า, ID จอ (#153), อีเมล, แอป หรือรหัสผ่าน..." autocomplete="off">
-        <button type="button" id="btn-binding-search-clear" class="search-clear-btn" style="display: none;">✕</button>
+        <span id="binding-search-badge" class="binding-search-pill">⚡ สด • ค้นหาด้านบน</span>
       </div>
 
       <!-- Quick Action Buttons -->

@@ -96,8 +96,6 @@ function initUIEventListeners() {
 
       if (currentView === "bindings") {
         bindingSearchQuery = val.toLowerCase();
-        const bindInput = document.getElementById("binding-search-input");
-        if (bindInput) bindInput.value = val;
         renderBindingsFeed();
       } else {
         searchQuery = val.toLowerCase();
@@ -111,8 +109,6 @@ function initUIEventListeners() {
       searchClear.style.display = "none";
       if (currentView === "bindings") {
         bindingSearchQuery = "";
-        const bindInput = document.getElementById("binding-search-input");
-        if (bindInput) bindInput.value = "";
         renderBindingsFeed();
       } else {
         searchQuery = "";
@@ -121,31 +117,15 @@ function initUIEventListeners() {
     });
   }
 
-  // Dedicated Binding Search Input
-  const bindSearchInput = document.getElementById("binding-search-input");
-  const bindSearchClear = document.getElementById("btn-binding-search-clear");
-  if (bindSearchInput) {
-    bindSearchInput.addEventListener("input", (e) => {
-      const val = e.target.value.trim();
-      bindingSearchQuery = val.toLowerCase();
-      if (bindSearchClear) bindSearchClear.style.display = val ? "block" : "none";
-      if (searchInput && currentView === "bindings") {
-        searchInput.value = val;
-        if (searchClear) searchClear.style.display = val ? "block" : "none";
+  // Interactive Metrics Click to Filter
+  const metricInteractiveRow = document.getElementById("bindings-metrics-interactive");
+  if (metricInteractiveRow) {
+    metricInteractiveRow.addEventListener("click", (e) => {
+      const card = e.target.closest(".interactive-metric");
+      if (card && card.dataset.filter) {
+        haptic();
+        setBindingFilter(card.dataset.filter);
       }
-      renderBindingsFeed();
-    });
-  }
-  if (bindSearchClear) {
-    bindSearchClear.addEventListener("click", () => {
-      if (bindSearchInput) bindSearchInput.value = "";
-      bindingSearchQuery = "";
-      bindSearchClear.style.display = "none";
-      if (searchInput && currentView === "bindings") {
-        searchInput.value = "";
-        if (searchClear) searchClear.style.display = "none";
-      }
-      renderBindingsFeed();
     });
   }
 
@@ -172,10 +152,7 @@ function initUIEventListeners() {
       const chip = e.target.closest(".bind-filter-chip");
       if (chip && chip.dataset.filter) {
         haptic();
-        bindingFilter = chip.dataset.filter;
-        bindFilterChips.querySelectorAll(".bind-filter-chip").forEach(c => c.classList.remove("active"));
-        chip.classList.add("active");
-        renderBindingsFeed();
+        setBindingFilter(chip.dataset.filter);
       }
     });
   }
@@ -2127,10 +2104,28 @@ function updateTabBadges(totalScreens = null) {
   }
 
   const stockBadge = document.getElementById("tab-badge-stock");
-  if (stockBadge) stockBadge.textContent = `${totalScreens} จอ`;
+  if (stockBadge) stockBadge.textContent = `${totalScreens.toLocaleString()} จอ`;
 
   const bindBadge = document.getElementById("tab-badge-bindings");
-  if (bindBadge) bindBadge.textContent = `${rawBindings.length} สิทธิ์`;
+  if (bindBadge) bindBadge.textContent = `${rawBindings.length.toLocaleString()} สิทธิ์`;
+}
+
+function setBindingFilter(filterKey) {
+  bindingFilter = filterKey;
+
+  // Sync interactive metric cards
+  const metricCards = document.querySelectorAll(".interactive-metric");
+  metricCards.forEach(c => {
+    c.classList.toggle("active", c.dataset.filter === filterKey);
+  });
+
+  // Sync filter chips
+  const chips = document.querySelectorAll(".bind-filter-chip");
+  chips.forEach(c => {
+    c.classList.toggle("active", c.dataset.filter === filterKey);
+  });
+
+  renderBindingsFeed();
 }
 
 function updateBindingMetrics() {
@@ -2162,10 +2157,13 @@ function updateBindingMetrics() {
   const expEl = document.getElementById("stat-bind-expiring");
   const revEl = document.getElementById("stat-bind-reverted");
 
-  if (totalEl) totalEl.textContent = rawBindings.length;
-  if (activeEl) activeEl.textContent = activeCount;
-  if (expEl) expEl.textContent = expiringCount;
-  if (revEl) revEl.textContent = revertedCount;
+  if (totalEl) totalEl.textContent = rawBindings.length.toLocaleString();
+  if (activeEl) activeEl.textContent = activeCount.toLocaleString();
+  if (expEl) expEl.textContent = expiringCount.toLocaleString();
+  if (revEl) revEl.textContent = revertedCount.toLocaleString();
+
+  const searchBadge = document.getElementById("binding-search-badge");
+  if (searchBadge) searchBadge.textContent = `⚡ สด • ${rawBindings.length.toLocaleString()} สิทธิ์`;
 }
 
 // ----------------------------------------------------------------------------
@@ -2244,18 +2242,13 @@ function pickRandomCustomer() {
 
   bindingSearchQuery = name.toLowerCase();
 
-  const bindSearchInput = document.getElementById("binding-search-input");
-  const bindSearchClear = document.getElementById("btn-binding-search-clear");
-  if (bindSearchInput) {
-    bindSearchInput.value = name;
-    if (bindSearchClear) bindSearchClear.style.display = "block";
-  }
-
   const topSearch = document.getElementById("search-input");
   const topClear = document.getElementById("search-clear");
-  if (topSearch && currentView === "bindings") {
+  if (topSearch) {
     topSearch.value = name;
     if (topClear) topClear.style.display = "block";
+    topSearch.classList.add("parser-success-flash");
+    setTimeout(() => topSearch.classList.remove("parser-success-flash"), 800);
   }
 
   renderBindingsFeed();
@@ -2379,8 +2372,11 @@ function renderBindingsFeed() {
         <div class="binding-customer-title">
           <div class="binding-avatar">${escapeHtml(customerInitial)}</div>
           <div class="binding-cust-names">
-            <span class="binding-name-text">👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
-            <span class="binding-sub-id">ID สิทธิ์: ${escapeHtml((b.id || '').substring(0, 8))}...</span>
+            <span class="binding-name-text">
+              <span>👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
+              ${b.customer_name ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(b.customer_name)}" data-label="ชื่อลูกค้า" title="คัดลอกชื่อลูกค้า">📋</button>` : ''}
+            </span>
+            <span class="binding-sub-id btn-copy-cred" data-copy="${escapeHtml(b.id || '')}" data-label="ID สิทธิ์" title="แตะเพื่อคัดลอก ID สิทธิ์เต็ม" style="cursor: pointer;">ID: ${escapeHtml((b.id || '').substring(0, 8))}... 📋</span>
           </div>
         </div>
         <div class="binding-header-right-badges">

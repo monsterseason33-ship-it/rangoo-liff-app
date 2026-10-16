@@ -138,6 +138,10 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15);
 }
@@ -152,6 +156,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .icon-btn {
@@ -1395,6 +1400,7 @@ body {
 .header-add-stock-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   background: linear-gradient(135deg, #059669 0%, #10b981 100%);
   border: 1px solid rgba(52, 211, 153, 0.4);
@@ -1407,6 +1413,8 @@ body {
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   transition: all 0.2s;
   font-family: inherit;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 .primary-tool-btn {
@@ -1516,16 +1524,63 @@ body {
   margin-top: 8px;
 }
 
+@media (max-width: 480px) {
+  .bindings-metrics-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
 .bindings-metrics-row .metric-card {
-  padding: 8px 10px;
+  padding: 10px 10px;
 }
 
 .bindings-metrics-row .metric-label {
-  font-size: 9.5px;
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
 .bindings-metrics-row .metric-val {
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+/* Interactive Metric Filter Buttons */
+.interactive-metric {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.interactive-metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.interactive-metric:active {
+  transform: scale(0.96);
+}
+
+.interactive-metric.active {
+  border-color: rgba(168, 85, 247, 0.75) !important;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.35), inset 0 0 8px rgba(168, 85, 247, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+.interactive-metric.emerald-card.active {
+  border-color: rgba(52, 211, 153, 0.75) !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35), inset 0 0 8px rgba(16, 185, 129, 0.15) !important;
+}
+
+.interactive-metric.amber-card.active {
+  border-color: rgba(251, 191, 36, 0.75) !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35), inset 0 0 8px rgba(245, 158, 11, 0.15) !important;
+}
+
+.interactive-metric.gray-card.active {
+  border-color: rgba(148, 163, 184, 0.75) !important;
+  box-shadow: 0 0 16px rgba(148, 163, 184, 0.35), inset 0 0 8px rgba(148, 163, 184, 0.15) !important;
 }
 
 .purple-dot {
@@ -1728,6 +1783,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .binding-name-text {
@@ -1735,6 +1792,11 @@ body {
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.2px;
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .binding-sub-id {
@@ -1835,11 +1897,11 @@ body {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
+  padding: 8px 10px;
   margin-bottom: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .binding-cred-row {
@@ -1848,6 +1910,23 @@ body {
   justify-content: space-between;
   gap: 8px;
   font-size: 11.5px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s ease;
+}
+
+.binding-cred-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.binding-email-text {
+  max-width: 175px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .binding-cred-label {
