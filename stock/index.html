@@ -493,6 +493,106 @@
     </div>
   </div>
 
+  <!-- Modal: Send & Bind Screen to Customer (Phase 1) -->
+  <div id="modal-send-bind-screen" class="modal-overlay" style="display: none;">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div>
+          <span class="modal-title" id="send-bind-modal-title">🚀 ส่งมอบจอ & ผูกสิทธิ์ลูกค้า</span>
+          <div id="send-bind-modal-subtitle" style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">
+            บันทึกการขาย ตัดสต็อกจอ และส่งมอบสิทธิ์ในคลิกเดียว
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-send-bind-modal">✕</button>
+      </div>
+
+      <!-- Screen Preview Card -->
+      <div id="send-bind-screen-preview" class="send-bind-screen-preview">
+        <!-- Dynamically injected screen details -->
+      </div>
+
+      <!-- Customer Name Input & Generator -->
+      <div class="form-group" style="margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700; color: #fff;">
+            👤 ชื่อลูกค้า (Customer ID / LINE OA) <span style="color: #ef4444;">*</span>
+          </label>
+          <span id="send-bind-name-status" style="font-size: 10.5px;"></span>
+        </div>
+
+        <input type="text" id="send-bind-customer-name" class="prem-input" 
+               placeholder="ชื่อลูกค้า หรือคลิกสุ่มชื่อ LINE OA..." 
+               style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+
+        <!-- Quick actions row for customer name -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+          <button type="button" id="btn-send-bind-random-name" class="prem-btn secondary" style="font-size: 11.5px; padding: 7px 10px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+            <span>🎲</span>
+            <span>สุ่มชื่อใหม่ (18 หลัก)</span>
+          </button>
+          <button type="button" id="btn-send-bind-copy-name" class="prem-btn secondary" style="font-size: 11.5px; padding: 7px 10px; display: flex; align-items: center; justify-content: center; gap: 5px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+            <span>📋</span>
+            <span>คัดลอกชื่อนำไปตั้งใน LINE</span>
+          </button>
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; line-height: 1.4;">
+          💡 รูปแบบเดียวกับ <b>Auto-renaming LINE OA</b> (18 ตัวอักษรพิมพ์ใหญ่ + ตัวเลข) ไม่ซ้ำกับลูกค้าในระบบ สามารถคัดลอกไปเปลี่ยนชื่อลูกค้าใหม่ใน LINE OA เพื่อให้ค้นหาตรงกันได้ง่าย
+        </div>
+      </div>
+
+      <!-- Package & Days / Expiry -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11.5px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; display: block;">
+            ⏱️ ระยะเวลา (วัน)
+          </label>
+          <input type="number" id="send-bind-days" class="prem-input" value="30" min="1" max="1000" style="font-size: 13px; font-weight: 600;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11.5px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; display: block;">
+            💰 ราคาขาย (บาท)
+          </label>
+          <input type="number" id="send-bind-price" class="prem-input" value="0" min="0" style="font-size: 13px;">
+        </div>
+      </div>
+
+      <!-- Quick Day Chips -->
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+        <button type="button" class="btn-quick-day-chip" data-days="7">7 วัน</button>
+        <button type="button" class="btn-quick-day-chip active" data-days="30">30 วัน</button>
+        <button type="button" class="btn-quick-day-chip" data-days="60">60 วัน</button>
+        <button type="button" class="btn-quick-day-chip" data-days="90">90 วัน</button>
+        <button type="button" class="btn-quick-day-chip" data-days="365">365 วัน (1 ปี)</button>
+      </div>
+
+      <!-- Device selection -->
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="font-size: 11.5px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; display: block;">
+          📱 อุปกรณ์ที่อนุญาต
+        </label>
+        <select id="send-bind-device" class="prem-input" style="font-size: 12px;">
+          <option value="มือถือ / PC">📱 มือถือ / PC (ทั่วไป)</option>
+          <option value="สมาร์ททีวี">📺 สมาร์ททีวี (Smart TV)</option>
+          <option value="iPad / แท็บเล็ต">📲 iPad / แท็บเล็ต</option>
+          <option value="ทุกอุปกรณ์">🌐 ทุกอุปกรณ์</option>
+        </select>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button type="button" id="btn-confirm-send-bind" class="prem-btn primary" style="padding: 12px; font-size: 13.5px; font-weight: 700; background: linear-gradient(135deg, #059669, #10b981); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🚀</span>
+          <span>ผูกสิทธิ์ & ตัดสต็อก (พร้อมก็อปสคริปต์)</span>
+        </button>
+
+        <button type="button" id="btn-send-bind-copy-only" class="prem-btn secondary" style="padding: 9px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #cbd5e1;">
+          <span>📋</span>
+          <span>คัดลอกสคริปต์ส่งมอบอย่างเดียว (ไม่ตัดสต็อก)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Shop Switcher -->
   <div id="shop-modal-overlay" class="modal-overlay">
     <div class="modal-sheet">
@@ -506,7 +606,8 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.5"></script>
+  <script src="app.js?v=1.6"></script>
 </body>
 
 </html>
+

@@ -2382,3 +2382,85 @@ body {
   color: #e2e8f0;
 }
 
+/* Send & Bind Screen Modal Styles (Phase 1) */
+.send-bind-screen-preview {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.send-bind-screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.send-bind-app-tag {
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.send-bind-screen-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.send-bind-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.send-bind-badge.slot {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+.send-bind-badge.id {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+}
+.send-bind-screen-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+.send-bind-screen-details .detail-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.send-bind-screen-details .detail-val {
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+}
+.btn-quick-day-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.btn-quick-day-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.btn-quick-day-chip.active {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  color: #38bdf8 !important;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+

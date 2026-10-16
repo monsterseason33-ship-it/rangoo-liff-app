@@ -239,12 +239,11 @@ function initUIEventListeners() {
         return;
       }
 
-      // 1. Send single screen
+      // 1. Send single screen (Phase 1: Open Send & Bind Modal with Auto-Rename Customer Generator)
       const sendBtn = e.target.closest(".btn-screen-send");
       if (sendBtn) {
         e.stopPropagation();
-        const d = sendBtn.dataset;
-        copySingleScreen(d.appName, d.email, d.password, d.screenName, d.pinTxt, d.expiry, d.screenId, sendBtn);
+        openSendBindModal(sendBtn.dataset, sendBtn);
         return;
       }
 
@@ -348,6 +347,53 @@ function initUIEventListeners() {
       }
     });
   }
+
+  // Phase 1: Send & Bind Modal Listeners
+  const closeSendBindBtn = document.getElementById("btn-close-send-bind-modal");
+  if (closeSendBindBtn) closeSendBindBtn.addEventListener("click", closeSendBindModal);
+
+  const modalSendBind = document.getElementById("modal-send-bind-screen");
+  if (modalSendBind) {
+    modalSendBind.addEventListener("click", (e) => {
+      if (e.target === modalSendBind) closeSendBindModal();
+    });
+  }
+
+  const btnRandomName = document.getElementById("btn-send-bind-random-name");
+  if (btnRandomName) btnRandomName.addEventListener("click", executeRandomizeCustomerName);
+
+  const btnCopyName = document.getElementById("btn-send-bind-copy-name");
+  if (btnCopyName) btnCopyName.addEventListener("click", executeCopyCustomerName);
+
+  const nameInputEl = document.getElementById("send-bind-customer-name");
+  if (nameInputEl) {
+    nameInputEl.addEventListener("input", (e) => {
+      e.target.value = e.target.value.toUpperCase();
+      updateCustomerNameStatusDisplay(e.target.value);
+    });
+  }
+
+  const daysInputEl = document.getElementById("send-bind-days");
+  if (daysInputEl) {
+    daysInputEl.addEventListener("input", (e) => {
+      updateQuickDayChips(e.target.value);
+    });
+  }
+
+  document.querySelectorAll(".btn-quick-day-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      haptic();
+      const d = chip.dataset.days;
+      if (daysInputEl) daysInputEl.value = d;
+      updateQuickDayChips(d);
+    });
+  });
+
+  const btnConfirmSendBind = document.getElementById("btn-confirm-send-bind");
+  if (btnConfirmSendBind) btnConfirmSendBind.addEventListener("click", executeConfirmSendBind);
+
+  const btnSendBindCopyOnly = document.getElementById("btn-send-bind-copy-only");
+  if (btnSendBindCopyOnly) btnSendBindCopyOnly.addEventListener("click", executeSendBindCopyOnly);
 }
 
 // ----------------------------------------------------------------------------
@@ -884,13 +930,19 @@ function renderStockFeed() {
                         ✏️
                       </button>
                       <button type="button" class="btn-screen-send"
+                        data-account-id="${s.id}"
                         data-app-name="${escapeHtml(group.appName)}"
+                        data-app-id="${escapeHtml(group.appId)}"
                         data-email="${escapeHtml(acc.email)}"
                         data-password="${escapeHtml(acc.password)}"
                         data-screen-name="${escapeHtml(pName)}"
                         data-pin-txt="${escapeHtml(pinTxt)}"
+                        data-pin-code="${escapeHtml(s.pin_code || '')}"
                         data-expiry="${escapeHtml(expiryDisplay)}"
-                        data-screen-id="${escapeHtml(String(screenId))}">
+                        data-screen-id="${escapeHtml(String(screenId))}"
+                        data-group-key="${escapeHtml(groupKey)}"
+                        data-pkg-name="${escapeHtml(group.pkgName || '')}"
+                        data-device-type="${escapeHtml(s.device_type || '')}">
                         🚀 ส่งจอนี้
                       </button>
                     </div>
@@ -3536,6 +3588,40 @@ async function copyBindingHandoverScript(bindingId, btnElement = null) {
 }
 
 // ----------------------------------------------------------------------------
+// Universal Database Insert Helper (Cloudflare D1 & Supabase Dual Compatible)
+// ----------------------------------------------------------------------------
+async function insertDatabase(tableName, payload) {
+  let url, headers;
+  if (currentShop.type === "supabase") {
+    url = `${currentShop.url}/rest/v1/${tableName}`;
+    headers = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation"
+    };
+  } else {
+    url = `${currentShop.url}/api/${tableName}`;
+    headers = {
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json"
+    };
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || `HTTP ${res.status}`);
+  }
+  return res.json().catch(() => ({}));
+}
+
+// ----------------------------------------------------------------------------
 // Universal Database Patch Helper (Cloudflare D1 & Supabase Dual Compatible)
 // ----------------------------------------------------------------------------
 async function patchDatabase(tableName, id, payload) {
@@ -3876,6 +3962,394 @@ async function deleteAccountRecord(id) {
     console.warn(`Delete account record ${id} error:`, await res.text());
   }
 }
+
+// ============================================================================
+// 🚀 PHASE 1: Send & Bind Screen with Auto-Rename Customer Name Generator
+// ============================================================================
+
+let currentSendBindContext = null;
+
+// 1. Generator for random customer name in LINE OA Auto-rename format (18 characters)
+function generateRandomCustomerName(length = 18) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+// 2. Generator that guarantees uniqueness against existing customer_bindings and accounts
+function generateUniqueCustomerName(length = 18) {
+  const existingNames = new Set();
+  if (Array.isArray(rawBindings)) {
+    rawBindings.forEach(b => {
+      if (b && b.customer_name) existingNames.add(b.customer_name.trim().toUpperCase());
+    });
+  }
+  if (Array.isArray(allAccountsList)) {
+    allAccountsList.forEach(a => {
+      if (a && a.customer_id) existingNames.add(a.customer_id.trim().toUpperCase());
+    });
+  }
+
+  let name = '';
+  let attempts = 0;
+  do {
+    name = generateRandomCustomerName(length);
+    attempts++;
+  } while (existingNames.has(name) && attempts < 200);
+
+  return name;
+}
+
+// 3. Uniqueness and format validator
+function checkCustomerNameStatus(name) {
+  if (!name || !name.trim()) {
+    return { valid: false, message: '⚠️ กรุณาระบุชื่อลูกค้า', color: '#ef4444' };
+  }
+  const clean = name.trim().toUpperCase();
+  const takenInBindings = (rawBindings || []).some(b => b.customer_name && b.customer_name.trim().toUpperCase() === clean);
+  const takenInAccounts = (allAccountsList || []).some(a => a.customer_id && a.customer_id.trim().toUpperCase() === clean);
+  if (takenInBindings || takenInAccounts) {
+    return { valid: false, isTaken: true, message: '⚠️ ชื่อนี้มีอยู่ในระบบแล้ว (โปรดสุ่มใหม่หรือเปลี่ยน)', color: '#f59e0b' };
+  }
+
+  const isAutoRenameFormat = /^[A-Z0-9]{16,20}$/.test(clean);
+  if (isAutoRenameFormat) {
+    return { valid: true, isAutoRename: true, message: '✅ รูปแบบ Auto-Rename LINE OA (18 หลัก) • ไม่ซ้ำในระบบ', color: '#34d399' };
+  }
+  return { valid: true, isAutoRename: false, message: 'ℹ️ ชื่อลูกค้าทั่วไป • ใช้งานได้', color: '#38bdf8' };
+}
+
+// 4. Open Send & Bind Modal
+function openSendBindModal(screenDataset, btnEl = null) {
+  haptic();
+
+  let targetAcc = null;
+  if (screenDataset.accountId) {
+    targetAcc = allAccountsList.find(a => String(a.id) === String(screenDataset.accountId));
+  }
+  if (!targetAcc && screenDataset.email) {
+    targetAcc = allAccountsList.find(a => 
+      (a.email || '').trim().toLowerCase() === (screenDataset.email || '').trim().toLowerCase() &&
+      (a.profile_name || '').trim() === (screenDataset.screenName || '').trim()
+    );
+  }
+
+  const accountId = targetAcc ? targetAcc.id : screenDataset.accountId;
+  const appName = screenDataset.appName || (targetAcc ? targetAcc.app_name : 'App');
+  const appId = screenDataset.appId || (targetAcc ? targetAcc.app_id : null);
+  const email = screenDataset.email || (targetAcc ? targetAcc.email : '-');
+  const password = screenDataset.password || (targetAcc ? targetAcc.password : '-');
+  const screenName = screenDataset.screenName || (targetAcc ? targetAcc.profile_name : 'จอว่าง');
+  const pinTxt = screenDataset.pinTxt || (targetAcc && targetAcc.pin_code ? `🔒 PIN: ${targetAcc.pin_code}` : '🔓 ไม่มี PIN');
+  const pinCode = screenDataset.pinCode || (targetAcc ? targetAcc.pin_code : '');
+  const expiry = screenDataset.expiry || (targetAcc ? targetAcc.expiry_date : '-');
+  const screenId = screenDataset.screenId || (targetAcc ? (targetAcc.display_id || targetAcc.id) : '');
+  const pkgName = screenDataset.pkgName || (targetAcc ? targetAcc.package_name : '');
+  const deviceType = screenDataset.deviceType || (targetAcc ? targetAcc.device_type : 'มือถือ / PC');
+
+  currentSendBindContext = {
+    accountId,
+    appName,
+    appId,
+    email,
+    password,
+    screenName,
+    pinTxt,
+    pinCode,
+    expiry,
+    screenId,
+    pkgName,
+    deviceType,
+    targetAcc,
+    btnEl
+  };
+
+  const modal = document.getElementById("modal-send-bind-screen");
+  const previewEl = document.getElementById("send-bind-screen-preview");
+  const nameInput = document.getElementById("send-bind-customer-name");
+  const daysInput = document.getElementById("send-bind-days");
+  const priceInput = document.getElementById("send-bind-price");
+  const deviceSelect = document.getElementById("send-bind-device");
+
+  if (!modal || !nameInput) return;
+
+  const appTheme = getAppTheme(appName);
+  const cleanId = (screenId && screenId !== "-" && screenId !== "undefined") ? String(screenId).trim().replace(/^#/, '') : "";
+
+  previewEl.innerHTML = `
+    <div class="send-bind-screen-header">
+      <span class="send-bind-app-tag" style="color: ${appTheme.color || '#38bdf8'};">
+        <span>${appTheme.icon}</span>
+        <span>${escapeHtml(appName)}</span>
+      </span>
+      <div class="send-bind-screen-badges">
+        <span class="send-bind-badge slot">📺 ${escapeHtml(screenName || 'จอว่าง')}</span>
+        ${cleanId ? `<span class="send-bind-badge id">🆔 #${escapeHtml(cleanId)}</span>` : ''}
+      </div>
+    </div>
+    <div class="send-bind-screen-details">
+      <div class="detail-row">
+        <span>📧 อีเมล:</span>
+        <span class="detail-val">${escapeHtml(email)}</span>
+      </div>
+      <div class="detail-row">
+        <span>🔑 รหัสผ่าน:</span>
+        <span class="detail-val">${escapeHtml(password)}</span>
+      </div>
+      <div class="detail-row">
+        <span>${pinTxt.includes('PIN') ? '🔒' : '🔓'}</span>
+        <span class="detail-val">${escapeHtml(pinTxt)}</span>
+      </div>
+      ${pkgName ? `
+        <div class="detail-row">
+          <span>📦 แพ็กเกจ:</span>
+          <span style="color: #cbd5e1; font-weight: 600;">${escapeHtml(pkgName)}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  // Pre-generate unique customer name
+  const generatedName = generateUniqueCustomerName(18);
+  nameInput.value = generatedName;
+  updateCustomerNameStatusDisplay(generatedName);
+
+  // Set default days
+  const defaultDays = getPackageDays(pkgName, appId) || 30;
+  daysInput.value = defaultDays;
+  updateQuickDayChips(defaultDays);
+
+  // Set price
+  let defaultPrice = 0;
+  if (rawPackages && rawPackages.length > 0) {
+    const pkg = rawPackages.find(p => p.name === pkgName && (!appId || p.app_id === appId)) || rawPackages.find(p => p.name === pkgName);
+    if (pkg && pkg.price) defaultPrice = pkg.price;
+  }
+  priceInput.value = defaultPrice;
+
+  // Set device
+  if (deviceSelect) {
+    const isTv = (deviceType && (deviceType.toLowerCase().includes('tv') || deviceType.includes('ทีวี'))) ||
+                 (screenName && (screenName.toLowerCase().includes('tv') || /จอ\s*5/.test(screenName)));
+    deviceSelect.value = isTv ? "สมาร์ททีวี" : (deviceType || "มือถือ / PC");
+  }
+
+  // Reset confirm button state
+  const confirmBtn = document.getElementById("btn-confirm-send-bind");
+  if (confirmBtn) {
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = `<span>🚀</span><span>ผูกสิทธิ์ & ตัดสต็อก (พร้อมก็อปสคริปต์)</span>`;
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeSendBindModal() {
+  const modal = document.getElementById("modal-send-bind-screen");
+  if (modal) modal.style.display = "none";
+  currentSendBindContext = null;
+}
+
+function updateCustomerNameStatusDisplay(name) {
+  const statusEl = document.getElementById("send-bind-name-status");
+  if (!statusEl) return;
+  const status = checkCustomerNameStatus(name);
+  statusEl.textContent = status.message;
+  statusEl.style.color = status.color;
+}
+
+function updateQuickDayChips(selectedDays) {
+  document.querySelectorAll(".btn-quick-day-chip").forEach(chip => {
+    const chipDays = parseInt(chip.dataset.days, 10);
+    if (chipDays === parseInt(selectedDays, 10)) {
+      chip.classList.add("active");
+    } else {
+      chip.classList.remove("active");
+    }
+  });
+}
+
+function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, device) {
+  const webappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(customerName)}`;
+  const cleanId = (context.screenId && context.screenId !== "-" && context.screenId !== "undefined")
+    ? String(context.screenId).trim().replace(/^#/, '')
+    : "";
+  const headerTitle = cleanId
+    ? `🎬 *${(context.appName || '').toUpperCase()}* #${cleanId}`
+    : `🎬 *${(context.appName || '').toUpperCase()}*`;
+
+  const cleanScreenName = (context.screenName || "จอว่าง").trim();
+  const formattedProfile = cleanScreenName.startsWith("🟢") ? cleanScreenName : `🟢 ${cleanScreenName}`;
+  const cleanPin = (context.pinTxt || "🔓 ไม่มี PIN").trim().replace(/^🔢\s*/, "");
+  const expStr = formatDateThai(expiryDateObj);
+
+  let script = `${headerTitle}\n`;
+  script += `[${context.pkgName || `แพ็กเกจ ${days} วัน`}]\n`;
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `👤 คุณ: *${customerName}*\n`;
+  script += `📧 อีเมล: ${context.email}\n`;
+  script += `🔑 รหัสผ่าน: ${context.password}\n`;
+  script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
+  script += `🔢 ${cleanPin}\n`;
+  script += `📱 อุปกรณ์: ${device}\n`;
+  if (expStr !== "-") {
+    script += `📅 วันหมดอายุ: ${expStr}\n`;
+  }
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `📱 ตรวจสอบสิทธิ์ & รับรหัส OTP ใน WebApp:\n${webappUrl}\n`;
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `🙏 ขอบคุณที่ใช้บริการครับ เข้าใช้งานได้ทันทีเลยครับ ✨`;
+  return script;
+}
+
+async function executeConfirmSendBind() {
+  if (!currentSendBindContext) return;
+  haptic();
+
+  const nameInput = document.getElementById("send-bind-customer-name");
+  const customerName = (nameInput.value || "").trim().toUpperCase();
+  if (!customerName) {
+    showToast("⚠️ โปรดระบุชื่อลูกค้าก่อนผูกสิทธิ์", "warning");
+    nameInput.focus();
+    return;
+  }
+
+  const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
+  const price = parseFloat(document.getElementById("send-bind-price").value) || 0;
+  const device = document.getElementById("send-bind-device").value || "มือถือ / PC";
+
+  const confirmBtn = document.getElementById("btn-confirm-send-bind");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = `<span>⏳</span><span>กำลังผูกสิทธิ์ & บันทึกระบบ...</span>`;
+  }
+
+  try {
+    const expiryDateObj = new Date();
+    expiryDateObj.setDate(expiryDateObj.getDate() + days);
+    expiryDateObj.setHours(23, 59, 0, 0);
+
+    const pad = (num) => String(num).padStart(2, '0');
+    const offsetHours = Math.abs(Math.floor(expiryDateObj.getTimezoneOffset() / 60));
+    const offsetMinutes = Math.abs(expiryDateObj.getTimezoneOffset() % 60);
+    const offsetSign = expiryDateObj.getTimezoneOffset() <= 0 ? "+" : "-";
+    const formattedExpiry = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T23:59:00${offsetSign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
+
+    const rawAccountData = `📧 อีเมล: ${currentSendBindContext.email}\n🔑 รหัสผ่าน: ${currentSendBindContext.password}` +
+      `${currentSendBindContext.screenName ? `\n👤 โปรไฟล์: ${currentSendBindContext.screenName}` : ''}` +
+      `${currentSendBindContext.pinCode ? `\n🔒 รหัส PIN: ${currentSendBindContext.pinCode}` : ''}`;
+
+    const bindingPayload = {
+      customer_name: customerName,
+      chat_url: "https://chat.line.biz/",
+      app_name: currentSendBindContext.appName || "App",
+      package_name: currentSendBindContext.pkgName || `แพ็กเกจ ${days} วัน`,
+      days: days,
+      expiry_date: formattedExpiry,
+      device_type: device,
+      raw_account_data: rawAccountData,
+      account_id: currentSendBindContext.accountId || null,
+      price_paid: price,
+      reverted: false
+    };
+
+    if (currentSendBindContext.targetAcc) {
+      if (currentSendBindContext.targetAcc.supplier_order_id) {
+        bindingPayload.supplier_order_id = currentSendBindContext.targetAcc.supplier_order_id;
+      }
+      if (currentSendBindContext.targetAcc.supplier_url) {
+        bindingPayload.supplier_url = currentSendBindContext.targetAcc.supplier_url;
+      }
+    }
+
+    // 1. Insert into customer_bindings
+    await insertDatabase("customer_bindings", bindingPayload);
+
+    // 2. Patch accounts row to 'used'
+    if (currentSendBindContext.accountId) {
+      await patchDatabase("accounts", currentSendBindContext.accountId, {
+        status: "used",
+        customer_id: customerName,
+        sold_at: new Date().toISOString(),
+        expiry_date: formattedExpiry
+      });
+    }
+
+    // 3. Build & copy handover message with customer webapp link
+    const deliveryScript = buildUnifiedHandoverText(customerName, currentSendBindContext, days, expiryDateObj, device);
+    await copyToClipboard(deliveryScript);
+
+    // 4. Close modal & celebrate
+    closeSendBindModal();
+    showToast(`🎉 ผูกสิทธิ์คุณ ${customerName} สำเร็จ & คัดลอกสคริปต์ส่งมอบแล้ว!`);
+
+    // 5. Seamlessly reload data to reflect the changes
+    await loadData(true);
+
+  } catch (err) {
+    console.error("Binding error:", err);
+    showToast(`❌ ผูกสิทธิ์ล้มเหลว: ${err.message || 'โปรดตรวจสอบการเชื่อมต่อ'}`, "error");
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `<span>🚀</span><span>ผูกสิทธิ์ & ตัดสต็อก (พร้อมก็อปสคริปต์)</span>`;
+    }
+  }
+}
+
+async function executeSendBindCopyOnly() {
+  if (!currentSendBindContext) return;
+  haptic();
+
+  const nameInput = document.getElementById("send-bind-customer-name");
+  const customerName = (nameInput.value || "").trim().toUpperCase() || "ลูกค้า";
+  const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
+  const device = document.getElementById("send-bind-device").value || "มือถือ / PC";
+
+  const expiryDateObj = new Date();
+  expiryDateObj.setDate(expiryDateObj.getDate() + days);
+  expiryDateObj.setHours(23, 59, 0, 0);
+
+  const deliveryScript = buildUnifiedHandoverText(customerName, currentSendBindContext, days, expiryDateObj, device);
+  await copyToClipboard(deliveryScript);
+
+  closeSendBindModal();
+  showToast(`📋 คัดลอกสคริปต์ส่งมอบเรียบร้อย (ไม่ได้ตัดสต็อก)`);
+}
+
+async function executeCopyCustomerName() {
+  haptic();
+  const nameInput = document.getElementById("send-bind-customer-name");
+  const nameVal = (nameInput.value || "").trim().toUpperCase();
+  if (!nameVal) {
+    showToast("⚠️ โปรดสุ่มหรือพิมพ์ชื่อลูกค้าก่อน", "warning");
+    return;
+  }
+  await copyToClipboard(nameVal);
+
+  const btn = document.getElementById("btn-send-bind-copy-name");
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<span>✅</span><span>คัดลอกชื่อแล้ว!</span>`;
+    setTimeout(() => { btn.innerHTML = origHtml; }, 1500);
+  }
+
+  showToast(`📋 คัดลอกชื่อ "${nameVal}" เรียบร้อย! นำไปเปลี่ยนชื่อใน LINE OA ได้ทันที`);
+}
+
+function executeRandomizeCustomerName() {
+  haptic();
+  const newName = generateUniqueCustomerName(18);
+  const nameInput = document.getElementById("send-bind-customer-name");
+  if (nameInput) {
+    nameInput.value = newName;
+    updateCustomerNameStatusDisplay(newName);
+  }
+  showToast(`🎲 สุ่มชื่อใหม่ 18 หลัก: ${newName}`);
+}
+
 
 
 
