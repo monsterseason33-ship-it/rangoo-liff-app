@@ -2470,6 +2470,7 @@ function renderBindingsFeed() {
               <button type="button" class="binding-mini-btn btn-toggle-card-pwd" title="ซ่อน/แสดงรหัส">👁️</button>
               <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.password)}" data-label="รหัสผ่าน" title="คัดลอกรหัสผ่าน">📋</button>
             ` : ''}
+            <button type="button" class="binding-mini-btn btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขรหัสผ่าน / สุ่มใหม่">✏️</button>
           </div>
         </div>
 
@@ -2481,6 +2482,7 @@ function renderBindingsFeed() {
               <span style="color: #a855f7; margin-left: 4px;">[PIN: ${escapeHtml(details.pinCode)}]</span>
               <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.pinCode)}" data-label="PIN" title="คัดลอก PIN">📋</button>
             ` : '<span style="color: var(--text-dim); font-size:10px;">(ไม่มี PIN)</span>'}
+            <button type="button" class="binding-mini-btn btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขข้อมูล / เปลี่ยน / สุ่ม PIN">✏️</button>
           </div>
         </div>
 
@@ -2533,6 +2535,9 @@ function renderBindingsFeed() {
       <div class="binding-troubleshoot-bar">
         <button type="button" class="binding-action-btn swap btn-action-swap" data-binding-id="${b.id}" title="เคลมจอ หรือย้ายไปใช้บัญชีอื่นจากคลัง">
           <span>🔄</span><span>เคลมจอ</span>
+        </button>
+        <button type="button" class="binding-action-btn edit btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขข้อมูล: สุ่ม PIN, เปลี่ยนรหัสผ่าน, จอ, อุปกรณ์">
+          <span>✏️</span><span>แก้ไข</span>
         </button>
         <button type="button" class="binding-action-btn revert btn-action-revert" data-binding-id="${b.id}" title="ดีดคืนสต็อก / ปลดสิทธิ์ออกจากลูกค้า">
           <span>↩️</span><span>ดีดคืนคลัง</span>
@@ -2647,6 +2652,14 @@ function initTroubleshootingModalListeners() {
         executeMarkBroken(brokenBtn.dataset.bindingId);
         return;
       }
+
+      // 8. Action: Edit Credentials & Details (PIN, Password, Profile, Device, OTP, etc.)
+      const editBtn = e.target.closest(".btn-action-edit-creds");
+      if (editBtn) {
+        e.stopPropagation();
+        openEditCredsModal(editBtn.dataset.bindingId);
+        return;
+      }
     });
   }
 
@@ -2688,6 +2701,13 @@ function initTroubleshootingModalListeners() {
     editRandomPinBtn.addEventListener("click", () => {
       const input = document.getElementById("edit-creds-pin");
       if (input) input.value = generateRandomPin();
+    });
+  }
+  const editClearPinBtn = document.getElementById("btn-edit-clear-pin");
+  if (editClearPinBtn) {
+    editClearPinBtn.addEventListener("click", () => {
+      const input = document.getElementById("edit-creds-pin");
+      if (input) input.value = "";
     });
   }
 
@@ -3023,15 +3043,34 @@ function openEditCredsModal(bindingId) {
   const infoBox = document.getElementById("edit-creds-info-box");
   if (infoBox) {
     infoBox.innerHTML = `
-      <div>👤 ลูกค้า: <strong>คุณ ${escapeHtml(b.customer_name)}</strong> (${escapeHtml(b.app_name)})</div>
-      <div>📧 อีเมล: <span style="color:#38bdf8;">${escapeHtml(details.email || '-')}</span></div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>👤 ลูกค้า: <strong>คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</strong> (${escapeHtml(b.app_name || '')})</div>
+        <span class="binding-screen-tag"><span>📺</span><span>${details.displayId ? '#' + escapeHtml(details.displayId) : 'ID สิทธิ์'}</span></span>
+      </div>
+      <div style="margin-top: 4px; font-size: 11px;">📧 อีเมล: <span style="color:#38bdf8; font-family: 'JetBrains Mono', monospace;">${escapeHtml(details.email || '-')}</span></div>
     `;
   }
 
+  const custNameInput = document.getElementById("edit-creds-customer-name");
+  if (custNameInput) custNameInput.value = b.customer_name || "";
+
   const pwInput = document.getElementById("edit-creds-password");
   if (pwInput) pwInput.value = details.password || "";
+
   const pinInput = document.getElementById("edit-creds-pin");
   if (pinInput) pinInput.value = details.pinCode || "";
+
+  const profileInput = document.getElementById("edit-creds-profile");
+  if (profileInput) profileInput.value = details.profileName || "";
+
+  const deviceSelect = document.getElementById("edit-creds-device");
+  if (deviceSelect) {
+    const dev = (details.deviceType || "mobile").toLowerCase();
+    deviceSelect.value = dev.includes("tv") || dev.includes("ทีวี") ? "tv" : "mobile";
+  }
+
+  const otpInput = document.getElementById("edit-creds-otp");
+  if (otpInput) otpInput.value = details.otpUrl || "";
 
   const modal = document.getElementById("modal-edit-credentials");
   if (modal) modal.style.display = "flex";
@@ -3047,13 +3086,13 @@ async function executeConfirmEditCreds() {
   if (!targetBindingForEditCreds) return;
 
   const b = targetBindingForEditCreds;
+  const newCustomerName = (document.getElementById("edit-creds-customer-name")?.value || "").trim();
   const newPw = (document.getElementById("edit-creds-password")?.value || "").trim();
   const newPin = (document.getElementById("edit-creds-pin")?.value || "").trim();
-
-  if (!b.account_id) {
-    showToast("⚠️ บัญชีนี้ไม่ได้ผูก ID ในระบบ");
-    return;
-  }
+  const newProfile = (document.getElementById("edit-creds-profile")?.value || "").trim();
+  const newDeviceVal = (document.getElementById("edit-creds-device")?.value || "mobile");
+  const deviceDisplay = newDeviceVal === "tv" ? "📺 สมาร์ททีวี" : "📱 มือถือ / PC";
+  const newOtp = (document.getElementById("edit-creds-otp")?.value || "").trim();
 
   const confirmBtn = document.getElementById("btn-confirm-edit-creds");
   if (confirmBtn) {
@@ -3062,35 +3101,73 @@ async function executeConfirmEditCreds() {
   }
 
   try {
-    const payload = {};
-    if (newPw) payload.password = newPw;
-    payload.pin_code = newPin || null;
+    const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
 
-    await patchDatabase("accounts", b.account_id, payload);
+    // 1. Update Accounts table if linked
+    if (b.account_id) {
+      const accPayload = {};
+      if (newPw) accPayload.password = newPw;
+      accPayload.pin_code = newPin || null;
+      if (newProfile) accPayload.profile_name = newProfile;
+      accPayload.device_type = deviceDisplay;
+      if (newOtp) accPayload.supplier_url = newOtp;
+      if (newCustomerName) accPayload.customer_id = newCustomerName;
 
-    // Update raw account data
-    const linkedAcc = allAccountsList.find(a => a.id === b.account_id);
-    if (linkedAcc) {
-      if (newPw) linkedAcc.password = newPw;
-      linkedAcc.pin_code = newPin || null;
+      await patchDatabase("accounts", b.account_id, accPayload);
+
+      if (linkedAcc) {
+        if (newPw) linkedAcc.password = newPw;
+        linkedAcc.pin_code = newPin || null;
+        if (newProfile) linkedAcc.profile_name = newProfile;
+        linkedAcc.device_type = deviceDisplay;
+        if (newOtp) linkedAcc.supplier_url = newOtp;
+        if (newCustomerName) linkedAcc.customer_id = newCustomerName;
+      }
     }
 
-    const updatedRaw = `อีเมล: ${linkedAcc ? linkedAcc.email : '-'}\nรหัสผ่าน: ${newPw}\nID จอ: #${linkedAcc ? linkedAcc.display_id : '-'}\nโปรไฟล์: ${linkedAcc ? linkedAcc.profile_name : 'จอ 1'}${newPin ? '\nPIN: ' + newPin : ''}`;
-    await patchDatabase("customer_bindings", b.id, { raw_account_data: updatedRaw });
-    b.raw_account_data = updatedRaw;
+    // 2. Build updated raw_account_data
+    const emailStr = linkedAcc ? (linkedAcc.email || '-') : '-';
+    const displayIdStr = linkedAcc && linkedAcc.display_id ? '#' + linkedAcc.display_id : '-';
+    const profileStr = newProfile || (linkedAcc ? linkedAcc.profile_name : 'จอ 1');
+    const finalPw = newPw || (linkedAcc ? linkedAcc.password : '-');
 
-    const copyMsg = `🔑 แจ้งอัปเดตรหัสผ่านใหม่ ${b.app_name}\n` +
+    let updatedRaw = `อีเมล: ${emailStr}\nรหัสผ่าน: ${finalPw}\nID จอ: ${displayIdStr}\nโปรไฟล์: ${profileStr}`;
+    if (newPin) updatedRaw += `\nPIN: ${newPin}`;
+    updatedRaw += `\nอุปกรณ์: ${deviceDisplay}`;
+    if (newOtp) updatedRaw += `\nเว็บรับ OTP: ${newOtp}`;
+
+    // 3. Update customer_bindings table
+    const bindingPayload = {
+      raw_account_data: updatedRaw,
+      device_type: deviceDisplay
+    };
+    if (newCustomerName) bindingPayload.customer_name = newCustomerName;
+    if (newOtp) bindingPayload.supplier_url = newOtp;
+
+    await patchDatabase("customer_bindings", b.id, bindingPayload);
+
+    // Update in-memory binding
+    if (newCustomerName) b.customer_name = newCustomerName;
+    b.raw_account_data = updatedRaw;
+    b.device_type = deviceDisplay;
+    if (newOtp) b.supplier_url = newOtp;
+
+    // 4. Auto-generate customer notification text & copy to clipboard
+    const copyMsg = `✨ แจ้งอัปเดตข้อมูลบัญชี ${b.app_name || 'พรีเมียม'}\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
-      `👤 คุณ ${b.customer_name}\n` +
-      `📧 อีเมล: ${linkedAcc ? linkedAcc.email : '-'}\n` +
-      `🔑 รหัสผ่านใหม่: ${newPw}\n` +
+      `👤 คุณ ${newCustomerName || b.customer_name || 'ลูกค้า'}\n` +
+      `📧 อีเมล: ${emailStr}\n` +
+      `🔑 รหัสผ่าน: ${finalPw}\n` +
+      `👤 จอ / โปรไฟล์: ${profileStr}\n` +
       (newPin ? `🔢 รหัส PIN: ${newPin}\n` : '') +
+      `📱 อุปกรณ์: ${deviceDisplay}\n` +
+      (newOtp ? `🌐 เว็บรับ OTP: ${newOtp}\n` : '') +
       `━━━━━━━━━━━━━━━━━━\n` +
-      `เข้าใช้งานได้ทันทีครับ ✨`;
+      `เข้าใช้งานได้ทันทีครับ ขอบคุณครับ ✨`;
 
     await copyToClipboard(copyMsg);
     closeEditCredsModal();
-    showToast("🔑 อัปเดตรหัสผ่านเรียบร้อย & คัดลอกส่งลูกค้าแล้ว!");
+    showToast("💾 อัปเดตข้อมูลสำเร็จ & คัดลอกข้อความส่งลูกค้าแล้ว!");
     await loadData(true);
   } catch (err) {
     console.error("Edit creds error:", err);

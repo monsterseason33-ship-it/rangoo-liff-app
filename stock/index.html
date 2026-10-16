@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=1.2">
+  <link rel="stylesheet" href="styles.css?v=1.4">
 </head>
 
 <body>
@@ -374,32 +374,60 @@
     </div>
   </div>
 
-  <!-- Modal: แก้ไขรหัสผ่าน & PIN -->
+  <!-- Modal: แก้ไขข้อมูลสิทธิ์ / บัญชี (PIN, Password, Profile, Device, etc.) -->
   <div id="modal-edit-credentials" class="modal-overlay" style="display: none;">
     <div class="modal-sheet">
       <div class="modal-header">
-        <span class="modal-title">🔑 แก้ไขรหัสผ่าน & รหัส PIN จอ</span>
+        <span class="modal-title">✏️ แก้ไขข้อมูลสิทธิ์ / บัญชี</span>
         <button type="button" class="modal-close-btn" id="btn-close-edit-creds-modal">✕</button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; max-height: 65vh; overflow-y: auto; padding-right: 2px;">
         <div id="edit-creds-info-box" class="prem-card modal-detail-box">
           <!-- Filled dynamically -->
         </div>
+
         <div>
-          <label class="prem-label">🔑 รหัสผ่านใหม่ (Password):</label>
+          <label class="prem-label">👤 ชื่อลูกค้า (Customer Name):</label>
+          <input type="text" id="edit-creds-customer-name" class="prem-input" style="margin-bottom: 0;" placeholder="ชื่อลูกค้า">
+        </div>
+
+        <div>
+          <label class="prem-label">🔑 รหัสผ่าน (Password):</label>
           <div style="display: flex; gap: 6px;">
             <input type="text" id="edit-creds-password" class="prem-input" style="flex: 1; margin-bottom: 0;">
-            <button type="button" id="btn-edit-random-pw" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px;">🎲 สุ่ม</button>
+            <button type="button" id="btn-edit-random-pw" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px;">🎲 สุ่มรหัส</button>
           </div>
         </div>
+
         <div>
-          <label class="prem-label">🔢 รหัส PIN จอใหม่ (PIN Code):</label>
+          <label class="prem-label">🔢 รหัส PIN จอ (PIN Code):</label>
           <div style="display: flex; gap: 6px;">
             <input type="text" id="edit-creds-pin" class="prem-input" style="flex: 1; margin-bottom: 0;" placeholder="PIN 4 หลัก (เว้นว่างได้)">
-            <button type="button" id="btn-edit-random-pin" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px;">🎲 สุ่ม</button>
+            <button type="button" id="btn-edit-random-pin" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px;">🎲 สุ่ม PIN</button>
+            <button type="button" id="btn-edit-clear-pin" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px;" title="ล้าง PIN">❌ ล้าง</button>
           </div>
         </div>
-        <div style="display: flex; gap: 8px; margin-top: 4px;">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label class="prem-label">👤 จอ / โปรไฟล์:</label>
+            <input type="text" id="edit-creds-profile" class="prem-input" style="margin-bottom: 0;" placeholder="เช่น จอ 1 หรือชื่อโปรไฟล์">
+          </div>
+          <div>
+            <label class="prem-label">📱 ประเภทอุปกรณ์:</label>
+            <select id="edit-creds-device" class="prem-select" style="margin-bottom: 0;">
+              <option value="mobile">📱 มือถือ / PC</option>
+              <option value="tv">📺 สมาร์ททีวี</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="prem-label">🌐 เว็บรับ OTP (ถ้ามี):</label>
+          <input type="text" id="edit-creds-otp" class="prem-input" style="margin-bottom: 0;" placeholder="https://code.varinzxify.com/... หรือ https://abeslife.com/...">
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 6px;">
           <button type="button" id="btn-confirm-edit-creds" class="prem-btn prem-btn-primary" style="flex: 1.5;">💾 บันทึกข้อมูล & ส่งลูกค้า</button>
           <button type="button" class="prem-btn prem-btn-secondary modal-cancel-btn" style="flex: 1;">ยกเลิก</button>
         </div>
@@ -459,7 +487,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.2"></script>
+  <script src="app.js?v=1.4"></script>
 </body>
 
 </html>

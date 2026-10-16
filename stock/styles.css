@@ -2239,10 +2239,22 @@ body {
 /* Troubleshooting Action Bar */
 .binding-troubleshoot-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 5px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
   padding-top: 8px;
   border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.binding-action-btn.edit {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.binding-action-btn.edit:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #fff;
 }
 
 .binding-action-btn {
