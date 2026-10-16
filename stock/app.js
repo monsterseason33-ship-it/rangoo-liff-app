@@ -37,6 +37,7 @@ let appGroups = {};
 let targetBindingForSwap = null;
 let targetBindingForExtend = null;
 let targetBindingForEditCreds = null;
+let bindingsRenderLimit = 50;
 
 // Register Service Worker for PWA (Only on web http / https protocols)
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
@@ -362,11 +363,11 @@ async function loadFromSupabase() {
     "Content-Type": "application/json"
   };
 
-  const [accRes, appsRes, pkgsRes, bindsRes] = await Promise.all([
+  const [accRes, appsRes, pkgsRes, bindsData] = await Promise.all([
     fetch(`${currentShop.url}/rest/v1/accounts?select=*`, { headers }),
     fetch(`${currentShop.url}/rest/v1/apps?select=*`, { headers }),
     fetch(`${currentShop.url}/rest/v1/packages?select=*`, { headers }),
-    fetch(`${currentShop.url}/rest/v1/customer_bindings?select=*&order=created_at.desc&limit=1000`, { headers })
+    fetchAllSupabaseBindings(headers)
   ]);
 
   if (!accRes.ok) throw new Error("Accounts API Error " + accRes.status);
@@ -374,7 +375,28 @@ async function loadFromSupabase() {
   rawAccounts = allAccountsList.filter(a => a.status === "available");
   rawApps = appsRes.ok ? await appsRes.json() : [];
   rawPackages = pkgsRes.ok ? await pkgsRes.json() : [];
-  rawBindings = bindsRes.ok ? await bindsRes.json() : [];
+  rawBindings = bindsData || [];
+}
+
+async function fetchAllSupabaseBindings(headers) {
+  let allBindings = [];
+  let offset = 0;
+  const pageSize = 1000;
+  while (true) {
+    try {
+      const res = await fetch(`${currentShop.url}/rest/v1/customer_bindings?select=*&order=created_at.desc&limit=${pageSize}&offset=${offset}`, { headers });
+      if (!res.ok) break;
+      const batch = await res.json();
+      if (!batch || batch.length === 0) break;
+      allBindings = allBindings.concat(batch);
+      if (batch.length < pageSize) break;
+      offset += pageSize;
+      if (offset >= 25000) break;
+    } catch (e) {
+      break;
+    }
+  }
+  return allBindings;
 }
 
 async function loadFromCloudflare() {
@@ -387,7 +409,7 @@ async function loadFromCloudflare() {
     fetch(`${currentShop.url}/api/accounts`, { headers }),
     fetch(`${currentShop.url}/api/apps`, { headers }),
     fetch(`${currentShop.url}/api/packages`, { headers }),
-    fetch(`${currentShop.url}/api/customer_bindings?order=created_at.desc&limit=1000`, { headers })
+    fetch(`${currentShop.url}/api/customer_bindings?order=created_at.desc&limit=10000`, { headers })
   ]);
 
   allAccountsList = accRes.ok ? await accRes.json() : [];
@@ -2302,7 +2324,9 @@ function renderBindingsFeed() {
 
   feed.innerHTML = "";
 
-  filtered.forEach(b => {
+  const displayedItems = filtered.slice(0, bindingsRenderLimit);
+
+  displayedItems.forEach(b => {
     const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
     const details = extractBindingDetails(b, linkedAcc);
     const appTheme = getAppTheme(b.app_name || "");
@@ -2477,6 +2501,31 @@ function renderBindingsFeed() {
 
     feed.appendChild(card);
   });
+
+  // Load More Button if more items exist
+  if (filtered.length > displayedItems.length) {
+    const loadMoreDiv = document.createElement("div");
+    loadMoreDiv.className = "load-more-bindings-wrap";
+    loadMoreDiv.style.cssText = "text-align: center; padding: 14px 0 28px 0;";
+    loadMoreDiv.innerHTML = `
+      <div style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 8px;">
+        แสดง ${displayedItems.length} จากทั้งหมด ${filtered.length.toLocaleString()} สิทธิ์
+      </div>
+      <button type="button" id="btn-load-more-bindings" class="prem-btn prem-btn-secondary" style="width: auto; padding: 8px 24px; font-weight: 700; margin: 0 auto; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+        <span>⬇️</span><span>โหลดสิทธิ์เพิ่มอีก 50 รายการ</span>
+      </button>
+    `;
+    feed.appendChild(loadMoreDiv);
+
+    const loadMoreBtn = document.getElementById("btn-load-more-bindings");
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener("click", () => {
+        haptic();
+        bindingsRenderLimit += 50;
+        renderBindingsFeed();
+      });
+    }
+  }
 }
 
 // ----------------------------------------------------------------------------
