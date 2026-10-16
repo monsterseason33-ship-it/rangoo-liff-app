@@ -1243,7 +1243,7 @@ body {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  z-index: 100;
+  z-index: 9999;
   justify-content: center;
   align-items: flex-end;
   animation: fadeIn 0.2s ease-out;
