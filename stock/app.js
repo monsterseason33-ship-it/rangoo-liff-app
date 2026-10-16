@@ -1729,8 +1729,10 @@ function handleQuickPaste() {
     }
   }
 
-  flashParserSuccess(input);
-  showToast("🟢 แยกข้อมูลอีเมลและรหัสผ่านอัตโนมัติสำเร็จ!");
+  if (single.emailOrPhone || single.password) {
+    flashParserSuccess(input);
+    showToast("🟢 แยกข้อมูลบัญชีและรหัสผ่านอัตโนมัติสำเร็จ!");
+  }
 }
 
 function flashParserSuccess(el) {
@@ -1746,47 +1748,48 @@ function parseRawAccountText(cleanText) {
   let otpUrl = "";
   let netflixProfile = null;
 
+  if (!cleanText || !cleanText.trim()) {
+    return { emailOrPhone, password, expiryDateStr, otpUrl, netflixProfile };
+  }
+
+  const rawText = cleanText.replace(/\u00A0/g, ' ').trim();
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
   // 1. Extract OTP link if present
-  const otpMatch = cleanText.match(/(https?:\/\/(?:code\.varinzxify\.com|abeslife\.com|[\w.-]+\.[\w.-]+)\/[^\s\n\r]*)/i);
+  const otpMatch = rawText.match(/(https?:\/\/(?:code\.varinzxify\.com|abeslife\.com|[\w.-]+\.[\w.-]+)\/[^\s\n\r]*)/i);
   if (otpMatch) {
     otpUrl = otpMatch[1].trim();
   }
 
-  // 2. Special format for Netflix or labeled raw text
-  const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
-  if (emailMatch) {
-    emailOrPhone = emailMatch[0].trim();
-  }
-
-  const pwMatch = cleanText.match(/(?:พาสเวิร์ด|พาส|Password|pass(?:word)?|รหัสผ่าน|รหัส)\s*[:\s\t\-=]*\s*([a-zA-Z0-9_!@#$%^&*.\-]+?)(?=(?:จอ|โปรไฟล์|pin|exp|หมด|♡|✬|\s|$))/i);
-  if (pwMatch) {
-    password = pwMatch[1].trim();
-  }
-
-  const screenMatch = cleanText.match(/(?:จอ|โปรไฟล์)\s*[:\s\t\-=]*\s*(\d+)/i);
+  // 2. Extract Netflix profile / screen / pin
+  const screenMatch = rawText.match(/(?:จอ|โปรไฟล์)\s*[:\s\t\-=]*\s*(\d+)/i);
   const screenNum = screenMatch ? parseInt(screenMatch[1], 10) : null;
-
-  const pinMatch = cleanText.match(/(?:Pin|PIN|พิน|พินเมล|รหัส PIN)\s*[:\s\t\-=]*\s*(\d+)/i);
+  const pinMatch = rawText.match(/(?:Pin|PIN|พิน|พินเมล|รหัส PIN)\s*[:\s\t\-=]*\s*(\d{4,6})/i);
   const pinCode = pinMatch ? pinMatch[1].trim() : "";
-
   if (screenNum !== null && !isNaN(screenNum)) {
     netflixProfile = { screenNum, pin: pinCode };
   }
 
-  // 3. Extract expiry date (e.g. Exp 03/08/2026 or 2026-08-03)
-  const dateMatch = cleanText.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/) || cleanText.match(/\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/);
-  if (dateMatch) {
+  // 3. Extract Expiry Date
+  // 3.1 Standard Full Date: DD/MM/YYYY or YYYY-MM-DD or DD/MM/YY
+  const fullDateMatch = rawText.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/) ||
+                        rawText.match(/\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/);
+  if (fullDateMatch) {
     let day, month, year;
-    if (dateMatch[1].length === 4) {
-      year = parseInt(dateMatch[1], 10);
-      month = parseInt(dateMatch[2], 10);
-      day = parseInt(dateMatch[3], 10);
+    if (fullDateMatch[1].length === 4) {
+      year = parseInt(fullDateMatch[1], 10);
+      month = parseInt(fullDateMatch[2], 10);
+      day = parseInt(fullDateMatch[3], 10);
     } else {
-      day = parseInt(dateMatch[1], 10);
-      month = parseInt(dateMatch[2], 10);
-      year = parseInt(dateMatch[3], 10);
+      day = parseInt(fullDateMatch[1], 10);
+      month = parseInt(fullDateMatch[2], 10);
+      year = parseInt(fullDateMatch[3], 10);
+      if (year < 100) {
+        if (year >= 60 && year <= 99) year += (2500 - 543); // Thai BE (e.g. 69 -> 2026)
+        else year += 2000; // CE (e.g. 26 -> 2026)
+      }
     }
-    if (year > 2400) year -= 543;
+    if (year > 2400) year -= 543; // Thai Buddhist Era to CE
     const parsedDate = new Date(year, month - 1, day, 23, 59, 0);
     if (!isNaN(parsedDate.getTime())) {
       const pad = n => String(n).padStart(2, '0');
@@ -1794,17 +1797,136 @@ function parseRawAccountText(cleanText) {
     }
   }
 
-  // 4. Line by line delimiter split fallback (e.g. user:pass or user|pass)
-  if (!password) {
-    const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      const parts = line.split(/[\s|:]+/).map(p => p.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        const [first, second] = parts;
-        if (/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(first) && !/^(email|user|login)$/i.test(first)) {
-          emailOrPhone = first;
-          password = second;
-          break;
+  // 3.2 Short Date: Exp DDMM (e.g. Exp 1611 -> 16 Nov)
+  if (!expiryDateStr) {
+    const exp4DigitsMatch = rawText.match(/(?:exp|หมดอายุ|หมด|date)[:\s\t\-=]*\s*(\d{2})(\d{2})\b/i);
+    if (exp4DigitsMatch) {
+      const day = parseInt(exp4DigitsMatch[1], 10);
+      const month = parseInt(exp4DigitsMatch[2], 10);
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        const now = new Date();
+        let year = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        if (month < currentMonth || (month === currentMonth && day < now.getDate() - 3)) {
+          year += 1;
+        }
+        const pad = n => String(n).padStart(2, '0');
+        expiryDateStr = `${year}-${pad(month)}-${pad(day)}T23:59`;
+      }
+    }
+  }
+
+  // 3.3 Short Date with Separator: Exp DD/MM or Exp DD-MM
+  if (!expiryDateStr) {
+    const expShortMatch = rawText.match(/(?:exp|หมดอายุ|หมด|date)[:\s\t\-=]*\s*(\d{1,2})[\/\-\.](\d{1,2})\b/i);
+    if (expShortMatch) {
+      const day = parseInt(expShortMatch[1], 10);
+      const month = parseInt(expShortMatch[2], 10);
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        const now = new Date();
+        let year = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        if (month < currentMonth || (month === currentMonth && day < now.getDate() - 3)) {
+          year += 1;
+        }
+        const pad = n => String(n).padStart(2, '0');
+        expiryDateStr = `${year}-${pad(month)}-${pad(day)}T23:59`;
+      }
+    }
+  }
+
+  // 3.4 Relative days: e.g. 30 วัน, 30 days
+  if (!expiryDateStr) {
+    const relDaysMatch = rawText.match(/\b(\d+)\s*(?:วัน|day|days)\b/i);
+    if (relDaysMatch) {
+      const d = parseInt(relDaysMatch[1], 10);
+      if (d > 0 && d <= 1000) {
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + d);
+        targetDate.setHours(23, 59, 0, 0);
+        const pad = n => String(n).padStart(2, '0');
+        expiryDateStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
+      }
+    }
+  }
+
+  // 4. Extract Email or Phone or Username
+  // 4.1 Explicit labels first (e.g. อีเมล: ... หรือ เบอร์: ...)
+  const emailLabelMatch = rawText.match(/(?:อีเมล|เมล|email|mail|user|username|บัญชี|ไอดี|id)[:\s\t\-=]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+  if (emailLabelMatch) {
+    emailOrPhone = emailLabelMatch[1].trim();
+  }
+
+  const phoneLabelMatch = rawText.match(/(?:เบอร์|โทร|tel|phone|mobile)[:\s\t\-=]+\s*([0-9\-]{9,12})/i);
+  if (phoneLabelMatch) {
+    emailOrPhone = phoneLabelMatch[1].replace(/[^0-9]/g, '').trim();
+  }
+
+  // 4.2 Explicit Password label
+  const pwLabelMatch = rawText.match(/(?:พาสเวิร์ด|พาส|Password|pass(?:word)?|รหัสผ่าน|รหัส|pw|pinmail|พินเมล)[:\s\t\-=]+\s*([^\s\n\r|/]+)/i);
+  if (pwLabelMatch) {
+    password = pwLabelMatch[1].trim();
+  }
+
+  // 5. Line-by-line Separator / Delimiter parsing (Space, Tab, Colon, Pipe)
+  // Handles "0829923194  Lz86409823", "0829923194:Lz86409823", "user@gmail.com pass123"
+  for (const line of lines) {
+    // Skip lines starting with exp, date, http, or labeled lines
+    if (/^(?:exp|หมดอายุ|หมด|date|http)/i.test(line)) continue;
+
+    // Remove standalone / or - delimiters between tokens
+    const tokens = line.split(/[\s|:\t]+/).map(t => t.trim()).filter(t => t && t !== "/" && t !== "-");
+    if (tokens.length >= 2) {
+      const first = tokens[0];
+      const second = tokens[1];
+
+      const cleanPhone = first.replace(/[^0-9]/g, '');
+      const isEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(first);
+      const isPhone = /^(?:0[689]\d{8}|0\d{8,9})$/.test(cleanPhone);
+      const isAlphanumericUser = /^[a-zA-Z0-9._\-]{4,}$/.test(first) && !/^(exp|date|pass|password|user|username|email|tel|phone|line|fb|pin|web|app|จอ|โปรไฟล์)$/i.test(first);
+
+      const isSecondValidPw = second.length >= 4 && !/^(?:exp|date|pin|screen|จอ|โปรไฟล์)$/i.test(second);
+
+      if ((isEmail || isPhone || isAlphanumericUser) && isSecondValidPw) {
+        if (!emailOrPhone) emailOrPhone = isPhone ? cleanPhone : first;
+        if (!password) password = second;
+        break;
+      }
+    }
+  }
+
+  // 6. Fallback extraction if either emailOrPhone or password is still empty
+  if (!emailOrPhone) {
+    const rawEmail = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
+    if (rawEmail) {
+      emailOrPhone = rawEmail[0].trim();
+    } else {
+      const rawPhone = rawText.match(/\b(0[689]\d{8})\b/) || rawText.match(/\b(0\d{8,9})\b/);
+      if (rawPhone) {
+        emailOrPhone = rawPhone[0].trim();
+      }
+    }
+  }
+
+  if (!password && emailOrPhone) {
+    // Try finding password next to email/phone in text
+    const escaped = emailOrPhone.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(escaped + '\\s*[:|\\s\\t\\-=]+\\s*([^\\s\\n\\r|:]+)', 'i');
+    const match = rawText.match(regex);
+    if (match && match[1] && !/^(?:exp|date|pin|http)/i.test(match[1])) {
+      password = match[1].trim();
+    } else {
+      // Look at the line immediately following emailOrPhone
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(emailOrPhone) && i + 1 < lines.length) {
+          const candidate = lines[i + 1].trim();
+          if (!candidate.startsWith("http") && !/^(?:exp|หมดอายุ|date)/i.test(candidate)) {
+            const cleanCand = candidate.replace(/^(?:พาสเวิร์ด|พาส|Password|pass(?:word)?|รหัสผ่าน|รหัส)[:\s\t\-=]+/i, '').trim();
+            if (cleanCand.length >= 4) {
+              password = cleanCand.split(/\s+/)[0];
+              break;
+            }
+          }
         }
       }
     }
@@ -1818,20 +1940,24 @@ function parseMultiAccountText(cleanText) {
   const accounts = [];
 
   for (const line of lines) {
-    const emailMatch = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    if (!emailMatch) continue;
+    // Ignore pure expiry or URL lines
+    if (/^(?:exp|หมดอายุ|หมด|date|http)/i.test(line)) continue;
 
-    const email = emailMatch[0].trim();
-    let remaining = line.replace(email, "").trim();
-    remaining = remaining.replace(/^[:|\s\-]+/, "").trim();
+    const emailMatch = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const phoneMatch = line.match(/\b(0[689]\d{8})\b/) || line.match(/\b(0\d{8,9})\b/);
+    const userIdentifier = emailMatch ? emailMatch[0].trim() : (phoneMatch ? phoneMatch[0].trim() : "");
+    if (!userIdentifier) continue;
+
+    let remaining = line.replace(userIdentifier, "").trim();
+    remaining = remaining.replace(/^[:|\s\-/,]+/, "").trim();
 
     const parts = remaining.split(/[\s|:]+/).filter(Boolean);
     const password = parts[0] || "";
 
-    if (password && password.length >= 4 && !password.includes("@")) {
+    if (password && password.length >= 4 && !password.includes("@") && !/^(?:exp|date|หมด)$/i.test(password)) {
       const otpMatch = line.match(/(https?:\/\/[^\s\n\r]+)/i);
       accounts.push({
-        email,
+        email: userIdentifier,
         password,
         otp_url: otpMatch ? otpMatch[1].trim() : null
       });
@@ -2065,6 +2191,8 @@ function initStockFormEventListeners() {
   const quickPaste = document.getElementById("acc-quick-paste");
   if (quickPaste) {
     quickPaste.addEventListener("input", handleQuickPaste);
+    quickPaste.addEventListener("paste", () => setTimeout(handleQuickPaste, 50));
+    quickPaste.addEventListener("change", handleQuickPaste);
   }
 
   // App select change
