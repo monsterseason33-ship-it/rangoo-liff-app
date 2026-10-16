@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=1.4">
+  <link rel="stylesheet" href="styles.css?v=1.5">
 </head>
 
 <body>
@@ -386,9 +386,14 @@
           <!-- Filled dynamically -->
         </div>
 
-        <div>
+        <div id="edit-creds-cust-group">
           <label class="prem-label">👤 ชื่อลูกค้า (Customer Name):</label>
           <input type="text" id="edit-creds-customer-name" class="prem-input" style="margin-bottom: 0;" placeholder="ชื่อลูกค้า">
+        </div>
+
+        <div id="edit-creds-email-group" style="display: none;">
+          <label class="prem-label">📧 อีเมลบัญชี (Email):</label>
+          <input type="text" id="edit-creds-email" class="prem-input" style="margin-bottom: 0;" placeholder="อีเมลบัญชี">
         </div>
 
         <div>
@@ -397,6 +402,15 @@
             <input type="text" id="edit-creds-password" class="prem-input" style="flex: 1; margin-bottom: 0;">
             <button type="button" id="btn-edit-random-pw" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px;">🎲 สุ่มรหัส</button>
           </div>
+        </div>
+
+        <div id="edit-creds-screen-select-group" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="prem-label" style="margin-bottom: 0;">📺 เลือกจอที่ต้องการแก้ไข PIN / โปรไฟล์:</label>
+            <button type="button" id="btn-edit-random-all-pins" class="prem-btn-secondary" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; color: #c084fc; border-color: rgba(192, 132, 252, 0.4); cursor: pointer; font-weight: 700;">🎲 สุ่ม PIN ทุกจอ</button>
+          </div>
+          <select id="edit-creds-screen-select" class="prem-select" style="margin-bottom: 0;">
+          </select>
         </div>
 
         <div>
@@ -422,13 +436,18 @@
           </div>
         </div>
 
+        <div id="edit-creds-expiry-group" style="display: none;">
+          <label class="prem-label">📅 วันหมดอายุ (Expiry Date):</label>
+          <input type="datetime-local" id="edit-creds-expiry" class="prem-input" style="margin-bottom: 0;">
+        </div>
+
         <div>
           <label class="prem-label">🌐 เว็บรับ OTP (ถ้ามี):</label>
           <input type="text" id="edit-creds-otp" class="prem-input" style="margin-bottom: 0;" placeholder="https://code.varinzxify.com/... หรือ https://abeslife.com/...">
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 6px;">
-          <button type="button" id="btn-confirm-edit-creds" class="prem-btn prem-btn-primary" style="flex: 1.5;">💾 บันทึกข้อมูล & ส่งลูกค้า</button>
+          <button type="button" id="btn-confirm-edit-creds" class="prem-btn prem-btn-primary" style="flex: 1.5;">💾 บันทึกข้อมูล</button>
           <button type="button" class="prem-btn prem-btn-secondary modal-cancel-btn" style="flex: 1;">ยกเลิก</button>
         </div>
       </div>
@@ -487,7 +506,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.4"></script>
+  <script src="app.js?v=1.5"></script>
 </body>
 
 </html>

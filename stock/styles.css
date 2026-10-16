@@ -1032,6 +1032,68 @@ body {
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
 }
 
+.btn-screen-edit {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #38bdf8;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-screen-edit:hover, .btn-screen-edit:active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #ffffff;
+  transform: scale(0.95);
+}
+
+.btn-edit-account-all {
+  height: 42px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-md);
+  color: #38bdf8;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.btn-edit-account-all:hover, .btn-edit-account-all:active {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-mini-edit-acc-pw {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  color: #38bdf8;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-mini-edit-acc-pw:hover {
+  background: rgba(56, 189, 248, 0.3);
+  color: #ffffff;
+}
+
 /* ============================================================================
    1-Tap Copy Account Button (Hero Action)
 ============================================================================ */

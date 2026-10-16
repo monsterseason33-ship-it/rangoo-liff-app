@@ -248,6 +248,22 @@ function initUIEventListeners() {
         return;
       }
 
+      // 1.1 Edit single screen in stock account
+      const screenEditBtn = e.target.closest(".btn-screen-edit");
+      if (screenEditBtn) {
+        e.stopPropagation();
+        openEditStockAccountModal(screenEditBtn.dataset.groupKey, screenEditBtn.dataset.emailKey, screenEditBtn.dataset.accountId);
+        return;
+      }
+
+      // 1.2 Edit full stock account / password
+      const accEditBtn = e.target.closest(".btn-edit-account-all, .btn-mini-edit-acc-pw");
+      if (accEditBtn) {
+        e.stopPropagation();
+        openEditStockAccountModal(accEditBtn.dataset.groupKey, accEditBtn.dataset.emailKey, null);
+        return;
+      }
+
       // 2. Copy entire app stock
       const copyAppBtn = e.target.closest(".group-copy-app-btn");
       if (copyAppBtn) {
@@ -808,6 +824,7 @@ function renderStockFeed() {
                 <span class="cred-val pwd" data-real-pwd="${escapeHtml(acc.password)}" data-hidden="${isPasswordHidden ? 'true' : 'false'}">${escapeHtml(pwdText)}</span>
                 <button type="button" class="btn-inline-pwd-toggle" title="ซ่อน/แสดงรหัส">${isPasswordHidden ? '👁️' : '🙈'}</button>
                 <button type="button" class="btn-mini-copy" data-copy-val="${escapeHtml(acc.password)}" data-copy-label="รหัสผ่าน">คัดลอก</button>
+                <button type="button" class="btn-mini-edit-acc-pw" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}" title="แก้ไขรหัสผ่าน / สุ่มรหัสใหม่">✏️</button>
               </div>
             </div>
 
@@ -858,27 +875,42 @@ function renderStockFeed() {
                       </div>
                       <span class="screen-pin-tag ${hasPin ? 'has-pin' : ''}">${escapeHtml(pinTxt)}</span>
                     </div>
-                    <button type="button" class="btn-screen-send"
-                      data-app-name="${escapeHtml(group.appName)}"
-                      data-email="${escapeHtml(acc.email)}"
-                      data-password="${escapeHtml(acc.password)}"
-                      data-screen-name="${escapeHtml(pName)}"
-                      data-pin-txt="${escapeHtml(pinTxt)}"
-                      data-expiry="${escapeHtml(expiryDisplay)}"
-                      data-screen-id="${escapeHtml(String(screenId))}">
-                      🚀 ส่งจอนี้
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                      <button type="button" class="btn-screen-edit"
+                        data-account-id="${s.id}"
+                        data-group-key="${escapeHtml(groupKey)}"
+                        data-email-key="${escapeHtml(emailKey)}"
+                        title="แก้ไขจอนี้: เปลี่ยน/สุ่ม PIN, แก้ไขรหัสผ่าน, ชื่อจอ, อุปกรณ์">
+                        ✏️
+                      </button>
+                      <button type="button" class="btn-screen-send"
+                        data-app-name="${escapeHtml(group.appName)}"
+                        data-email="${escapeHtml(acc.email)}"
+                        data-password="${escapeHtml(acc.password)}"
+                        data-screen-name="${escapeHtml(pName)}"
+                        data-pin-txt="${escapeHtml(pinTxt)}"
+                        data-expiry="${escapeHtml(expiryDisplay)}"
+                        data-screen-id="${escapeHtml(String(screenId))}">
+                        🚀 ส่งจอนี้
+                      </button>
+                    </div>
                   </div>
                 `;
               }).join("")}
             </div>
           </div>
 
-          <!-- Hero 1-Tap Copy Account Script Button -->
-          <button type="button" class="btn-copy-account-script" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}">
-            <span>📋</span>
-            <span>1-Tap ก็อปปี้สคริปต์บัญชีนี้ (พร้อมส่ง)</span>
-          </button>
+          <!-- Account Action Buttons (Edit Account & Copy Script) -->
+          <div class="acc-actions-grid" style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; margin-top: 4px;">
+            <button type="button" class="btn-edit-account-all" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}" title="แก้ไขข้อมูลบัญชีนี้ และทุกจอ">
+              <span>✏️</span>
+              <span>แก้ไขบัญชี & จอ</span>
+            </button>
+            <button type="button" class="btn-copy-account-script" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}" style="margin-top: 0;">
+              <span>📋</span>
+              <span>1-Tap ก็อปปี้สคริปต์</span>
+            </button>
+          </div>
         </div>
       `;
     });
@@ -2711,6 +2743,38 @@ function initTroubleshootingModalListeners() {
     });
   }
 
+  const randomAllPinsBtn = document.getElementById("btn-edit-random-all-pins");
+  if (randomAllPinsBtn) {
+    randomAllPinsBtn.addEventListener("click", () => {
+      haptic();
+      if (!editCredsContext.screens || editCredsContext.screens.length === 0) return;
+      editCredsContext.screens.forEach(s => {
+        const newP = generateRandomPin();
+        editCredsContext.randomizedPinsMap[s.id] = newP;
+        if (!editCredsContext.screenEdits[s.id]) editCredsContext.screenEdits[s.id] = {};
+        editCredsContext.screenEdits[s.id].pinCode = newP;
+      });
+      const activeScreenId = editCredsContext.selectedScreenId;
+      const currentPinInput = document.getElementById("edit-creds-pin");
+      if (currentPinInput && activeScreenId && editCredsContext.randomizedPinsMap[activeScreenId]) {
+        currentPinInput.value = editCredsContext.randomizedPinsMap[activeScreenId];
+      }
+      renderScreenSelectOptions(editCredsContext.screens, activeScreenId);
+      showToast(`🎲 สุ่ม PIN ใหม่ให้ทุกจอ (${editCredsContext.screens.length} จอ) เรียบร้อย!`);
+    });
+  }
+
+  const screenSelect = document.getElementById("edit-creds-screen-select");
+  if (screenSelect) {
+    screenSelect.addEventListener("change", (e) => {
+      saveCurrentScreenInputsToMemory();
+      const newScreenId = e.target.value;
+      editCredsContext.selectedScreenId = newScreenId;
+      const screenObj = editCredsContext.screens.find(s => s.id === newScreenId);
+      if (screenObj) populateScreenFields(screenObj);
+    });
+  }
+
   // Cancel buttons inside sheets
   document.querySelectorAll(".modal-cancel-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -3030,13 +3094,185 @@ async function executeMarkBroken(bindingId) {
   }
 }
 
-// 5. Edit Credentials Modal
+// ============================================================================
+// 5. Edit Credentials & Account Management Modal (Unified Dual Mode)
+// ============================================================================
+let editCredsContext = {
+  mode: "binding", // "binding" | "stock"
+  targetBinding: null,
+  groupKey: null,
+  emailKey: null,
+  screens: [],
+  selectedScreenId: null,
+  randomizedPinsMap: {},
+  screenEdits: {} // screenId -> { pinCode, profileName, deviceType }
+};
+
+function saveCurrentScreenInputsToMemory() {
+  if (editCredsContext.mode !== "stock" || !editCredsContext.selectedScreenId) return;
+  const sId = editCredsContext.selectedScreenId;
+  if (!editCredsContext.screenEdits[sId]) editCredsContext.screenEdits[sId] = {};
+  
+  const pinInput = document.getElementById("edit-creds-pin");
+  if (pinInput) editCredsContext.screenEdits[sId].pinCode = pinInput.value.trim();
+  
+  const profInput = document.getElementById("edit-creds-profile");
+  if (profInput) editCredsContext.screenEdits[sId].profileName = profInput.value.trim();
+  
+  const devSelect = document.getElementById("edit-creds-device");
+  if (devSelect) editCredsContext.screenEdits[sId].deviceType = devSelect.value;
+}
+
+function populateScreenFields(screenObj) {
+  const sId = screenObj.id;
+  const edits = editCredsContext.screenEdits[sId] || {};
+  
+  const pinInput = document.getElementById("edit-creds-pin");
+  if (pinInput) {
+    if (edits.pinCode !== undefined) {
+      pinInput.value = edits.pinCode;
+    } else if (editCredsContext.randomizedPinsMap[sId] !== undefined) {
+      pinInput.value = editCredsContext.randomizedPinsMap[sId];
+    } else {
+      pinInput.value = screenObj.pin_code || "";
+    }
+  }
+
+  const profileInput = document.getElementById("edit-creds-profile");
+  if (profileInput) {
+    profileInput.value = edits.profileName !== undefined ? edits.profileName : (screenObj.profile_name || "");
+  }
+
+  const deviceSelect = document.getElementById("edit-creds-device");
+  if (deviceSelect) {
+    const devVal = edits.deviceType !== undefined ? edits.deviceType : (screenObj.device_type || "mobile");
+    deviceSelect.value = devVal.toLowerCase().includes("tv") || devVal.includes("ทีวี") ? "tv" : "mobile";
+  }
+}
+
+function renderScreenSelectOptions(screens, activeScreenId) {
+  const screenSelect = document.getElementById("edit-creds-screen-select");
+  if (!screenSelect) return;
+  screenSelect.innerHTML = screens.map(s => {
+    const edits = editCredsContext.screenEdits[s.id] || {};
+    const pName = edits.profileName || s.profile_name || "จอ";
+    const pin = edits.pinCode !== undefined 
+      ? edits.pinCode 
+      : (editCredsContext.randomizedPinsMap[s.id] !== undefined ? editCredsContext.randomizedPinsMap[s.id] : s.pin_code);
+    const pinStr = pin ? `PIN: ${pin}` : "ไม่มี PIN";
+    const idStr = s.display_id ? `#${s.display_id}` : "";
+    return `<option value="${s.id}" ${s.id === activeScreenId ? 'selected' : ''}>${escapeHtml(pName)} ${escapeHtml(idStr)} (${escapeHtml(pinStr)})</option>`;
+  }).join("");
+}
+
+// 5.1 Open for Stock Account & Screens
+function openEditStockAccountModal(groupKey, emailKey, targetAccountId = null) {
+  haptic();
+  const group = appGroups[groupKey];
+  if (!group) return;
+  const acc = group.accountsByEmail[emailKey];
+  if (!acc) return;
+
+  const screens = acc.screens || [];
+  if (screens.length === 0) return;
+
+  const selectedScreen = (targetAccountId ? screens.find(s => s.id === targetAccountId) : null) || screens[0];
+
+  editCredsContext = {
+    mode: "stock",
+    targetBinding: null,
+    groupKey: groupKey,
+    emailKey: emailKey,
+    screens: screens,
+    selectedScreenId: selectedScreen.id,
+    randomizedPinsMap: {},
+    screenEdits: {}
+  };
+
+  const theme = getAppTheme(group.appName);
+  const infoBox = document.getElementById("edit-creds-info-box");
+  if (infoBox) {
+    infoBox.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>${theme.icon} <strong>${escapeHtml(group.appName)}</strong> <span style="font-size: 11px; color: var(--text-dim);">[${escapeHtml(group.pkgName || 'สต็อกพร้อมขาย')}]</span></div>
+        <span class="binding-screen-tag"><span>📺</span><span>${screens.length} จอในบัญชี</span></span>
+      </div>
+      <div style="margin-top: 4px; font-size: 11px;">📧 อีเมล: <span style="color:#38bdf8; font-family: 'JetBrains Mono', monospace;">${escapeHtml(acc.email)}</span></div>
+    `;
+  }
+
+  // Toggle Visibility for Stock Mode
+  const custGroup = document.getElementById("edit-creds-cust-group");
+  if (custGroup) custGroup.style.display = "none";
+
+  const emailGroup = document.getElementById("edit-creds-email-group");
+  if (emailGroup) {
+    emailGroup.style.display = "block";
+    const emailInput = document.getElementById("edit-creds-email");
+    if (emailInput) emailInput.value = acc.email || "";
+  }
+
+  const screenSelectGroup = document.getElementById("edit-creds-screen-select-group");
+  if (screenSelectGroup) {
+    screenSelectGroup.style.display = "block";
+    renderScreenSelectOptions(screens, selectedScreen.id);
+  }
+
+  const expiryGroup = document.getElementById("edit-creds-expiry-group");
+  if (expiryGroup) {
+    expiryGroup.style.display = "block";
+    const expInput = document.getElementById("edit-creds-expiry");
+    if (expInput) {
+      if (acc.expiry_date) {
+        const d = new Date(acc.expiry_date);
+        if (!isNaN(d.getTime())) {
+          const pad = n => String(n).padStart(2, '0');
+          expInput.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        } else {
+          expInput.value = "";
+        }
+      } else {
+        expInput.value = "";
+      }
+    }
+  }
+
+  const pwInput = document.getElementById("edit-creds-password");
+  if (pwInput) pwInput.value = acc.password || "";
+
+  populateScreenFields(selectedScreen);
+
+  const otpInput = document.getElementById("edit-creds-otp");
+  if (otpInput) {
+    const firstOtp = screens.find(s => s.supplier_url)?.supplier_url || "";
+    otpInput.value = firstOtp;
+  }
+
+  const confirmBtn = document.getElementById("btn-confirm-edit-creds");
+  if (confirmBtn) confirmBtn.textContent = "💾 บันทึกข้อมูลบัญชี & จอ";
+
+  const modal = document.getElementById("modal-edit-credentials");
+  if (modal) modal.style.display = "flex";
+}
+
+// 5.2 Open for Customer Binding
 function openEditCredsModal(bindingId) {
   haptic();
   const b = rawBindings.find(x => x.id === bindingId);
   if (!b) return;
 
   targetBindingForEditCreds = b;
+  editCredsContext = {
+    mode: "binding",
+    targetBinding: b,
+    groupKey: null,
+    emailKey: null,
+    screens: [],
+    selectedScreenId: null,
+    randomizedPinsMap: {},
+    screenEdits: {}
+  };
+
   const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
   const details = extractBindingDetails(b, linkedAcc);
 
@@ -3050,6 +3286,15 @@ function openEditCredsModal(bindingId) {
       <div style="margin-top: 4px; font-size: 11px;">📧 อีเมล: <span style="color:#38bdf8; font-family: 'JetBrains Mono', monospace;">${escapeHtml(details.email || '-')}</span></div>
     `;
   }
+
+  const custGroup = document.getElementById("edit-creds-cust-group");
+  if (custGroup) custGroup.style.display = "block";
+  const emailGroup = document.getElementById("edit-creds-email-group");
+  if (emailGroup) emailGroup.style.display = "none";
+  const screenSelectGroup = document.getElementById("edit-creds-screen-select-group");
+  if (screenSelectGroup) screenSelectGroup.style.display = "none";
+  const expiryGroup = document.getElementById("edit-creds-expiry-group");
+  if (expiryGroup) expiryGroup.style.display = "none";
 
   const custNameInput = document.getElementById("edit-creds-customer-name");
   if (custNameInput) custNameInput.value = b.customer_name || "";
@@ -3072,6 +3317,9 @@ function openEditCredsModal(bindingId) {
   const otpInput = document.getElementById("edit-creds-otp");
   if (otpInput) otpInput.value = details.otpUrl || "";
 
+  const confirmBtn = document.getElementById("btn-confirm-edit-creds");
+  if (confirmBtn) confirmBtn.textContent = "💾 บันทึกข้อมูล & ส่งลูกค้า";
+
   const modal = document.getElementById("modal-edit-credentials");
   if (modal) modal.style.display = "flex";
 }
@@ -3080,20 +3328,13 @@ function closeEditCredsModal() {
   const modal = document.getElementById("modal-edit-credentials");
   if (modal) modal.style.display = "none";
   targetBindingForEditCreds = null;
+  editCredsContext.screens = [];
+  editCredsContext.randomizedPinsMap = {};
+  editCredsContext.screenEdits = {};
 }
 
+// 5.3 Confirm Save Handler for Both Modes
 async function executeConfirmEditCreds() {
-  if (!targetBindingForEditCreds) return;
-
-  const b = targetBindingForEditCreds;
-  const newCustomerName = (document.getElementById("edit-creds-customer-name")?.value || "").trim();
-  const newPw = (document.getElementById("edit-creds-password")?.value || "").trim();
-  const newPin = (document.getElementById("edit-creds-pin")?.value || "").trim();
-  const newProfile = (document.getElementById("edit-creds-profile")?.value || "").trim();
-  const newDeviceVal = (document.getElementById("edit-creds-device")?.value || "mobile");
-  const deviceDisplay = newDeviceVal === "tv" ? "📺 สมาร์ททีวี" : "📱 มือถือ / PC";
-  const newOtp = (document.getElementById("edit-creds-otp")?.value || "").trim();
-
   const confirmBtn = document.getElementById("btn-confirm-edit-creds");
   if (confirmBtn) {
     confirmBtn.disabled = true;
@@ -3101,6 +3342,62 @@ async function executeConfirmEditCreds() {
   }
 
   try {
+    // ----------------------------------------------------
+    // Mode A: Stock Account & Screens Edit
+    // ----------------------------------------------------
+    if (editCredsContext.mode === "stock") {
+      saveCurrentScreenInputsToMemory();
+
+      const newEmail = (document.getElementById("edit-creds-email")?.value || "").trim();
+      const newPw = (document.getElementById("edit-creds-password")?.value || "").trim();
+      const newExpiryVal = (document.getElementById("edit-creds-expiry")?.value || "").trim();
+      const newExpiryIso = newExpiryVal ? new Date(newExpiryVal).toISOString() : null;
+      const newOtp = (document.getElementById("edit-creds-otp")?.value || "").trim();
+
+      const screens = editCredsContext.screens || [];
+      for (const s of screens) {
+        const payload = {};
+        if (newEmail && newEmail !== s.email) payload.email = newEmail;
+        if (newPw) payload.password = newPw;
+        if (newExpiryIso) payload.expiry_date = newExpiryIso;
+        payload.supplier_url = newOtp || null;
+
+        const edits = editCredsContext.screenEdits[s.id] || {};
+        if (edits.pinCode !== undefined) {
+          payload.pin_code = edits.pinCode || null;
+        } else if (editCredsContext.randomizedPinsMap[s.id] !== undefined) {
+          payload.pin_code = editCredsContext.randomizedPinsMap[s.id] || null;
+        }
+
+        if (edits.profileName !== undefined && edits.profileName) {
+          payload.profile_name = edits.profileName;
+        }
+        if (edits.deviceType !== undefined && edits.deviceType) {
+          payload.device_type = edits.deviceType === "tv" ? "สมาร์ททีวี" : "มือถือ / PC";
+        }
+
+        await patchDatabase("accounts", s.id, payload);
+      }
+
+      closeEditCredsModal();
+      showToast(`💾 บันทึกข้อมูลบัญชี & ${screens.length} จอในคลังเรียบร้อยแล้ว!`);
+      await loadData(true);
+      return;
+    }
+
+    // ----------------------------------------------------
+    // Mode B: Customer Binding Edit
+    // ----------------------------------------------------
+    if (!targetBindingForEditCreds) return;
+    const b = targetBindingForEditCreds;
+    const newCustomerName = (document.getElementById("edit-creds-customer-name")?.value || "").trim();
+    const newPw = (document.getElementById("edit-creds-password")?.value || "").trim();
+    const newPin = (document.getElementById("edit-creds-pin")?.value || "").trim();
+    const newProfile = (document.getElementById("edit-creds-profile")?.value || "").trim();
+    const newDeviceVal = (document.getElementById("edit-creds-device")?.value || "mobile");
+    const deviceDisplay = newDeviceVal === "tv" ? "📺 สมาร์ททีวี" : "📱 มือถือ / PC";
+    const newOtp = (document.getElementById("edit-creds-otp")?.value || "").trim();
+
     const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
 
     // 1. Update Accounts table if linked
@@ -3175,7 +3472,7 @@ async function executeConfirmEditCreds() {
   } finally {
     if (confirmBtn) {
       confirmBtn.disabled = false;
-      confirmBtn.textContent = "💾 บันทึกข้อมูล & ส่งลูกค้า";
+      confirmBtn.textContent = editCredsContext.mode === "stock" ? "💾 บันทึกข้อมูลบัญชี & จอ" : "💾 บันทึกข้อมูล & ส่งลูกค้า";
     }
   }
 }
