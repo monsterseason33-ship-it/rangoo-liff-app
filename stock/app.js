@@ -119,6 +119,27 @@ function initUIEventListeners() {
     shopBadgeBtn.addEventListener("click", openShopModal);
   }
 
+  // Stock Form Toggle Listeners
+  const toggleStockFormBtn = document.getElementById("btn-toggle-stock-form");
+  if (toggleStockFormBtn) {
+    toggleStockFormBtn.addEventListener("click", () => toggleStockForm());
+  }
+  const toggleStockFormHeaderBtn = document.getElementById("btn-toggle-stock-form-header");
+  if (toggleStockFormHeaderBtn) {
+    toggleStockFormHeaderBtn.addEventListener("click", () => toggleStockForm());
+  }
+  const closeFormPanelBtn = document.getElementById("btn-close-form-panel");
+  if (closeFormPanelBtn) {
+    closeFormPanelBtn.addEventListener("click", () => toggleStockForm(false));
+  }
+  const cancelAccBtn = document.getElementById("btn-cancel-account");
+  if (cancelAccBtn) {
+    cancelAccBtn.addEventListener("click", () => toggleStockForm(false));
+  }
+
+  // Initialize Stock Form Event Listeners
+  initStockFormEventListeners();
+
   // Chips Event Delegation (App filters)
   const chipsContainer = document.getElementById("chips-container");
   if (chipsContainer) {
@@ -227,6 +248,7 @@ async function loadData(force = false) {
     renderChips();
     renderStockFeed();
     updateMetrics();
+    populateStockFormApps();
 
   } catch (err) {
     console.error("Fetch data error:", err);
@@ -1143,3 +1165,781 @@ window.selectShop = function(shopId) {
     loadData(true);
   }
 };
+
+// ============================================================================
+// 📦 Stock Form Panel Functions (div#stock-form-panel.form-panel.prem-card.expanded)
+// ============================================================================
+
+function toggleStockForm(forceOpen = null) {
+  haptic();
+  const panel = document.getElementById("stock-form-panel");
+  if (!panel) return;
+  const isExpanded = panel.classList.contains("expanded");
+  const shouldOpen = forceOpen !== null ? forceOpen : !isExpanded;
+
+  if (shouldOpen) {
+    panel.classList.add("expanded");
+    setTimeout(() => {
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  } else {
+    panel.classList.remove("expanded");
+  }
+}
+
+function populateStockFormApps() {
+  const appSelect = document.getElementById("acc-app-select");
+  if (!appSelect) return;
+
+  const currentVal = appSelect.value;
+  appSelect.innerHTML = `<option value="">-- เลือกแอปพลิเคชัน --</option>`;
+
+  rawApps.forEach(app => {
+    const opt = document.createElement("option");
+    opt.value = app.id;
+    opt.textContent = `${app.display_name || app.name}`;
+    appSelect.appendChild(opt);
+  });
+
+  if (currentVal && rawApps.some(a => a.id === currentVal)) {
+    appSelect.value = currentVal;
+  } else if (rawApps.length > 0 && !appSelect.value) {
+    const netflix = rawApps.find(a => (a.name || "").toLowerCase().includes("netflix"));
+    appSelect.value = netflix ? netflix.id : rawApps[0].id;
+  }
+
+  updateStockFormPackages();
+}
+
+function updateStockFormPackages() {
+  const appSelect = document.getElementById("acc-app-select");
+  const pkgSelect = document.getElementById("acc-package-select");
+  if (!pkgSelect) return;
+
+  const appId = appSelect ? appSelect.value : "";
+  pkgSelect.innerHTML = `<option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>`;
+
+  // Toggle Disney Phone wrapper
+  const appObj = rawApps.find(a => a.id === appId);
+  const isDisney = appObj && (appObj.name || "").toLowerCase().includes("disney");
+  const phoneWrapper = document.getElementById("acc-phone-wrapper");
+  if (phoneWrapper) phoneWrapper.style.display = isDisney ? "block" : "none";
+
+  if (!appId) {
+    pkgSelect.disabled = true;
+    renderScreensInputs(1);
+    setDefaultExpiry(30);
+    return;
+  }
+
+  pkgSelect.disabled = false;
+  const filteredPkgs = rawPackages.filter(p => p.app_id === appId);
+
+  filteredPkgs.forEach(pkg => {
+    const opt = document.createElement("option");
+    opt.value = pkg.id;
+    opt.textContent = `${pkg.name} (${pkg.price}฿ • ${pkg.screens || 1} จอ • ${pkg.days || 30} วัน)`;
+    pkgSelect.appendChild(opt);
+  });
+
+  if (filteredPkgs.length > 0) {
+    pkgSelect.value = filteredPkgs[0].id;
+    onStockFormPackageSelected(filteredPkgs[0]);
+  } else {
+    const screensInput = document.getElementById("pkg-screens");
+    if (screensInput) screensInput.value = "1";
+    renderScreensInputs(1);
+    setDefaultExpiry(30);
+  }
+}
+
+function onStockFormPackageSelected(pkg) {
+  if (!pkg) {
+    const pkgId = document.getElementById("acc-package-select")?.value;
+    pkg = rawPackages.find(p => p.id === pkgId);
+  }
+  const screensCount = pkg ? (pkg.screens || 1) : 1;
+  const screensInput = document.getElementById("pkg-screens");
+  if (screensInput) screensInput.value = screensCount;
+
+  const days = pkg ? (pkg.days || getPackageDays(pkg.name, pkg.app_id)) : 30;
+  setDefaultExpiry(days);
+  renderScreensInputs(screensCount);
+}
+
+function renderScreensInputs(count) {
+  const container = document.getElementById("acc-screens-container");
+  if (!container) return;
+
+  const appId = document.getElementById("acc-app-select")?.value;
+  const appObj = rawApps.find(a => a.id === appId);
+  const isNetflix = appObj && (appObj.name || "").toLowerCase().includes("netflix");
+
+  count = Math.max(1, Math.min(10, parseInt(count, 10) || 1));
+
+  container.innerHTML = "";
+  for (let i = 1; i <= count; i++) {
+    const isTv = isNetflix ? (i === 5 || i > 4) : false;
+    const div = document.createElement("div");
+    div.className = "prem-screen-card";
+    div.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input type="checkbox" class="acc-screen-enable-checkbox" checked title="เปิด/ปิด จอนี้">
+          <span class="screen-row-badge">จอ ${i}</span>
+        </div>
+        <select class="acc-device-type-select prem-select-mini" style="max-width: 140px;">
+          <option value="mobile" ${isTv ? '' : 'selected'}>📱 มือถือ / PC</option>
+          <option value="tv" ${isTv ? 'selected' : ''}>📺 สมาร์ททีวี</option>
+        </select>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
+        <input type="text" class="acc-profile-input prem-input-mini" placeholder="ชื่อจอ เช่น จอ ${i}" value="จอ ${i}">
+        <div style="display: flex; gap: 4px;">
+          <input type="text" class="acc-pin-input prem-input-mini" placeholder="รหัส PIN (ถ้ามี)">
+          <button type="button" class="btn-random-pin-mini prem-btn-icon" title="สุ่ม PIN">🎲</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  }
+}
+
+function getPackageDays(pkgName, appId = null) {
+  const name = (pkgName || "").trim();
+  if (!name) return 30;
+
+  let match = name.match(/(\d+)\/(\d+)\s*day/i);
+  if (match) return parseInt(match[1], 10);
+  match = name.match(/(\d+)\s*วัน/);
+  if (match) return parseInt(match[1], 10);
+  match = name.match(/(\d+)\s*day/i);
+  if (match) return parseInt(match[1], 10);
+  match = name.match(/(\d+)\s*ปี/);
+  if (match) return parseInt(match[1], 10) * 365;
+  if (name.includes("รายปี")) return 365;
+  if (name.includes("รายเดือน")) return 30;
+  if (name.includes("รายสัปดาห์")) return 7;
+
+  if (rawPackages && rawPackages.length > 0) {
+    const found = rawPackages.find(p => p.name === name && (!appId || p.app_id === appId)) || rawPackages.find(p => p.name === name);
+    if (found && found.days && parseInt(found.days, 10) > 0) {
+      return parseInt(found.days, 10);
+    }
+  }
+
+  return 30;
+}
+
+function setDefaultExpiry(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(23, 59, 0, 0);
+  const pad = n => String(n).padStart(2, '0');
+  const str = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T23:59`;
+  const expInput = document.getElementById("acc-expiry");
+  if (expInput) expInput.value = str;
+  updateExpiryText(date);
+}
+
+function updateExpiryText(dateObj) {
+  const textEl = document.getElementById("acc-expiry-text");
+  if (!textEl) return;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    textEl.textContent = "📅 คลิกเลือกวันเวลา...";
+    return;
+  }
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const pad = n => String(n).padStart(2, '0');
+  const d = dateObj.getDate();
+  const m = thaiMonths[dateObj.getMonth()];
+  const y = dateObj.getFullYear() + 543;
+  const time = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+  textEl.textContent = `📅 ${d} ${m} ${y} เวลา ${time} น.`;
+}
+
+function generateRandomPassword() {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+  let pw = "";
+  for (let i = 0; i < 10; i++) {
+    pw += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pw;
+}
+
+function generateRandomPin() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+// ----------------------------------------------------------------------------
+// 📋 Quick Paste Parser
+// ----------------------------------------------------------------------------
+function handleQuickPaste() {
+  const input = document.getElementById("acc-quick-paste");
+  const batchInfo = document.getElementById("acc-quick-paste-batch-info");
+  if (!input) return;
+
+  const text = (input.value || "").trim();
+  if (!text) {
+    if (batchInfo) {
+      batchInfo.style.display = "none";
+      batchInfo.textContent = "";
+    }
+    return;
+  }
+
+  // 1. Auto-detect and select App if mentioned in text
+  const lowerText = text.toLowerCase();
+  for (const app of rawApps) {
+    const appName = (app.name || "").toLowerCase();
+    const appDisplay = (app.display_name || "").toLowerCase();
+    if (lowerText.includes(appName) || (appDisplay && lowerText.includes(appDisplay))) {
+      const appSelect = document.getElementById("acc-app-select");
+      if (appSelect && appSelect.value !== app.id) {
+        appSelect.value = app.id;
+        updateStockFormPackages();
+      }
+      break;
+    }
+  }
+
+  // 2. Check if Disney format
+  const currentApp = rawApps.find(a => a.id === document.getElementById("acc-app-select")?.value);
+  const isDisney = currentApp && (currentApp.name || "").toLowerCase().includes("disney");
+  const isDisneyMaster = isDisney && (text.includes("พินจอ") || text.includes("พินเมล") || (text.match(/Mail:/i) && text.includes("เบอร์")));
+
+  if (isDisneyMaster) {
+    const disney = parseDisneyMasterAccountText(text);
+    if (disney.email) document.getElementById("acc-email").value = disney.email;
+    if (disney.password) document.getElementById("acc-password").value = disney.password;
+    if (disney.phone) {
+      const phoneInput = document.getElementById("acc-phone");
+      if (phoneInput) phoneInput.value = disney.phone;
+    }
+
+    if (disney.profiles && disney.profiles.length > 0) {
+      const screensInput = document.getElementById("pkg-screens");
+      if (screensInput) screensInput.value = disney.profiles.length;
+      renderScreensInputs(disney.profiles.length);
+
+      const profileInputs = document.querySelectorAll(".acc-profile-input");
+      const pinInputs = document.querySelectorAll(".acc-pin-input");
+      const deviceSelects = document.querySelectorAll(".acc-device-type-select");
+
+      disney.profiles.forEach((prof, idx) => {
+        if (profileInputs[idx]) profileInputs[idx].value = prof.name;
+        if (pinInputs[idx]) pinInputs[idx].value = prof.pin;
+        if (deviceSelects[idx]) deviceSelects[idx].value = prof.device_type === "สมาร์ททีวี" ? "tv" : "mobile";
+      });
+    }
+
+    flashParserSuccess(input);
+    showToast("✨ ดึงข้อมูล Master Disney+ เรียบร้อย!");
+    return;
+  }
+
+  // 3. Multi-account detection
+  const multi = parseMultiAccountText(text);
+  if (multi.length > 1) {
+    if (batchInfo) {
+      batchInfo.style.display = "block";
+      batchInfo.innerHTML = `✨ ตรวจพบ <b>${multi.length} บัญชี</b> ในชุดข้อความ! (พร้อมสร้างสต็อกแบบกลุ่ม)`;
+    }
+    // Populate the first account into inputs
+    document.getElementById("acc-email").value = multi[0].email;
+    document.getElementById("acc-password").value = multi[0].password;
+    if (multi[0].otp_url) {
+      const otpInput = document.getElementById("acc-otp-link");
+      if (otpInput) otpInput.value = multi[0].otp_url;
+    }
+    flashParserSuccess(input);
+    return;
+  } else if (batchInfo) {
+    batchInfo.style.display = "none";
+  }
+
+  // 4. Single-account parsing
+  const single = parseRawAccountText(text);
+  if (single.emailOrPhone) {
+    document.getElementById("acc-email").value = single.emailOrPhone;
+  }
+  if (single.password) {
+    document.getElementById("acc-password").value = single.password;
+  }
+  if (single.expiryDateStr) {
+    const expInput = document.getElementById("acc-expiry");
+    if (expInput) {
+      expInput.value = single.expiryDateStr;
+      updateExpiryText(new Date(single.expiryDateStr));
+    }
+  }
+  if (single.otpUrl) {
+    const otpInput = document.getElementById("acc-otp-link");
+    if (otpInput) otpInput.value = single.otpUrl;
+  }
+
+  // If specific screen / Netflix profile found
+  if (single.netflixProfile) {
+    const profInputs = document.querySelectorAll(".acc-profile-input");
+    const pinInputs = document.querySelectorAll(".acc-pin-input");
+    if (single.netflixProfile.screenNum && profInputs[0]) {
+      profInputs[0].value = `จอ ${single.netflixProfile.screenNum}`;
+    }
+    if (single.netflixProfile.pin && pinInputs[0]) {
+      pinInputs[0].value = single.netflixProfile.pin;
+    }
+  }
+
+  flashParserSuccess(input);
+  showToast("🟢 แยกข้อมูลอีเมลและรหัสผ่านอัตโนมัติสำเร็จ!");
+}
+
+function flashParserSuccess(el) {
+  el.classList.remove("parser-success-flash");
+  void el.offsetWidth;
+  el.classList.add("parser-success-flash");
+}
+
+function parseRawAccountText(cleanText) {
+  let emailOrPhone = "";
+  let password = "";
+  let expiryDateStr = "";
+  let otpUrl = "";
+  let netflixProfile = null;
+
+  // 1. Extract OTP link if present
+  const otpMatch = cleanText.match(/(https?:\/\/(?:code\.varinzxify\.com|abeslife\.com|[\w.-]+\.[\w.-]+)\/[^\s\n\r]*)/i);
+  if (otpMatch) {
+    otpUrl = otpMatch[1].trim();
+  }
+
+  // 2. Special format for Netflix or labeled raw text
+  const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
+  if (emailMatch) {
+    emailOrPhone = emailMatch[0].trim();
+  }
+
+  const pwMatch = cleanText.match(/(?:พาสเวิร์ด|พาส|Password|pass(?:word)?|รหัสผ่าน|รหัส)\s*[:\s\t\-=]*\s*([a-zA-Z0-9_!@#$%^&*.\-]+?)(?=(?:จอ|โปรไฟล์|pin|exp|หมด|♡|✬|\s|$))/i);
+  if (pwMatch) {
+    password = pwMatch[1].trim();
+  }
+
+  const screenMatch = cleanText.match(/(?:จอ|โปรไฟล์)\s*[:\s\t\-=]*\s*(\d+)/i);
+  const screenNum = screenMatch ? parseInt(screenMatch[1], 10) : null;
+
+  const pinMatch = cleanText.match(/(?:Pin|PIN|พิน|พินเมล|รหัส PIN)\s*[:\s\t\-=]*\s*(\d+)/i);
+  const pinCode = pinMatch ? pinMatch[1].trim() : "";
+
+  if (screenNum !== null && !isNaN(screenNum)) {
+    netflixProfile = { screenNum, pin: pinCode };
+  }
+
+  // 3. Extract expiry date (e.g. Exp 03/08/2026 or 2026-08-03)
+  const dateMatch = cleanText.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/) || cleanText.match(/\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/);
+  if (dateMatch) {
+    let day, month, year;
+    if (dateMatch[1].length === 4) {
+      year = parseInt(dateMatch[1], 10);
+      month = parseInt(dateMatch[2], 10);
+      day = parseInt(dateMatch[3], 10);
+    } else {
+      day = parseInt(dateMatch[1], 10);
+      month = parseInt(dateMatch[2], 10);
+      year = parseInt(dateMatch[3], 10);
+    }
+    if (year > 2400) year -= 543;
+    const parsedDate = new Date(year, month - 1, day, 23, 59, 0);
+    if (!isNaN(parsedDate.getTime())) {
+      const pad = n => String(n).padStart(2, '0');
+      expiryDateStr = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth() + 1)}-${pad(parsedDate.getDate())}T23:59`;
+    }
+  }
+
+  // 4. Line by line delimiter split fallback (e.g. user:pass or user|pass)
+  if (!password) {
+    const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const parts = line.split(/[\s|:]+/).map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const [first, second] = parts;
+        if (/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(first) && !/^(email|user|login)$/i.test(first)) {
+          emailOrPhone = first;
+          password = second;
+          break;
+        }
+      }
+    }
+  }
+
+  return { emailOrPhone, password, expiryDateStr, otpUrl, netflixProfile };
+}
+
+function parseMultiAccountText(cleanText) {
+  const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const accounts = [];
+
+  for (const line of lines) {
+    const emailMatch = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (!emailMatch) continue;
+
+    const email = emailMatch[0].trim();
+    let remaining = line.replace(email, "").trim();
+    remaining = remaining.replace(/^[:|\s\-]+/, "").trim();
+
+    const parts = remaining.split(/[\s|:]+/).filter(Boolean);
+    const password = parts[0] || "";
+
+    if (password && password.length >= 4 && !password.includes("@")) {
+      const otpMatch = line.match(/(https?:\/\/[^\s\n\r]+)/i);
+      accounts.push({
+        email,
+        password,
+        otp_url: otpMatch ? otpMatch[1].trim() : null
+      });
+    }
+  }
+
+  return accounts;
+}
+
+function parseDisneyMasterAccountText(rawText) {
+  const text = rawText.replace(/\u00A0/g, ' ');
+  let email = "";
+  const emailMatch = text.match(/(?:Mail|เมล|email)[:\s\t\-]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i) ||
+    text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) email = (emailMatch[1] || emailMatch[0]).trim();
+
+  let phone = "";
+  const phoneMatch = text.match(/(?:เบอร์|tel|phone)[:\s\t\-]*(\d{9,10})/i) ||
+    text.match(/\b(0[689]\d{8})\b/);
+  if (phoneMatch) phone = (phoneMatch[1] || phoneMatch[0]).trim();
+
+  let password = "";
+  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)[:\s\t\-]+([^\s\n\r]+)/i) ||
+    text.match(/(?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass)[:\s\t\-]+([^\s\n\r]+)/i);
+  if (pinMailMatch) password = (pinMailMatch[1] || pinMailMatch[0]).trim();
+
+  const profiles = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    const l = line.trim();
+    if (!l) continue;
+
+    const tvMatch = l.match(/(?:TV|ทีวี)\s*(\d*)[:\s\t\-]+(\d{4,6})/i);
+    if (tvMatch) {
+      const tvName = tvMatch[1] ? ("TV" + tvMatch[1]) : "TV";
+      profiles.push({ name: tvName, pin: tvMatch[2].trim(), device_type: "สมาร์ททีวี" });
+      continue;
+    }
+
+    const screenMatches = l.match(/(?:จอ|โปรไฟล์)\s*(\d+)[:\s\t\-]+(\d{4,6})/i);
+    if (screenMatches) {
+      profiles.push({ name: `จอ ${screenMatches[1]}`, pin: screenMatches[2].trim(), device_type: "มือถือ" });
+    }
+  }
+
+  return { email, phone, password, profiles };
+}
+
+// ----------------------------------------------------------------------------
+// 💾 Save / Submit Stock Form
+// ----------------------------------------------------------------------------
+async function submitAccountForm() {
+  haptic();
+  const emailInput = document.getElementById("acc-email");
+  const passwordInput = document.getElementById("acc-password");
+  const email = emailInput ? emailInput.value.trim() : "";
+  const password = passwordInput ? passwordInput.value.trim() : "";
+  const appId = document.getElementById("acc-app-select")?.value;
+  const packageId = document.getElementById("acc-package-select")?.value || null;
+  const status = document.getElementById("acc-status")?.value || "available";
+  const expiryRaw = document.getElementById("acc-expiry")?.value;
+  const otpUrl = document.getElementById("acc-otp-link")?.value.trim() || null;
+  const phoneVal = document.getElementById("acc-phone")?.value.trim() || null;
+
+  if (!appId) {
+    showToast("❌ กรุณาเลือกแอปพลิเคชันก่อน!");
+    return;
+  }
+
+  const quickPasteText = (document.getElementById("acc-quick-paste")?.value || "").trim();
+  const multiAccounts = parseMultiAccountText(quickPasteText);
+  const isMultiBatch = multiAccounts.length > 1;
+
+  if (!isMultiBatch) {
+    if (!email) {
+      showToast("❌ กรุณากรอกอีเมลหรือบัญชีผู้ใช้!");
+      emailInput?.focus();
+      return;
+    }
+    if (!password) {
+      showToast("❌ กรุณากรอกรหัสผ่าน!");
+      passwordInput?.focus();
+      return;
+    }
+  }
+
+  const submitBtn = document.getElementById("btn-submit-account");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = "⏳ กำลังบันทึกสต็อก...";
+  }
+
+  const expiryISO = expiryRaw ? new Date(expiryRaw).toISOString() : null;
+  const profileInputs = document.querySelectorAll(".acc-profile-input");
+  const pinInputs = document.querySelectorAll(".acc-pin-input");
+  const checkboxes = document.querySelectorAll(".acc-screen-enable-checkbox");
+  const deviceSelects = document.querySelectorAll(".acc-device-type-select");
+
+  const records = [];
+
+  if (isMultiBatch) {
+    // Save multiple accounts at once with specified screens
+    const screensCount = Math.max(1, parseInt(document.getElementById("pkg-screens")?.value, 10) || 1);
+    multiAccounts.forEach(acc => {
+      for (let i = 1; i <= screensCount; i++) {
+        records.push({
+          app_id: appId,
+          package_id: packageId,
+          email: acc.email,
+          password: acc.password,
+          profile_name: `จอ ${i}`,
+          pin_code: null,
+          device_type: i > 4 ? "tv" : "mobile",
+          expiry_date: expiryISO,
+          status: status,
+          supplier_url: acc.otp_url || otpUrl,
+          cookie_data: acc.otp_url || otpUrl || null
+        });
+      }
+    });
+  } else {
+    // Single account with configured screens
+    for (let i = 0; i < profileInputs.length; i++) {
+      const isEnabled = checkboxes[i] ? checkboxes[i].checked : true;
+      const profName = (profileInputs[i].value || "").trim() || `จอ ${i + 1}`;
+      const pin = pinInputs[i] ? pinInputs[i].value.trim() : null;
+      const dev = deviceSelects[i] ? deviceSelects[i].value : "mobile";
+
+      records.push({
+        app_id: appId,
+        package_id: packageId,
+        email: email,
+        password: password,
+        profile_name: profName,
+        pin_code: pin || null,
+        device_type: dev,
+        expiry_date: expiryISO,
+        status: isEnabled ? status : "broken",
+        supplier_url: otpUrl,
+        cookie_data: otpUrl || phoneVal || null
+      });
+    }
+
+    if (records.length === 0) {
+      records.push({
+        app_id: appId,
+        package_id: packageId,
+        email: email,
+        password: password,
+        profile_name: "จอ 1",
+        pin_code: null,
+        device_type: "mobile",
+        expiry_date: expiryISO,
+        status: status,
+        supplier_url: otpUrl,
+        cookie_data: otpUrl || phoneVal || null
+      });
+    }
+  }
+
+  try {
+    let saveRes;
+    if (currentShop.type === "supabase") {
+      saveRes = await fetch(`${currentShop.url}/rest/v1/accounts`, {
+        method: "POST",
+        headers: {
+          "apikey": currentShop.key,
+          "Authorization": `Bearer ${currentShop.key}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(records)
+      });
+    } else {
+      saveRes = await fetch(`${currentShop.url}/api/accounts`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${currentShop.key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(records)
+      });
+    }
+
+    if (!saveRes.ok) {
+      const errTxt = await saveRes.text();
+      throw new Error(errTxt || `HTTP Error ${saveRes.status}`);
+    }
+
+    showToast(`🟢 เพิ่มสต็อกสำเร็จ (สร้าง ${records.length} หน้าจอ)! ✨`);
+    resetStockForm();
+    await loadData(true);
+    selectChip(appId);
+  } catch (err) {
+    console.error("Save account error:", err);
+    showToast("❌ บันทึกสต็อกไม่สำเร็จ: " + err.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = "💾 บันทึกสต็อกเข้าคลัง";
+    }
+  }
+}
+
+function resetStockForm() {
+  const quickPaste = document.getElementById("acc-quick-paste");
+  if (quickPaste) quickPaste.value = "";
+  const batchInfo = document.getElementById("acc-quick-paste-batch-info");
+  if (batchInfo) {
+    batchInfo.style.display = "none";
+    batchInfo.textContent = "";
+  }
+  const emailInput = document.getElementById("acc-email");
+  if (emailInput) emailInput.value = "";
+  const passwordInput = document.getElementById("acc-password");
+  if (passwordInput) passwordInput.value = "";
+  const otpInput = document.getElementById("acc-otp-link");
+  if (otpInput) otpInput.value = "";
+  const phoneInput = document.getElementById("acc-phone");
+  if (phoneInput) phoneInput.value = "";
+
+  const pkgSelect = document.getElementById("acc-package-select");
+  if (pkgSelect && pkgSelect.options.length > 0) {
+    pkgSelect.selectedIndex = 0;
+    onStockFormPackageSelected(null);
+  }
+}
+
+function initStockFormEventListeners() {
+  // Quick paste input event
+  const quickPaste = document.getElementById("acc-quick-paste");
+  if (quickPaste) {
+    quickPaste.addEventListener("input", handleQuickPaste);
+  }
+
+  // App select change
+  const appSelect = document.getElementById("acc-app-select");
+  if (appSelect) {
+    appSelect.addEventListener("change", () => {
+      updateStockFormPackages();
+    });
+  }
+
+  // Package select change
+  const pkgSelect = document.getElementById("acc-package-select");
+  if (pkgSelect) {
+    pkgSelect.addEventListener("change", () => {
+      onStockFormPackageSelected(null);
+    });
+  }
+
+  // Screens count input change
+  const screensInput = document.getElementById("pkg-screens");
+  if (screensInput) {
+    screensInput.addEventListener("input", (e) => {
+      renderScreensInputs(e.target.value);
+    });
+  }
+
+  // Expiry datetime change
+  const expInput = document.getElementById("acc-expiry");
+  if (expInput) {
+    expInput.addEventListener("change", (e) => {
+      if (e.target.value) {
+        updateExpiryText(new Date(e.target.value));
+      }
+    });
+  }
+
+  // Quick date buttons
+  document.querySelectorAll(".quick-date-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      const days = parseInt(btn.dataset.days, 10);
+      if (!isNaN(days)) setDefaultExpiry(days);
+    });
+  });
+
+  // Random password button
+  const randomPwBtn = document.getElementById("btn-random-password-form");
+  if (randomPwBtn) {
+    randomPwBtn.addEventListener("click", () => {
+      haptic();
+      const pw = generateRandomPassword();
+      const pwInput = document.getElementById("acc-password");
+      if (pwInput) pwInput.value = pw;
+      navigator.clipboard.writeText(pw).catch(() => {});
+      showToast(`🎲 สุ่มรหัสใหม่ (${pw}) และคัดลอกแล้ว!`);
+    });
+  }
+
+  // Copy email & password buttons
+  const copyEmailBtn = document.getElementById("btn-copy-acc-email");
+  if (copyEmailBtn) {
+    copyEmailBtn.addEventListener("click", () => {
+      const email = document.getElementById("acc-email")?.value;
+      if (email) {
+        navigator.clipboard.writeText(email).catch(() => {});
+        showToast("📋 คัดลอกอีเมลแล้ว!");
+      }
+    });
+  }
+  const copyPwBtn = document.getElementById("btn-copy-acc-password");
+  if (copyPwBtn) {
+    copyPwBtn.addEventListener("click", () => {
+      const pw = document.getElementById("acc-password")?.value;
+      if (pw) {
+        navigator.clipboard.writeText(pw).catch(() => {});
+        showToast("📋 คัดลอกรหัสผ่านแล้ว!");
+      }
+    });
+  }
+
+  // OTP chips
+  document.querySelectorAll(".otp-chip-btn").forEach(chip => {
+    chip.addEventListener("click", () => {
+      haptic();
+      const url = chip.dataset.url;
+      const otpInput = document.getElementById("acc-otp-link");
+      if (otpInput && url) {
+        otpInput.value = url;
+        showToast(`🌐 เลือกลิงก์ OTP: ${url}`);
+      }
+    });
+  });
+
+  // Event delegation for random PIN inside screens container
+  const screensContainer = document.getElementById("acc-screens-container");
+  if (screensContainer) {
+    screensContainer.addEventListener("click", (e) => {
+      const pinBtn = e.target.closest(".btn-random-pin-mini");
+      if (pinBtn) {
+        haptic();
+        const pinInput = pinBtn.closest(".prem-screen-card")?.querySelector(".acc-pin-input");
+        if (pinInput) {
+          const newPin = generateRandomPin();
+          pinInput.value = newPin;
+          showToast(`🎲 สุ่ม PIN: ${newPin}`);
+        }
+      }
+    });
+  }
+
+  // Submit button
+  const submitBtn = document.getElementById("btn-submit-account");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", submitAccountForm);
+  }
+}
+

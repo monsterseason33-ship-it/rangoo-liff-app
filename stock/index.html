@@ -43,6 +43,7 @@
       </div>
 
       <div class="header-actions">
+        <button type="button" id="btn-toggle-stock-form-header" class="header-add-stock-btn" title="เพิ่มสต็อกบัญชีใหม่">➕ เพิ่มสต็อก</button>
         <button type="button" id="btn-refresh" class="icon-btn" title="รีเฟรชสต็อก">🔄</button>
       </div>
     </div>
@@ -78,11 +79,134 @@
 
   <!-- Quick Tools Bar -->
   <section class="quick-tools-bar">
-    <span class="tool-left">⚡ กรองบัญชีหมดอายุออก 100% (เรียลไทม์)</span>
+    <span class="tool-left">⚡ จัดการสต็อกและตรวจสอบเรียลไทม์</span>
     <div class="tool-right">
+      <button type="button" id="btn-toggle-stock-form" class="pill-tool-btn primary-tool-btn">➕ เพิ่มสต็อก</button>
       <button type="button" id="btn-toggle-pwd" class="pill-tool-btn">🙈 ซ่อนรหัส</button>
     </div>
   </section>
+
+  <!-- Expandable Form Card matching div#stock-form-panel.form-panel.prem-card.expanded -->
+  <div id="stock-form-panel" class="form-panel prem-card expanded">
+    <div class="stock-form-header">
+      <div class="form-action-title" id="form-action-title">
+        <span class="accent-dot"></span>
+        <span>เพิ่มบัญชีเข้าคลัง (Add Stock)</span>
+      </div>
+      <button type="button" id="btn-close-form-panel" class="btn-close-form" title="ย่อ/ปิดฟอร์ม">✕</button>
+    </div>
+
+    <!-- Quick Paste Textarea -->
+    <div class="prem-form-group" style="margin-bottom: 8px;">
+      <label class="prem-label">📋 วางข้อมูลด่วน (Quick Paste)</label>
+      <textarea id="acc-quick-paste" class="prem-input" style="height: 52px; font-size: 11px; border-color: rgba(62, 207, 142, 0.45); resize: none; margin-bottom: 4px;" placeholder="📋 วางชุดข้อความดิบที่นี่เพื่อดึงข้อมูลออโต้... (เช่น email:pass หรือ ข้อความจัดส่ง)"></textarea>
+      <div id="acc-quick-paste-batch-info" style="display: none; margin-bottom: 8px; font-size: 11px; padding: 6px 10px; border-radius: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-weight: bold; line-height: 1.4;"></div>
+    </div>
+
+    <!-- App and Package Selection -->
+    <div class="prem-form-grid" style="grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+      <div>
+        <label class="prem-label">🎬 แอปพลิเคชัน</label>
+        <select id="acc-app-select" class="prem-select">
+          <option value="">-- เลือกแอป --</option>
+        </select>
+      </div>
+      <div>
+        <label id="lbl-acc-package-select" class="prem-label">📦 ประเภทแพ็คเกจ</label>
+        <select id="acc-package-select" class="prem-select">
+          <option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Screens count & Status -->
+    <div class="prem-form-grid" style="grid-template-columns: 1.2fr 1fr; gap: 8px; margin-bottom: 8px;">
+      <div>
+        <label class="prem-label">👥 จำนวนจอ/โปรไฟล์ของบัญชีนี้</label>
+        <input type="number" id="pkg-screens" class="prem-input" min="1" max="10" value="1" placeholder="จำนวนจอ">
+      </div>
+      <div>
+        <label class="prem-label">🟢 สถานะบัญชี</label>
+        <select id="acc-status" class="prem-select">
+          <option value="available" selected>ว่าง (Available)</option>
+          <option value="used">ขายแล้ว (Used)</option>
+          <option value="broken">มีปัญหา (Broken)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Credentials: Email & Password -->
+    <div class="prem-form-group" style="margin-bottom: 8px;">
+      <label class="prem-label">✉️ อีเมล / บัญชีผู้ใช้</label>
+      <div style="display: flex; gap: 6px;">
+        <input type="text" id="acc-email" class="prem-input" placeholder="อีเมล / เบอร์โทรศัพท์" style="margin-bottom: 0; flex: 1;">
+        <button type="button" id="btn-copy-acc-email" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 12px; margin-bottom: 0;" title="คัดลอกอีเมล">📋</button>
+      </div>
+    </div>
+
+    <div class="prem-form-group" style="margin-bottom: 8px;">
+      <label class="prem-label">🔑 รหัสผ่าน (Password)</label>
+      <div style="display: flex; gap: 6px;">
+        <input type="text" id="acc-password" class="prem-input" placeholder="รหัสผ่าน" style="margin-bottom: 0; flex: 1;">
+        <button type="button" id="btn-random-password-form" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 10px; margin-bottom: 0; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; font-size: 11px; font-weight: 700; white-space: nowrap;" title="สุ่มรหัสผ่าน">🎲 สุ่ม</button>
+        <button type="button" id="btn-copy-acc-password" class="prem-btn prem-btn-secondary" style="width: auto; padding: 0 12px; margin-bottom: 0;" title="คัดลอกรหัสผ่าน">📋</button>
+      </div>
+    </div>
+
+    <!-- Optional OTP Portal Link -->
+    <div id="acc-otp-wrapper" class="prem-form-group" style="margin-bottom: 8px;">
+      <label class="prem-label">🌐 ลิงก์เว็บรับ OTP (เช่น Varinzxify, Abeslife)</label>
+      <input type="url" id="acc-otp-link" class="prem-input" placeholder="https://code.varinzxify.com/ หรือ https://abeslife.com/" style="margin-bottom: 4px;">
+      <div class="otp-quick-chips">
+        <button type="button" class="otp-chip-btn" data-url="https://code.varinzxify.com/">🌐 Varinzxify</button>
+        <button type="button" class="otp-chip-btn" data-url="https://abeslife.com/">🌐 Abeslife</button>
+      </div>
+    </div>
+
+    <!-- Optional Disney Phone Number -->
+    <div id="acc-phone-wrapper" class="prem-form-group" style="display: none; margin-bottom: 8px;">
+      <label class="prem-label">📱 เบอร์โทรศัพท์ Disney+</label>
+      <input type="text" id="acc-phone" class="prem-input" placeholder="เช่น 0654985371" style="margin-bottom: 0;">
+    </div>
+
+    <!-- Dynamic Screens Container -->
+    <div class="prem-form-group" style="margin-bottom: 10px;">
+      <label class="prem-label" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>👤 รายละเอียดโปรไฟล์ / หน้าจอ</span>
+        <span style="font-size: 10px; color: var(--text-muted);">สร้างตามจำนวนจออัตโนมัติ</span>
+      </label>
+      <div id="acc-screens-container" style="display: flex; flex-direction: column; gap: 6px;">
+        <!-- Dynamic Screen Rows -->
+      </div>
+    </div>
+
+    <!-- Expiry Date Section -->
+    <div class="prem-form-group" style="margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <label class="prem-label" style="margin-bottom: 0;">📅 วันหมดอายุบัญชี (Expiry Date)</label>
+        <span id="expiry-auto-badge" class="expiry-auto-pill">⚡ คำนวณอัตโนมัติ</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 6px;">
+        <button type="button" class="prem-btn prem-btn-secondary quick-date-btn" data-days="7">+7 วัน</button>
+        <button type="button" class="prem-btn prem-btn-secondary quick-date-btn" data-days="30">+30 วัน</button>
+        <button type="button" class="prem-btn prem-btn-secondary quick-date-btn" data-days="90">+90 วัน</button>
+        <button type="button" class="prem-btn prem-btn-secondary quick-date-btn" data-days="365">+1 ปี</button>
+      </div>
+      <div style="position: relative;">
+        <div id="acc-expiry-trigger" class="prem-input" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+          <span id="acc-expiry-text" style="color: #38bdf8; font-weight: 600;">📅 วันหมดอายุจะแสดงที่นี่...</span>
+          <span style="font-size: 14px;">📅</span>
+        </div>
+        <input type="datetime-local" id="acc-expiry" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+      </div>
+    </div>
+
+    <!-- Form Submit Buttons -->
+    <div style="display: flex; gap: 8px;">
+      <button type="button" id="btn-submit-account" class="prem-btn prem-btn-primary" style="flex: 1.4;">💾 บันทึกสต็อกเข้าคลัง</button>
+      <button type="button" id="btn-cancel-account" class="prem-btn prem-btn-secondary" style="flex: 0.8;">ย่อฟอร์ม</button>
+    </div>
+  </div>
 
   <!-- Main Feed: Grouped by App & Package -->
   <main class="stock-feed" id="stock-feed">
