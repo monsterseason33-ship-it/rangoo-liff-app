@@ -704,7 +704,7 @@ function renderStockFeed() {
               <span class="app-brand-badge">${theme.icon}</span>
               <span>${escapeHtml(group.appName.toUpperCase())}</span>
             </div>
-            ${group.pkgName ? `<span class="group-pkg-name">[${escapeHtml(group.pkgName)}]</span>` : ""}
+            ${group.pkgName ? `<span class="group-pkg-name">[${escapeHtml(group.pkgName)}]</span>` : `<span class="group-pkg-name unassigned">[⚠️ ยังไม่กำหนดแพ็คเกจ]</span>`}
           </div>
           <button type="button" class="group-copy-app-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกสต็อกทั้งแอปนี้">
             📋 ก็อปปี้ทั้งแอป (${group.totalScreens})
