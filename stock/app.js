@@ -22,13 +22,21 @@ const PRESET_SHOPS = [
 
 // App State (Default: ร้านแอดมิน Cloudflare D1)
 let currentShop = PRESET_SHOPS[0];
+let currentView = "stock"; // "stock" | "bindings"
 let rawAccounts = [];
+let allAccountsList = [];
+let rawBindings = [];
 let rawApps = [];
 let rawPackages = [];
 let activeAppFilter = "all";
 let searchQuery = "";
+let bindingSearchQuery = "";
+let bindingFilter = "all"; // "all" | "active" | "expiring" | "expired" | "reverted"
 let isPasswordHidden = false;
 let appGroups = {};
+let targetBindingForSwap = null;
+let targetBindingForExtend = null;
+let targetBindingForEditCreds = null;
 
 // Register Service Worker for PWA (Only on web http / https protocols)
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
@@ -67,22 +75,107 @@ function updateShopBadgeText() {
 }
 
 function initUIEventListeners() {
-  // Search
+  // Mode Tabs Switching
+  const tabBtnStock = document.getElementById("tab-btn-stock");
+  if (tabBtnStock) {
+    tabBtnStock.addEventListener("click", () => switchView("stock"));
+  }
+  const tabBtnBindings = document.getElementById("tab-btn-bindings");
+  if (tabBtnBindings) {
+    tabBtnBindings.addEventListener("click", () => switchView("bindings"));
+  }
+
+  // Top Search Input (Controls current active view)
   const searchInput = document.getElementById("search-input");
   const searchClear = document.getElementById("search-clear");
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
-      searchQuery = e.target.value.trim().toLowerCase();
-      if (searchClear) searchClear.style.display = searchQuery ? "block" : "none";
-      renderStockFeed();
+      const val = e.target.value.trim();
+      if (searchClear) searchClear.style.display = val ? "block" : "none";
+
+      if (currentView === "bindings") {
+        bindingSearchQuery = val.toLowerCase();
+        const bindInput = document.getElementById("binding-search-input");
+        if (bindInput) bindInput.value = val;
+        renderBindingsFeed();
+      } else {
+        searchQuery = val.toLowerCase();
+        renderStockFeed();
+      }
     });
   }
   if (searchClear) {
     searchClear.addEventListener("click", () => {
       if (searchInput) searchInput.value = "";
-      searchQuery = "";
       searchClear.style.display = "none";
-      renderStockFeed();
+      if (currentView === "bindings") {
+        bindingSearchQuery = "";
+        const bindInput = document.getElementById("binding-search-input");
+        if (bindInput) bindInput.value = "";
+        renderBindingsFeed();
+      } else {
+        searchQuery = "";
+        renderStockFeed();
+      }
+    });
+  }
+
+  // Dedicated Binding Search Input
+  const bindSearchInput = document.getElementById("binding-search-input");
+  const bindSearchClear = document.getElementById("btn-binding-search-clear");
+  if (bindSearchInput) {
+    bindSearchInput.addEventListener("input", (e) => {
+      const val = e.target.value.trim();
+      bindingSearchQuery = val.toLowerCase();
+      if (bindSearchClear) bindSearchClear.style.display = val ? "block" : "none";
+      if (searchInput && currentView === "bindings") {
+        searchInput.value = val;
+        if (searchClear) searchClear.style.display = val ? "block" : "none";
+      }
+      renderBindingsFeed();
+    });
+  }
+  if (bindSearchClear) {
+    bindSearchClear.addEventListener("click", () => {
+      if (bindSearchInput) bindSearchInput.value = "";
+      bindingSearchQuery = "";
+      bindSearchClear.style.display = "none";
+      if (searchInput && currentView === "bindings") {
+        searchInput.value = "";
+        if (searchClear) searchClear.style.display = "none";
+      }
+      renderBindingsFeed();
+    });
+  }
+
+  // Random Customer Button (1-Tap instant randomize from database)
+  const randomCustBtn = document.getElementById("btn-random-customer");
+  if (randomCustBtn) {
+    randomCustBtn.addEventListener("click", pickRandomCustomer);
+  }
+
+  // Refresh Bindings Button
+  const refreshBindBtn = document.getElementById("btn-refresh-bindings");
+  if (refreshBindBtn) {
+    refreshBindBtn.addEventListener("click", () => {
+      haptic();
+      showToast("⏳ กำลังรีเฟรชการผูกสิทธิ์...");
+      loadData(true);
+    });
+  }
+
+  // Binding Filter Chips Event Delegation
+  const bindFilterChips = document.getElementById("binding-filter-chips");
+  if (bindFilterChips) {
+    bindFilterChips.addEventListener("click", (e) => {
+      const chip = e.target.closest(".bind-filter-chip");
+      if (chip && chip.dataset.filter) {
+        haptic();
+        bindingFilter = chip.dataset.filter;
+        bindFilterChips.querySelectorAll(".bind-filter-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        renderBindingsFeed();
+      }
     });
   }
 
@@ -139,6 +232,9 @@ function initUIEventListeners() {
 
   // Initialize Stock Form Event Listeners
   initStockFormEventListeners();
+
+  // Initialize Troubleshooting Modals Listeners
+  initTroubleshootingModalListeners();
 
   // Chips Event Delegation (App filters)
   const chipsContainer = document.getElementById("chips-container");
@@ -249,6 +345,9 @@ async function loadData(force = false) {
     renderStockFeed();
     updateMetrics();
     populateStockFormApps();
+    renderBindingsFeed();
+    updateBindingMetrics();
+    updateTabBadges();
 
   } catch (err) {
     console.error("Fetch data error:", err);
@@ -263,16 +362,19 @@ async function loadFromSupabase() {
     "Content-Type": "application/json"
   };
 
-  const [accRes, appsRes, pkgsRes] = await Promise.all([
-    fetch(`${currentShop.url}/rest/v1/accounts?status=eq.available&select=*`, { headers }),
+  const [accRes, appsRes, pkgsRes, bindsRes] = await Promise.all([
+    fetch(`${currentShop.url}/rest/v1/accounts?select=*`, { headers }),
     fetch(`${currentShop.url}/rest/v1/apps?select=*`, { headers }),
-    fetch(`${currentShop.url}/rest/v1/packages?select=*`, { headers })
+    fetch(`${currentShop.url}/rest/v1/packages?select=*`, { headers }),
+    fetch(`${currentShop.url}/rest/v1/customer_bindings?select=*&order=created_at.desc&limit=1000`, { headers })
   ]);
 
   if (!accRes.ok) throw new Error("Accounts API Error " + accRes.status);
-  rawAccounts = await accRes.json();
+  allAccountsList = await accRes.json();
+  rawAccounts = allAccountsList.filter(a => a.status === "available");
   rawApps = appsRes.ok ? await appsRes.json() : [];
   rawPackages = pkgsRes.ok ? await pkgsRes.json() : [];
+  rawBindings = bindsRes.ok ? await bindsRes.json() : [];
 }
 
 async function loadFromCloudflare() {
@@ -281,15 +383,18 @@ async function loadFromCloudflare() {
     "Content-Type": "application/json"
   };
 
-  const [accRes, appsRes, pkgsRes] = await Promise.all([
-    fetch(`${currentShop.url}/api/accounts?status=available`, { headers }),
+  const [accRes, appsRes, pkgsRes, bindsRes] = await Promise.all([
+    fetch(`${currentShop.url}/api/accounts`, { headers }),
     fetch(`${currentShop.url}/api/apps`, { headers }),
-    fetch(`${currentShop.url}/api/packages`, { headers })
+    fetch(`${currentShop.url}/api/packages`, { headers }),
+    fetch(`${currentShop.url}/api/customer_bindings?order=created_at.desc&limit=1000`, { headers })
   ]);
 
-  rawAccounts = accRes.ok ? await accRes.json() : [];
+  allAccountsList = accRes.ok ? await accRes.json() : [];
+  rawAccounts = allAccountsList.filter(a => a.status === "available");
   rawApps = appsRes.ok ? await appsRes.json() : [];
   rawPackages = pkgsRes.ok ? await pkgsRes.json() : [];
+  rawBindings = bindsRes.ok ? await bindsRes.json() : [];
 }
 
 // ----------------------------------------------------------------------------
@@ -1942,4 +2047,1067 @@ function initStockFormEventListeners() {
     submitBtn.addEventListener("click", submitAccountForm);
   }
 }
+
+// ============================================================================
+// 🔍 View Mode Switcher (Stock Feed vs Customer Bindings & Troubleshooting)
+// ============================================================================
+
+function switchView(viewName) {
+  haptic();
+  currentView = viewName;
+
+  const tabStock = document.getElementById("tab-btn-stock");
+  const tabBindings = document.getElementById("tab-btn-bindings");
+  const secStock = document.getElementById("section-stock-view");
+  const secBindings = document.getElementById("section-bindings-view");
+  const searchInput = document.getElementById("search-input");
+  const searchClear = document.getElementById("search-clear");
+
+  if (viewName === "bindings") {
+    if (tabStock) tabStock.classList.remove("active");
+    if (tabBindings) tabBindings.classList.add("active");
+    if (secStock) secStock.style.display = "none";
+    if (secBindings) secBindings.style.display = "block";
+
+    if (searchInput) {
+      searchInput.placeholder = "ค้นหาชื่อลูกค้า, ID จอ (#153), อีเมล, แอป หรือรหัสผ่าน...";
+      searchInput.value = bindingSearchQuery;
+      if (searchClear) searchClear.style.display = bindingSearchQuery ? "block" : "none";
+    }
+
+    renderBindingsFeed();
+    updateBindingMetrics();
+  } else {
+    if (tabStock) tabStock.classList.add("active");
+    if (tabBindings) tabBindings.classList.remove("active");
+    if (secStock) secStock.style.display = "block";
+    if (secBindings) secBindings.style.display = "none";
+
+    if (searchInput) {
+      searchInput.placeholder = "ค้นหาแอป, แพ็กเกจ, หรืออีเมล...";
+      searchInput.value = searchQuery;
+      if (searchClear) searchClear.style.display = searchQuery ? "block" : "none";
+    }
+
+    renderStockFeed();
+    updateMetrics();
+  }
+
+  updateTabBadges();
+}
+
+function updateTabBadges(totalScreens = null) {
+  if (totalScreens === null) {
+    totalScreens = 0;
+    Object.values(appGroups).forEach(g => {
+      totalScreens += g.totalScreens;
+    });
+  }
+
+  const stockBadge = document.getElementById("tab-badge-stock");
+  if (stockBadge) stockBadge.textContent = `${totalScreens} จอ`;
+
+  const bindBadge = document.getElementById("tab-badge-bindings");
+  if (bindBadge) bindBadge.textContent = `${rawBindings.length} สิทธิ์`;
+}
+
+function updateBindingMetrics() {
+  const now = new Date();
+  let activeCount = 0;
+  let expiringCount = 0;
+  let revertedCount = 0;
+
+  rawBindings.forEach(b => {
+    if (b.reverted) {
+      revertedCount++;
+      return;
+    }
+    const isExpired = b.expiry_date ? (new Date(b.expiry_date) <= now) : false;
+    if (isExpired) {
+      return;
+    }
+    activeCount++;
+    if (b.expiry_date) {
+      const diffMs = new Date(b.expiry_date).getTime() - now.getTime();
+      if (diffMs > 0 && diffMs <= 3 * 24 * 3600 * 1000) {
+        expiringCount++;
+      }
+    }
+  });
+
+  const totalEl = document.getElementById("stat-bind-total");
+  const activeEl = document.getElementById("stat-bind-active");
+  const expEl = document.getElementById("stat-bind-expiring");
+  const revEl = document.getElementById("stat-bind-reverted");
+
+  if (totalEl) totalEl.textContent = rawBindings.length;
+  if (activeEl) activeEl.textContent = activeCount;
+  if (expEl) expEl.textContent = expiringCount;
+  if (revEl) revEl.textContent = revertedCount;
+}
+
+// ----------------------------------------------------------------------------
+// 📋 Data Extractor: Combines Linked Account & Raw Account Data
+// ----------------------------------------------------------------------------
+function extractBindingDetails(b, linkedAccount) {
+  let email = linkedAccount ? (linkedAccount.email || "") : "";
+  let password = linkedAccount ? (linkedAccount.password || "") : "";
+  let profileName = linkedAccount ? (linkedAccount.profile_name || "") : "";
+  let pinCode = linkedAccount ? (linkedAccount.pin_code || "") : "";
+  let displayId = linkedAccount ? (linkedAccount.display_id || "") : "";
+  let deviceType = b.device_type || (linkedAccount ? linkedAccount.device_type : "สมาร์ททีวี / มือถือ");
+
+  const raw = b.raw_account_data || "";
+
+  if (!email) {
+    const m = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i) ||
+      raw.match(/(?:Mail|เมล|email|เบอร์)[:\s\t\-]+([^\s\n\r]+)/i);
+    if (m) email = (m[1] || m[0]).trim();
+  }
+
+  if (!password) {
+    const m = raw.match(/(?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass|พินเมล)[:\s\t\-]+([^\s\n\r]+)/i);
+    if (m) password = m[1].trim();
+  }
+
+  if (!profileName) {
+    const m = raw.match(/(?:โปรไฟล์|เข้า\s*จอ|จอหมายเลข|จอ)[:\s\t\-]*([^\s\n\r]+)/i);
+    if (m) {
+      const val = m[1].trim();
+      profileName = val.startsWith("จอ") ? val : `จอ ${val}`;
+    }
+  }
+
+  if (!pinCode) {
+    const m = raw.match(/(?:PIN|พิน|รหัส PIN)[:\s\t\-]+(\d{4,6})/i);
+    if (m) pinCode = m[1].trim();
+  }
+
+  if (!displayId) {
+    const m = raw.match(/(?:ID\s*(?:จอ|ฌอ)|ID)[:\s\t\-]*#?(\d+)/i);
+    if (m) displayId = m[1].trim();
+  }
+
+  // OTP Link
+  let otpUrl = b.supplier_url || (linkedAccount ? linkedAccount.supplier_url : null);
+  if (!otpUrl) {
+    const m = raw.match(/(https?:\/\/(?:code\.varinzxify\.com|abeslife\.com|[\w.-]+\.[\w.-]+)\/[^\s\n\r]*)/i);
+    if (m) otpUrl = m[1].trim();
+  }
+
+  return { email, password, profileName, pinCode, displayId, deviceType, otpUrl };
+}
+
+// ----------------------------------------------------------------------------
+// 🎲 Random Customer Selector
+// ----------------------------------------------------------------------------
+function pickRandomCustomer() {
+  haptic();
+  if (!rawBindings || rawBindings.length === 0) {
+    showToast("⚠️ ยังไม่มีข้อมูลการผูกสิทธิ์ในระบบ");
+    return;
+  }
+
+  // Prioritize active bindings with non-empty customer_name
+  const activePool = rawBindings.filter(b => !b.reverted && b.customer_name && b.customer_name.trim() !== "");
+  const pool = activePool.length > 0 ? activePool : rawBindings.filter(b => b.customer_name && b.customer_name.trim() !== "");
+
+  if (pool.length === 0) {
+    showToast("⚠️ ไม่พบชื่อลูกค้าในรายการผูกสิทธิ์");
+    return;
+  }
+
+  const randomBinding = pool[Math.floor(Math.random() * pool.length)];
+  const name = randomBinding.customer_name.trim();
+
+  bindingSearchQuery = name.toLowerCase();
+
+  const bindSearchInput = document.getElementById("binding-search-input");
+  const bindSearchClear = document.getElementById("btn-binding-search-clear");
+  if (bindSearchInput) {
+    bindSearchInput.value = name;
+    if (bindSearchClear) bindSearchClear.style.display = "block";
+  }
+
+  const topSearch = document.getElementById("search-input");
+  const topClear = document.getElementById("search-clear");
+  if (topSearch && currentView === "bindings") {
+    topSearch.value = name;
+    if (topClear) topClear.style.display = "block";
+  }
+
+  renderBindingsFeed();
+  showToast(`🎲 สุ่มลูกค้า: คุณ ${name} (${randomBinding.app_name || ''})`);
+
+  // Scroll smoothly to feed
+  const feed = document.getElementById("bindings-feed");
+  if (feed) {
+    feed.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 🖥️ Render Bindings Feed
+// ----------------------------------------------------------------------------
+function renderBindingsFeed() {
+  const feed = document.getElementById("bindings-feed");
+  if (!feed) return;
+
+  const now = new Date();
+  const query = bindingSearchQuery.trim().toLowerCase();
+
+  const filtered = rawBindings.filter(b => {
+    // 1. Status Filter
+    const isReverted = !!b.reverted;
+    const isExpired = b.expiry_date ? (new Date(b.expiry_date) <= now) : false;
+    const isExpiringSoon = !isReverted && !isExpired && b.expiry_date && (new Date(b.expiry_date).getTime() - now.getTime() <= 3 * 24 * 3600 * 1000);
+    const isActive = !isReverted && !isExpired;
+
+    if (bindingFilter === "active" && !isActive) return false;
+    if (bindingFilter === "expiring" && !isExpiringSoon) return false;
+    if (bindingFilter === "expired" && !isExpired) return false;
+    if (bindingFilter === "reverted" && !isReverted) return false;
+
+    // 2. Query Search
+    if (!query) return true;
+
+    const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+    const details = extractBindingDetails(b, linkedAcc);
+
+    const matchCustName = (b.customer_name || "").toLowerCase().includes(query);
+    const matchAppName = (b.app_name || "").toLowerCase().includes(query);
+    const matchPkgName = (b.package_name || "").toLowerCase().includes(query);
+    const matchRaw = (b.raw_account_data || "").toLowerCase().includes(query);
+    const matchEmail = (details.email || "").toLowerCase().includes(query);
+    const matchPass = (details.password || "").toLowerCase().includes(query);
+    const matchProfile = (details.profileName || "").toLowerCase().includes(query);
+    const matchPin = (details.pinCode || "").toLowerCase().includes(query);
+    const matchDisplayId = details.displayId ? String(details.displayId).toLowerCase().includes(query.replace("#", "")) : false;
+
+    return matchCustName || matchAppName || matchPkgName || matchRaw || matchEmail || matchPass || matchProfile || matchPin || matchDisplayId;
+  });
+
+  if (filtered.length === 0) {
+    feed.innerHTML = `
+      <div class="empty-state" style="padding: 40px 16px;">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">ไม่พบข้อมูลการผูกสิทธิ์ที่ตรงกับคำค้นหา</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 6px;">
+          ลองค้นหาด้วยชื่อลูกค้าอื่น, ID จอ เช่น #153, อีเมล หรือแตะปุ่ม "🎲 สุ่มชื่อลูกค้า" ด้านบน
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  feed.innerHTML = "";
+
+  filtered.forEach(b => {
+    const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+    const details = extractBindingDetails(b, linkedAcc);
+    const appTheme = getAppTheme(b.app_name || "");
+
+    // Expiry calculation
+    let expiryDisplay = "ไม่ระบุวันหมดอายุ";
+    let countdownHtml = "";
+    let statusClass = "active";
+    let statusLabel = "🟢 กำลังใช้งาน";
+
+    if (b.reverted) {
+      statusClass = "reverted";
+      statusLabel = "⚪ ดีดคืนสต็อกแล้ว";
+    } else if (b.expiry_date) {
+      const expDate = new Date(b.expiry_date);
+      if (!isNaN(expDate.getTime())) {
+        const diffMs = expDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+        expiryDisplay = formatDateThai(expDate);
+
+        if (diffMs <= 0) {
+          statusClass = "expired";
+          statusLabel = "🔴 หมดอายุแล้ว";
+          countdownHtml = `<span class="binding-countdown danger">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว)</span>`;
+        } else if (diffHours <= 72) {
+          statusClass = "expired";
+          statusLabel = `⏰ เหลืออีก ${diffHours} ชม.`;
+          countdownHtml = `<span class="binding-countdown warning">⚠️ ใกล้หมดอายุ (เหลือ ${diffHours} ชม.)</span>`;
+        } else {
+          statusClass = "active";
+          statusLabel = `🟢 เหลือ ${diffDays} วัน`;
+          countdownHtml = `<span class="binding-countdown safe">⏳ เหลืออีก ${diffDays} วัน</span>`;
+        }
+      }
+    }
+
+    const createdDisplay = b.created_at ? formatDateThai(new Date(b.created_at)) : "-";
+    const customerInitial = (b.customer_name || "C").trim().charAt(0).toUpperCase();
+    const customerWebappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
+
+    const card = document.createElement("div");
+    card.className = `binding-card ${b.reverted ? 'reverted-card' : ''}`;
+    card.dataset.bindingId = b.id;
+
+    card.innerHTML = `
+      <!-- Header: Customer Info & Status -->
+      <div class="binding-card-header">
+        <div class="binding-customer-title">
+          <div class="binding-avatar">${escapeHtml(customerInitial)}</div>
+          <div class="binding-cust-names">
+            <span class="binding-name-text">👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
+            <span class="binding-sub-id">ID สิทธิ์: ${escapeHtml((b.id || '').substring(0, 8))}...</span>
+          </div>
+        </div>
+        <div class="binding-header-right-badges">
+          <span class="binding-screen-tag">
+            <span>📺</span>
+            <span>${details.displayId ? '#' + escapeHtml(details.displayId) : 'จอสต็อก'}</span>
+          </span>
+          <span class="binding-status-pill ${statusClass}">${statusLabel}</span>
+        </div>
+      </div>
+
+      <!-- App & Package Banner -->
+      <div class="binding-app-banner">
+        <div class="binding-app-left">
+          <span class="binding-app-badge" style="background:${appTheme.gradient}; border-color:${appTheme.border};">
+            ${appTheme.icon} ${escapeHtml(b.app_name || 'แอปพรีเมียม')}
+          </span>
+          <span class="binding-pkg-title">${escapeHtml(b.package_name || 'แพ็กเกจ')}</span>
+        </div>
+        <div>
+          <span class="binding-price-badge">${b.price_paid ? b.price_paid + '฿' : 'ฟรี'} • ${b.days || 30} วัน</span>
+        </div>
+      </div>
+
+      <!-- Credentials Box -->
+      <div class="binding-creds-box">
+        <div class="binding-cred-row">
+          <span class="binding-cred-label">✉️ อีเมล / บัญชี:</span>
+          <div class="binding-cred-val-group">
+            <span class="binding-email-text" style="color: #38bdf8;">${escapeHtml(details.email || '-')}</span>
+            ${details.email ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.email)}" data-label="อีเมล" title="คัดลอกอีเมล">📋</button>` : ''}
+          </div>
+        </div>
+
+        <div class="binding-cred-row">
+          <span class="binding-cred-label">🔑 รหัสผ่าน:</span>
+          <div class="binding-cred-val-group">
+            <span class="binding-pwd-text" data-password="${escapeHtml(details.password || '')}">${isPasswordHidden ? '••••••••' : escapeHtml(details.password || '-')}</span>
+            ${details.password ? `
+              <button type="button" class="binding-mini-btn btn-toggle-card-pwd" title="ซ่อน/แสดงรหัส">👁️</button>
+              <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.password)}" data-label="รหัสผ่าน" title="คัดลอกรหัสผ่าน">📋</button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="binding-cred-row">
+          <span class="binding-cred-label">👤 จอ / โปรไฟล์:</span>
+          <div class="binding-cred-val-group">
+            <span>${escapeHtml(details.profileName || 'จอ 1')}</span>
+            ${details.pinCode ? `
+              <span style="color: #a855f7; margin-left: 4px;">[PIN: ${escapeHtml(details.pinCode)}]</span>
+              <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.pinCode)}" data-label="PIN" title="คัดลอก PIN">📋</button>
+            ` : '<span style="color: var(--text-dim); font-size:10px;">(ไม่มี PIN)</span>'}
+          </div>
+        </div>
+
+        <div class="binding-cred-row">
+          <span class="binding-cred-label">📱 อุปกรณ์:</span>
+          <span style="color: var(--text-muted); font-size: 11px;">${escapeHtml(details.deviceType || 'มือถือ / PC')}</span>
+        </div>
+
+        ${details.otpUrl ? `
+          <div class="binding-cred-row" style="margin-top: 2px;">
+            <span class="binding-cred-label">🌐 เว็บรับ OTP:</span>
+            <a href="${escapeHtml(details.otpUrl)}" target="_blank" class="binding-mini-btn" style="color: #34d399; border-color: rgba(52, 211, 153, 0.4); text-decoration: none;">
+              เปิดเว็บ OTP ↗
+            </a>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Timeline & Expiry Box -->
+      <div class="binding-timeline-box">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span>📅 เริ่ม: ${createdDisplay}</span>
+          <span>⏰ หมดอายุ: ${expiryDisplay}</span>
+        </div>
+        <div>
+          ${countdownHtml}
+        </div>
+      </div>
+
+      <!-- Customer Communication Links -->
+      <div class="binding-links-row">
+        ${b.chat_url ? `
+          <a href="${escapeHtml(b.chat_url)}" target="_blank" class="binding-link-btn chat" title="เปิดห้องแชท LINE OA ของลูกค้านี้">
+            <span>💬</span><span>แชท LINE</span>
+          </a>
+        ` : `
+          <button type="button" class="binding-link-btn chat" style="opacity: 0.5; cursor: not-allowed;" title="ไม่มีลิงก์แชท">
+            <span>💬</span><span>ไม่มีแชท</span>
+          </button>
+        `}
+        <a href="${customerWebappUrl}" target="_blank" class="binding-link-btn webapp" title="เปิดดูหน้าเว็บแอปลูกค้า">
+          <span>📱</span><span>WebApp</span>
+        </a>
+        <button type="button" class="binding-link-btn copy-script btn-copy-handover" data-binding-id="${b.id}" title="คัดลอกสคริปต์ส่งมอบข้อมูลสิทธิ์ให้ลูกค้า">
+          <span>📋</span><span>1-Tap ส่งมอบ</span>
+        </button>
+      </div>
+
+      <!-- Troubleshooting & Management Action Bar -->
+      <div class="binding-troubleshoot-bar">
+        <button type="button" class="binding-action-btn swap btn-action-swap" data-binding-id="${b.id}" title="เคลมจอ หรือย้ายไปใช้บัญชีอื่นจากคลัง">
+          <span>🔄</span><span>เคลมจอ</span>
+        </button>
+        <button type="button" class="binding-action-btn revert btn-action-revert" data-binding-id="${b.id}" title="ดีดคืนสต็อก / ปลดสิทธิ์ออกจากลูกค้า">
+          <span>↩️</span><span>ดีดคืนคลัง</span>
+        </button>
+        <button type="button" class="binding-action-btn extend btn-action-extend" data-binding-id="${b.id}" title="ต่ออายุสิทธิ์ +วัน">
+          <span>➕</span><span>ต่ออายุ</span>
+        </button>
+        <button type="button" class="binding-action-btn broken btn-action-broken" data-binding-id="${b.id}" title="ทำเครื่องหมายว่าจอมีปัญหา">
+          <span>⚠️</span><span>แจ้งเสีย</span>
+        </button>
+      </div>
+    `;
+
+    feed.appendChild(card);
+  });
+}
+
+// ----------------------------------------------------------------------------
+// 🛠️ Troubleshooting & Support Actions
+// ----------------------------------------------------------------------------
+
+function initTroubleshootingModalListeners() {
+  // Feed Event Delegation for Binding Card buttons
+  const bindingsFeed = document.getElementById("bindings-feed");
+  if (bindingsFeed) {
+    bindingsFeed.addEventListener("click", (e) => {
+      // 1. Copy Credential mini button
+      const copyBtn = e.target.closest(".btn-copy-cred");
+      if (copyBtn) {
+        e.stopPropagation();
+        const text = copyBtn.dataset.copy;
+        const label = copyBtn.dataset.label || "ข้อมูล";
+        if (text) copySingleValue(text, label, copyBtn);
+        return;
+      }
+
+      // 2. Toggle card password mask
+      const togglePwdBtn = e.target.closest(".btn-toggle-card-pwd");
+      if (togglePwdBtn) {
+        e.stopPropagation();
+        const pwdSpan = togglePwdBtn.closest(".binding-cred-val-group")?.querySelector(".binding-pwd-text");
+        if (pwdSpan) {
+          const rawPwd = pwdSpan.dataset.password || "";
+          const isMasked = pwdSpan.textContent.includes("•");
+          pwdSpan.textContent = isMasked ? rawPwd : "••••••••";
+          togglePwdBtn.textContent = isMasked ? "🙈" : "👁️";
+        }
+        return;
+      }
+
+      // 3. 1-Tap Handover Script
+      const handoverBtn = e.target.closest(".btn-copy-handover");
+      if (handoverBtn) {
+        e.stopPropagation();
+        copyBindingHandoverScript(handoverBtn.dataset.bindingId, handoverBtn);
+        return;
+      }
+
+      // 4. Action: Swap / Claim
+      const swapBtn = e.target.closest(".btn-action-swap");
+      if (swapBtn) {
+        e.stopPropagation();
+        openSwapModal(swapBtn.dataset.bindingId);
+        return;
+      }
+
+      // 5. Action: Revert
+      const revertBtn = e.target.closest(".btn-action-revert");
+      if (revertBtn) {
+        e.stopPropagation();
+        executeRevertBinding(revertBtn.dataset.bindingId);
+        return;
+      }
+
+      // 6. Action: Extend
+      const extendBtn = e.target.closest(".btn-action-extend");
+      if (extendBtn) {
+        e.stopPropagation();
+        openExtendModal(extendBtn.dataset.bindingId);
+        return;
+      }
+
+      // 7. Action: Mark Broken
+      const brokenBtn = e.target.closest(".btn-action-broken");
+      if (brokenBtn) {
+        e.stopPropagation();
+        executeMarkBroken(brokenBtn.dataset.bindingId);
+        return;
+      }
+    });
+  }
+
+  // Swap Modal close and confirm
+  const closeSwapBtn = document.getElementById("btn-close-swap-modal");
+  if (closeSwapBtn) closeSwapBtn.addEventListener("click", closeSwapModal);
+  const confirmSwapBtn = document.getElementById("btn-confirm-swap");
+  if (confirmSwapBtn) confirmSwapBtn.addEventListener("click", executeConfirmSwap);
+
+  // Extend Modal close, quick days and confirm
+  const closeExtendBtn = document.getElementById("btn-close-extend-modal");
+  if (closeExtendBtn) closeExtendBtn.addEventListener("click", closeExtendModal);
+  const confirmExtendBtn = document.getElementById("btn-confirm-extend");
+  if (confirmExtendBtn) confirmExtendBtn.addEventListener("click", executeConfirmExtend);
+
+  document.querySelectorAll(".btn-quick-extend").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      const input = document.getElementById("input-extend-custom-days");
+      if (input && btn.dataset.days) input.value = btn.dataset.days;
+    });
+  });
+
+  // Edit Creds Modal close and confirm
+  const closeEditCredsBtn = document.getElementById("btn-close-edit-creds-modal");
+  if (closeEditCredsBtn) closeEditCredsBtn.addEventListener("click", closeEditCredsModal);
+  const confirmEditCredsBtn = document.getElementById("btn-confirm-edit-creds");
+  if (confirmEditCredsBtn) confirmEditCredsBtn.addEventListener("click", executeConfirmEditCreds);
+
+  const editRandomPwBtn = document.getElementById("btn-edit-random-pw");
+  if (editRandomPwBtn) {
+    editRandomPwBtn.addEventListener("click", () => {
+      const input = document.getElementById("edit-creds-password");
+      if (input) input.value = generateRandomPassword();
+    });
+  }
+  const editRandomPinBtn = document.getElementById("btn-edit-random-pin");
+  if (editRandomPinBtn) {
+    editRandomPinBtn.addEventListener("click", () => {
+      const input = document.getElementById("edit-creds-pin");
+      if (input) input.value = generateRandomPin();
+    });
+  }
+
+  // Cancel buttons inside sheets
+  document.querySelectorAll(".modal-cancel-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      closeSwapModal();
+      closeExtendModal();
+      closeEditCredsModal();
+    });
+  });
+
+  // Raw modal close & copy
+  const closeRawBtn = document.getElementById("btn-close-raw-modal");
+  if (closeRawBtn) closeRawBtn.addEventListener("click", closeRawDataModal);
+  const copyRawBtn = document.getElementById("btn-copy-raw-modal");
+  if (copyRawBtn) {
+    copyRawBtn.addEventListener("click", () => {
+      const txt = document.getElementById("modal-raw-text-content")?.value;
+      if (txt) {
+        copyToClipboard(txt);
+        showToast("📋 คัดลอกข้อความดิบเรียบร้อยแล้ว");
+      }
+    });
+  }
+}
+
+// 1. Swap / Claim Modal
+function openSwapModal(bindingId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  targetBindingForSwap = b;
+  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+
+  const infoBox = document.getElementById("swap-cust-info-box");
+  if (infoBox) {
+    infoBox.innerHTML = `
+      <div>👤 ลูกค้า: <strong>คุณ ${escapeHtml(b.customer_name)}</strong></div>
+      <div>🎬 แอป: <strong>${escapeHtml(b.app_name)}</strong> (${escapeHtml(b.package_name || '-')})</div>
+      <div>📦 บัญชีเดิม: <span style="color:#38bdf8;">${escapeHtml(details.email || '-')}</span> ${details.displayId ? '#' + escapeHtml(details.displayId) : ''} (${escapeHtml(details.profileName || 'จอเดิม')})</div>
+      <div>⏳ วันหมดอายุคงเดิม: <strong>${formatDateThai(b.expiry_date ? new Date(b.expiry_date) : new Date())}</strong></div>
+    `;
+  }
+
+  // Populate available accounts dropdown for this app
+  const select = document.getElementById("swap-target-account-select");
+  if (select) {
+    select.innerHTML = `<option value="">-- เลือกบัญชีว่างจากคลัง --</option>`;
+
+    // Find available accounts
+    const available = allAccountsList.filter(a => a.status === "available" && a.id !== b.account_id);
+    const sameAppAvailable = available.filter(a => {
+      const app = rawApps.find(ap => ap.id === a.app_id);
+      const appName = app ? (app.name || app.display_name || "") : "";
+      return appName.toLowerCase().includes((b.app_name || "").toLowerCase()) || (b.app_name || "").toLowerCase().includes(appName.toLowerCase());
+    });
+
+    const displayList = sameAppAvailable.length > 0 ? sameAppAvailable : available;
+
+    displayList.forEach(acc => {
+      const opt = document.createElement("option");
+      opt.value = acc.id;
+      const appObj = rawApps.find(ap => ap.id === acc.app_id);
+      const apName = appObj ? (appObj.display_name || appObj.name) : "แอป";
+      opt.textContent = `[${apName}] #${acc.display_id || '-'} • ${acc.email} (${acc.profile_name || 'จอว่าง'})`;
+      select.appendChild(opt);
+    });
+
+    if (displayList.length > 0) {
+      select.selectedIndex = 1;
+    }
+  }
+
+  const modal = document.getElementById("modal-swap-account");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeSwapModal() {
+  const modal = document.getElementById("modal-swap-account");
+  if (modal) modal.style.display = "none";
+  targetBindingForSwap = null;
+}
+
+async function executeConfirmSwap() {
+  if (!targetBindingForSwap) return;
+
+  const b = targetBindingForSwap;
+  const select = document.getElementById("swap-target-account-select");
+  const targetAccountId = select ? select.value : "";
+
+  if (!targetAccountId) {
+    showToast("❌ กรุณาเลือกบัญชี/จอใหม่จากคลัง!");
+    return;
+  }
+
+  const newAcc = allAccountsList.find(a => a.id === targetAccountId);
+  if (!newAcc) {
+    showToast("❌ ไม่พบบัญชีที่เลือกในระบบ");
+    return;
+  }
+
+  const confirmBtn = document.getElementById("btn-confirm-swap");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ กำลังสลับบัญชี...";
+  }
+
+  try {
+    // 1. Mark old account as broken
+    if (b.account_id) {
+      await patchDatabase("accounts", b.account_id, { status: "broken" });
+    }
+
+    // 2. Mark new account as used
+    await patchDatabase("accounts", newAcc.id, {
+      status: "used",
+      customer_id: b.customer_name,
+      sold_at: new Date().toISOString(),
+      expiry_date: b.expiry_date
+    });
+
+    // 3. Update customer_binding
+    const newRawData = `อีเมล: ${newAcc.email}\nรหัสผ่าน: ${newAcc.password}\nID จอ: #${newAcc.display_id || '-'}\nโปรไฟล์: ${newAcc.profile_name || 'จอที่กำหนด'}${newAcc.pin_code ? '\nPIN: ' + newAcc.pin_code : ''}`;
+    await patchDatabase("customer_bindings", b.id, {
+      account_id: newAcc.id,
+      supplier_order_id: newAcc.supplier_order_id || b.supplier_order_id || null,
+      supplier_url: newAcc.supplier_url || b.supplier_url || null,
+      raw_account_data: newRawData
+    });
+
+    // 4. Generate handover script & copy
+    const handoverText = `🔄 แจ้งเปลี่ยนบัญชีใหม่ (เคลมจอ) ${b.app_name}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `👤 คุณ ${b.customer_name}\n` +
+      `⏳ วันหมดอายุคงเดิม: ${formatDateThai(b.expiry_date ? new Date(b.expiry_date) : new Date())}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `📧 อีเมล: ${newAcc.email}\n` +
+      `🔑 รหัสผ่าน: ${newAcc.password}\n` +
+      `👤 โปรไฟล์/จอ: ${newAcc.profile_name || 'จอที่กำหนด'}\n` +
+      (newAcc.pin_code ? `🔢 รหัส PIN: ${newAcc.pin_code}\n` : '') +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `🙏 ขออภัยในความไม่สะดวกด้วยนะครับ เข้าใช้งานได้ทันทีครับ ✨`;
+
+    await copyToClipboard(handoverText);
+    closeSwapModal();
+    showToast(`✅ เคลมจอสำเร็จ & คัดลอกข้อมูลใหม่ส่งลูกค้าแล้ว!`);
+    await loadData(true);
+  } catch (err) {
+    console.error("Swap account error:", err);
+    showToast("❌ เคลมจอไม่สำเร็จ: " + err.message);
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "🔄 ยืนยันเคลมจอ & สลับบัญชี";
+    }
+  }
+}
+
+// 2. Revert Binding
+async function executeRevertBinding(bindingId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  if (!confirm(`คุณต้องการดีดคืนสต็อกสิทธิ์ของคุณ ${b.customer_name} (${b.app_name}) ใช่หรือไม่?`)) {
+    return;
+  }
+
+  showToast("⏳ กำลังดำเนินการดีดคืนสต็อก...");
+
+  try {
+    // 1. Mark binding reverted = true
+    await patchDatabase("customer_bindings", b.id, { reverted: true });
+    b.reverted = true;
+
+    // 2. If account linked, check if co-sharers exist
+    if (b.account_id) {
+      const otherActive = rawBindings.filter(other => !other.reverted && other.account_id === b.account_id && other.id !== b.id);
+      if (otherActive.length > 0) {
+        await patchDatabase("accounts", b.account_id, {
+          status: "used",
+          customer_id: otherActive[0].customer_name
+        });
+        showToast(`↩️ ปลดสิทธิ์สำเร็จ (จอยังคงมีคุณ ${otherActive[0].customer_name} ใช้งานอยู่)`);
+      } else {
+        await patchDatabase("accounts", b.account_id, {
+          status: "available",
+          customer_id: null,
+          sold_at: null
+        });
+        showToast("↩️ ปลดสิทธิ์และคืนจอเข้าสต็อกพร้อมขายเรียบร้อยแล้ว!");
+      }
+    } else {
+      showToast("↩️ ปลดสิทธิ์เรียบร้อยแล้ว");
+    }
+
+    await loadData(true);
+  } catch (err) {
+    console.error("Revert binding error:", err);
+    showToast("❌ ปลดสิทธิ์ไม่สำเร็จ: " + err.message);
+  }
+}
+
+// 3. Extend Days Modal
+function openExtendModal(bindingId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  targetBindingForExtend = b;
+  const expDate = b.expiry_date ? new Date(b.expiry_date) : new Date();
+
+  const infoBox = document.getElementById("extend-cust-info-box");
+  if (infoBox) {
+    infoBox.innerHTML = `
+      <div>👤 ลูกค้า: <strong>คุณ ${escapeHtml(b.customer_name)}</strong></div>
+      <div>🎬 แอป: <strong>${escapeHtml(b.app_name)}</strong> (${escapeHtml(b.package_name || '-')})</div>
+      <div>📅 วันหมดอายุปัจจุบัน: <strong>${formatDateThai(expDate)}</strong></div>
+    `;
+  }
+
+  const modal = document.getElementById("modal-extend-days");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeExtendModal() {
+  const modal = document.getElementById("modal-extend-days");
+  if (modal) modal.style.display = "none";
+  targetBindingForExtend = null;
+}
+
+async function executeConfirmExtend() {
+  if (!targetBindingForExtend) return;
+
+  const b = targetBindingForExtend;
+  const input = document.getElementById("input-extend-custom-days");
+  const addDays = parseInt(input ? input.value : 30, 10);
+
+  if (isNaN(addDays) || addDays <= 0) {
+    showToast("❌ กรุณาระบุจำนวนวันมากกว่า 0!");
+    return;
+  }
+
+  const confirmBtn = document.getElementById("btn-confirm-extend");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ กำลังบันทึก...";
+  }
+
+  try {
+    const currentExpiry = b.expiry_date ? new Date(b.expiry_date) : new Date();
+    const base = currentExpiry > new Date() ? currentExpiry : new Date();
+    const newExpiry = new Date(base.getTime() + addDays * 24 * 60 * 60 * 1000);
+    newExpiry.setHours(23, 59, 0, 0);
+
+    const newDaysTotal = (parseInt(b.days, 10) || 0) + addDays;
+
+    await patchDatabase("customer_bindings", b.id, {
+      days: newDaysTotal,
+      expiry_date: newExpiry.toISOString()
+    });
+
+    if (b.account_id) {
+      await patchDatabase("accounts", b.account_id, {
+        expiry_date: newExpiry.toISOString()
+      });
+    }
+
+    b.days = newDaysTotal;
+    b.expiry_date = newExpiry.toISOString();
+
+    const msg = `✨ แจ้งต่ออายุการใช้งาน ${b.app_name}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `👤 คุณ ${b.customer_name}\n` +
+      `➕ เพิ่มระยะเวลา: +${addDays} วัน\n` +
+      `📅 วันหมดอายุใหม่: ${formatDateThai(newExpiry)}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `ขอบคุณที่ไว้วางใจใช้บริการครับ ✨`;
+
+    await copyToClipboard(msg);
+    closeExtendModal();
+    showToast(`➕ ต่ออายุ +${addDays} วันสำเร็จ & คัดลอกข้อความแล้ว!`);
+    renderBindingsFeed();
+    updateBindingMetrics();
+  } catch (err) {
+    console.error("Extend error:", err);
+    showToast("❌ ต่ออายุไม่สำเร็จ: " + err.message);
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "💾 บันทึกการต่ออายุ";
+    }
+  }
+}
+
+// 4. Mark Broken
+async function executeMarkBroken(bindingId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  if (!b.account_id) {
+    showToast("⚠️ รายการนี้ไม่ได้ผูก ID บัญชีในระบบ");
+    return;
+  }
+
+  if (!confirm(`ต้องการทำเครื่องหมายว่า "บัญชี/จอ มีปัญหา" ใช่หรือไม่?\n\nระบบจะปรับสถานะบัญชีนี้ในคลังเป็น broken เพื่อไม่ให้นำไปขายซ้ำ`)) {
+    return;
+  }
+
+  try {
+    await patchDatabase("accounts", b.account_id, { status: "broken" });
+    showToast("⚠️ ปรับสถานะบัญชีเป็น 'มีปัญหา' (broken) เรียบร้อยแล้ว");
+    await loadData(true);
+  } catch (err) {
+    showToast("❌ อัปเดตสถานะไม่สำเร็จ: " + err.message);
+  }
+}
+
+// 5. Edit Credentials Modal
+function openEditCredsModal(bindingId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  targetBindingForEditCreds = b;
+  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+
+  const infoBox = document.getElementById("edit-creds-info-box");
+  if (infoBox) {
+    infoBox.innerHTML = `
+      <div>👤 ลูกค้า: <strong>คุณ ${escapeHtml(b.customer_name)}</strong> (${escapeHtml(b.app_name)})</div>
+      <div>📧 อีเมล: <span style="color:#38bdf8;">${escapeHtml(details.email || '-')}</span></div>
+    `;
+  }
+
+  const pwInput = document.getElementById("edit-creds-password");
+  if (pwInput) pwInput.value = details.password || "";
+  const pinInput = document.getElementById("edit-creds-pin");
+  if (pinInput) pinInput.value = details.pinCode || "";
+
+  const modal = document.getElementById("modal-edit-credentials");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeEditCredsModal() {
+  const modal = document.getElementById("modal-edit-credentials");
+  if (modal) modal.style.display = "none";
+  targetBindingForEditCreds = null;
+}
+
+async function executeConfirmEditCreds() {
+  if (!targetBindingForEditCreds) return;
+
+  const b = targetBindingForEditCreds;
+  const newPw = (document.getElementById("edit-creds-password")?.value || "").trim();
+  const newPin = (document.getElementById("edit-creds-pin")?.value || "").trim();
+
+  if (!b.account_id) {
+    showToast("⚠️ บัญชีนี้ไม่ได้ผูก ID ในระบบ");
+    return;
+  }
+
+  const confirmBtn = document.getElementById("btn-confirm-edit-creds");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ กำลังบันทึก...";
+  }
+
+  try {
+    const payload = {};
+    if (newPw) payload.password = newPw;
+    payload.pin_code = newPin || null;
+
+    await patchDatabase("accounts", b.account_id, payload);
+
+    // Update raw account data
+    const linkedAcc = allAccountsList.find(a => a.id === b.account_id);
+    if (linkedAcc) {
+      if (newPw) linkedAcc.password = newPw;
+      linkedAcc.pin_code = newPin || null;
+    }
+
+    const updatedRaw = `อีเมล: ${linkedAcc ? linkedAcc.email : '-'}\nรหัสผ่าน: ${newPw}\nID จอ: #${linkedAcc ? linkedAcc.display_id : '-'}\nโปรไฟล์: ${linkedAcc ? linkedAcc.profile_name : 'จอ 1'}${newPin ? '\nPIN: ' + newPin : ''}`;
+    await patchDatabase("customer_bindings", b.id, { raw_account_data: updatedRaw });
+    b.raw_account_data = updatedRaw;
+
+    const copyMsg = `🔑 แจ้งอัปเดตรหัสผ่านใหม่ ${b.app_name}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `👤 คุณ ${b.customer_name}\n` +
+      `📧 อีเมล: ${linkedAcc ? linkedAcc.email : '-'}\n` +
+      `🔑 รหัสผ่านใหม่: ${newPw}\n` +
+      (newPin ? `🔢 รหัส PIN: ${newPin}\n` : '') +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `เข้าใช้งานได้ทันทีครับ ✨`;
+
+    await copyToClipboard(copyMsg);
+    closeEditCredsModal();
+    showToast("🔑 อัปเดตรหัสผ่านเรียบร้อย & คัดลอกส่งลูกค้าแล้ว!");
+    await loadData(true);
+  } catch (err) {
+    console.error("Edit creds error:", err);
+    showToast("❌ อัปเดตไม่สำเร็จ: " + err.message);
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "💾 บันทึกข้อมูล & ส่งลูกค้า";
+    }
+  }
+}
+
+// 6. Raw Data Modal
+function openRawDataModal(rawText) {
+  haptic();
+  const modal = document.getElementById("modal-raw-data");
+  const content = document.getElementById("modal-raw-text-content");
+  if (content) content.value = rawText || "ไม่มีข้อมูล";
+  if (modal) modal.style.display = "flex";
+}
+
+function closeRawDataModal() {
+  const modal = document.getElementById("modal-raw-data");
+  if (modal) modal.style.display = "none";
+}
+
+// 7. Handover Script Copier
+async function copyBindingHandoverScript(bindingId, btnElement = null) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+  const expStr = b.expiry_date ? formatDateThai(new Date(b.expiry_date)) : "-";
+  const webappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
+
+  let script = `✨ *ข้อมูลการใช้งาน ${b.app_name.toUpperCase()}*\n`;
+  script += `[${b.package_name || 'แพ็กเกจพรีเมียม'}]\n`;
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `👤 คุณ: *${b.customer_name}*\n`;
+  script += `📧 อีเมล: ${details.email || '-'}\n`;
+  script += `🔑 รหัสผ่าน: ${details.password || '-'}\n`;
+  script += `👤 โปรไฟล์/จอ: ${details.profileName || 'จอที่กำหนด'}\n`;
+  if (details.pinCode) {
+    script += `🔢 รหัส PIN: ${details.pinCode}\n`;
+  }
+  script += `📱 อุปกรณ์: ${details.deviceType || 'มือถือ / PC'}\n`;
+  if (expStr !== "-") {
+    script += `📅 วันหมดอายุ: ${expStr}\n`;
+  }
+  if (details.otpUrl) {
+    script += `🌐 ลิงก์เว็บรับ OTP: ${details.otpUrl}\n`;
+  }
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `📱 ตรวจสอบสิทธิ์ & OTP ใน WebApp:\n${webappUrl}\n`;
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `🙏 ขอบคุณที่ใช้บริการครับ ✨`;
+
+  await copyToClipboard(script);
+
+  if (btnElement) {
+    const orig = btnElement.innerHTML;
+    btnElement.innerHTML = `<span>✅</span><span>คัดลอกแล้ว!</span>`;
+    setTimeout(() => btnElement.innerHTML = orig, 1500);
+  }
+
+  showToast(`📋 คัดลอกสิทธิ์ของคุณ ${b.customer_name} เรียบร้อย!`);
+}
+
+// ----------------------------------------------------------------------------
+// Universal Database Patch Helper (Cloudflare D1 & Supabase Dual Compatible)
+// ----------------------------------------------------------------------------
+async function patchDatabase(tableName, id, payload) {
+  let url, headers;
+  if (currentShop.type === "supabase") {
+    url = `${currentShop.url}/rest/v1/${tableName}?id=eq.${id}`;
+    headers = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation"
+    };
+  } else {
+    url = `${currentShop.url}/api/${tableName}?id=eq.${id}`;
+    headers = {
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json"
+    };
+  }
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || `HTTP ${res.status}`);
+  }
+  return res.json().catch(() => ({}));
+}
+
+function formatDateThai(dateObj) {
+  if (!dateObj || isNaN(dateObj.getTime())) return "-";
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const pad = n => String(n).padStart(2, '0');
+  const d = dateObj.getDate();
+  const m = thaiMonths[dateObj.getMonth()];
+  const y = dateObj.getFullYear() + 543;
+  const time = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+  return `${d} ${m} ${y} (${time} น.)`;
+}
+
 
