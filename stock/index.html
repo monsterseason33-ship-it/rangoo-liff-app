@@ -419,6 +419,29 @@
         <button type="button" id="btn-copy-raw-modal" class="prem-btn prem-btn-primary">📋 คัดลอกข้อความดิบ</button>
       </div>
     </div>
+  <!-- Modal: Change Package & Adjust Screens Count -->
+  <div id="modal-change-package" class="modal-overlay" style="display: none;">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div>
+          <span class="modal-title" id="change-pkg-modal-title">📦 เลือกประเภทแพ็กเกจ</span>
+          <div id="change-pkg-modal-subtitle" style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">
+            ปรับสิทธิ์และจำนวนจออัตโนมัติ
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-close-change-pkg-modal">✕</button>
+      </div>
+
+      <!-- Account Scope Info -->
+      <div id="change-pkg-accounts-summary" style="margin-bottom: 12px; padding: 10px 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; font-size: 12px; color: #bae6fd;">
+        <!-- Injected info about which accounts will be updated -->
+      </div>
+
+      <!-- Package Selection List -->
+      <div id="change-pkg-list-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; padding-right: 2px;">
+        <!-- Dynamically injected package options -->
+      </div>
+    </div>
   </div>
 
   <!-- Modal: Shop Switcher -->

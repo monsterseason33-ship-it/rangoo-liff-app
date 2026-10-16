@@ -229,6 +229,16 @@ function initUIEventListeners() {
   const feed = document.getElementById("stock-feed");
   if (feed) {
     feed.addEventListener("click", (e) => {
+      // 0. Open Package Picker Modal (Group level or Account level)
+      const pkgBtn = e.target.closest(".btn-open-pkg-picker");
+      if (pkgBtn) {
+        e.stopPropagation();
+        const groupKey = pkgBtn.dataset.groupKey;
+        const email = pkgBtn.dataset.email || null;
+        openChangePackageModal(groupKey, email);
+        return;
+      }
+
       // 1. Send single screen
       const sendBtn = e.target.closest(".btn-screen-send");
       if (sendBtn) {
@@ -292,6 +302,33 @@ function initUIEventListeners() {
       const itemBtn = e.target.closest(".shop-item-btn");
       if (itemBtn && itemBtn.dataset.shopId) {
         selectShop(itemBtn.dataset.shopId);
+      }
+    });
+  }
+
+  // Package Picker Modal Listeners
+  const closePkgModalBtn = document.getElementById("btn-close-change-pkg-modal");
+  if (closePkgModalBtn) {
+    closePkgModalBtn.addEventListener("click", closeChangePackageModal);
+  }
+  const changePkgModalOverlay = document.getElementById("modal-change-package");
+  if (changePkgModalOverlay) {
+    changePkgModalOverlay.addEventListener("click", (e) => {
+      if (e.target === changePkgModalOverlay) closeChangePackageModal();
+    });
+  }
+  const pkgListContainer = document.getElementById("change-pkg-list-container");
+  if (pkgListContainer) {
+    pkgListContainer.addEventListener("click", (e) => {
+      const card = e.target.closest(".pkg-picker-card");
+      if (card && card.dataset.pkgId) {
+        const pkgId = card.dataset.pkgId;
+        const pkgName = card.dataset.pkgName;
+        const pkgScreens = parseInt(card.dataset.pkgScreens, 10) || 1;
+
+        if (confirm(`คุณต้องการเปลี่ยนแพ็กเกจเป็น "${pkgName}" (${pkgScreens} จอ) ใช่หรือไม่?\n\n(ระบบจะเปลี่ยนแพ็กเกจและปรับเพิ่ม/ลดจำนวนจอให้มี ${pkgScreens} จอตามที่ตั้งค่าไว้ในแพ็กเกจโดยอัตโนมัติ)`)) {
+          applyPackageChange(pkgId, pkgName, pkgScreens);
+        }
       }
     });
   }
@@ -704,7 +741,10 @@ function renderStockFeed() {
               <span class="app-brand-badge">${theme.icon}</span>
               <span>${escapeHtml(group.appName.toUpperCase())}</span>
             </div>
-            ${group.pkgName ? `<span class="group-pkg-name">[${escapeHtml(group.pkgName)}]</span>` : `<span class="group-pkg-name unassigned">[⚠️ ยังไม่กำหนดแพ็คเกจ]</span>`}
+            ${group.pkgName ? 
+              `<span class="group-pkg-name btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเปลี่ยนแพ็กเกจ & ปรับจำนวนจอ">[${escapeHtml(group.pkgName)}] <span class="pkg-edit-icon">✏️</span></span>` : 
+              `<span class="group-pkg-name unassigned btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเลือกแพ็กเกจ & ปรับจำนวนจอ">[⚠️ ยังไม่กำหนดแพ็คเกจ ▾]</span>`
+            }
           </div>
           <button type="button" class="group-copy-app-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกสต็อกทั้งแอปนี้">
             📋 ก็อปปี้ทั้งแอป (${group.totalScreens})
@@ -777,6 +817,17 @@ function renderStockFeed() {
               <span class="acc-expiry-badge ${expiryStatusClass}">
                 <span>${expiryStatusClass === 'healthy' ? '🟢' : expiryStatusClass === 'warning' ? '🟡' : '🔴'}</span>
                 <span>${escapeHtml(expiryDisplay)}</span>
+              </span>
+            </div>
+
+            <!-- Package row -->
+            <div class="acc-pkg-row">
+              <span class="cred-label">📦 แพ็กเกจ:</span>
+              <span class="acc-pkg-chip btn-open-pkg-picker ${group.pkgName ? '' : 'unassigned'}" 
+                    data-group-key="${escapeHtml(groupKey)}" 
+                    data-email="${escapeHtml(acc.email)}" 
+                    title="คลิกเพื่อเปลี่ยนแพ็กเกจเฉพาะบัญชีนี้">
+                ${group.pkgName ? `<span>${escapeHtml(group.pkgName)}</span> <span>✏️</span>` : `<span>⚠️ ยังไม่กำหนดแพ็คเกจ ▾</span>`}
               </span>
             </div>
           </div>
@@ -3154,5 +3205,303 @@ function formatDateThai(dateObj) {
   const time = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
   return `${d} ${m} ${y} (${time} น.)`;
 }
+
+// ============================================================================
+// 📦 Package Changer & Auto-Screen Count Synchronizer
+// ============================================================================
+let currentPkgModalGroupKey = null;
+let currentPkgModalEmail = null;
+
+function openChangePackageModal(groupKey, specificEmail = null) {
+  haptic();
+  currentPkgModalGroupKey = groupKey;
+  currentPkgModalEmail = specificEmail;
+
+  const group = appGroups[groupKey];
+  if (!group) return;
+
+  const modal = document.getElementById("modal-change-package");
+  const titleEl = document.getElementById("change-pkg-modal-title");
+  const subtitleEl = document.getElementById("change-pkg-modal-subtitle");
+  const summaryEl = document.getElementById("change-pkg-accounts-summary");
+  const listContainer = document.getElementById("change-pkg-list-container");
+  if (!modal || !listContainer) return;
+
+  const theme = getAppTheme(group.appName);
+  titleEl.innerHTML = `<span>${theme.icon}</span> <span>เลือกประเภทแพ็กเกจ (${escapeHtml(group.appName)})</span>`;
+  subtitleEl.textContent = `ระบบจะเปลี่ยนแพ็กเกจ และปรับเพิ่ม/ลดจำนวนจอ (div.screen-item) ตามการตั้งค่าอัตโนมัติ`;
+
+  // Accounts summary
+  const emailKeys = Object.keys(group.accountsByEmail);
+  if (specificEmail) {
+    summaryEl.innerHTML = `
+      <div style="font-weight: 700; color: #fff;">👤 บัญชีเป้าหมาย:</div>
+      <div style="font-family: monospace; font-size: 11.5px; color: #38bdf8; margin-top: 2px;">${escapeHtml(specificEmail)}</div>
+    `;
+  } else if (emailKeys.length === 1) {
+    summaryEl.innerHTML = `
+      <div style="font-weight: 700; color: #fff;">👤 บัญชีในกลุ่มนี้ (1 บัญชี):</div>
+      <div style="font-family: monospace; font-size: 11.5px; color: #38bdf8; margin-top: 2px;">${escapeHtml(emailKeys[0])}</div>
+    `;
+  } else {
+    summaryEl.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 700; color: #fff;">👥 บัญชีในกลุ่มนี้ (${emailKeys.length} บัญชี):</span>
+        <span style="font-size: 10.5px; color: #94a3b8;">ใช้กับทุกบัญชีในกลุ่ม</span>
+      </div>
+      <div style="font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 4px; max-height: 48px; overflow-y: auto;">
+        ${emailKeys.map(e => `• ${escapeHtml(e)}`).join("<br>")}
+      </div>
+    `;
+  }
+
+  // Filter packages for this app
+  const appPkgs = rawPackages.filter(p => p.app_id === group.appId);
+
+  if (appPkgs.length === 0) {
+    listContainer.innerHTML = `
+      <div style="text-align: center; padding: 24px 12px; color: var(--text-dim); font-size: 12.5px;">
+        ⚠️ ไม่พบรายการประเภทแพ็กเกจสำหรับแอป ${escapeHtml(group.appName)} ในระบบ
+      </div>
+    `;
+  } else {
+    listContainer.innerHTML = appPkgs.map(pkg => {
+      const screens = pkg.screens || 1;
+      const isCurrent = group.pkgName && (group.pkgName.trim() === (pkg.name || "").trim());
+      const days = pkg.days || 30;
+      return `
+        <div class="pkg-picker-card ${isCurrent ? 'current-active' : ''}" 
+             data-pkg-id="${escapeHtml(pkg.id)}" 
+             data-pkg-name="${escapeHtml(pkg.name)}" 
+             data-pkg-screens="${screens}">
+          <div class="pkg-picker-top">
+            <span class="pkg-picker-name">${escapeHtml(pkg.name)}</span>
+            ${isCurrent ? `<span class="pkg-current-badge">✓ ใช้อยู่</span>` : `<span class="pkg-action-hint">เลือก ➔</span>`}
+          </div>
+          <div class="pkg-picker-meta-row">
+            <span class="pkg-meta-badge screens-badge">
+              <span>🔢</span> <span>${screens} จอ</span>
+            </span>
+            <span class="pkg-meta-badge days-badge">
+              <span>📅</span> <span>${days} วัน</span>
+            </span>
+            ${pkg.price ? `
+              <span class="pkg-meta-badge price-badge">
+                <span>฿</span><span>${pkg.price}</span>
+              </span>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeChangePackageModal() {
+  const modal = document.getElementById("modal-change-package");
+  if (modal) modal.style.display = "none";
+  currentPkgModalGroupKey = null;
+  currentPkgModalEmail = null;
+}
+
+async function applyPackageChange(targetPkgId, targetPkgName, targetScreensCount) {
+  if (!currentPkgModalGroupKey) return;
+  const group = appGroups[currentPkgModalGroupKey];
+  if (!group) return;
+
+  const specificEmail = currentPkgModalEmail;
+  const emailsToUpdate = specificEmail ? [specificEmail] : Object.keys(group.accountsByEmail);
+
+  closeChangePackageModal();
+  haptic();
+  showToast(`⏳ กำลังเปลี่ยนแพ็กเกจเป็น "${targetPkgName}" (${targetScreensCount} จอ)...`);
+
+  try {
+    for (const email of emailsToUpdate) {
+      await updateSingleAccountPackageAndScreens(group.appId, email, targetPkgId, targetPkgName, targetScreensCount);
+    }
+
+    showToast(`🟢 เปลี่ยนแพ็กเกจเป็น "${targetPkgName}" (${targetScreensCount} จอ) เรียบร้อย! ✨`);
+    await loadData(true);
+    selectChip(group.appId);
+  } catch (err) {
+    console.error("Change package error:", err);
+    showToast("❌ เปลี่ยนแพ็กเกจไม่สำเร็จ: " + err.message);
+  }
+}
+
+async function updateSingleAccountPackageAndScreens(appId, email, targetPkgId, targetPkgName, targetScreensCount) {
+  const emailLower = (email || "").toLowerCase().trim();
+
+  // 1. Find all account records for this email and appId
+  const accountProfiles = allAccountsList.filter(a =>
+    a.app_id === appId && (a.email || "").toLowerCase().trim() === emailLower
+  );
+
+  if (accountProfiles.length === 0) {
+    console.warn(`No account profiles found for ${email}`);
+    return;
+  }
+
+  const firstAcc = accountProfiles[0];
+  const password = firstAcc.password || "";
+  const expiry = firstAcc.expiry_date || null;
+  const supplierUrl = firstAcc.supplier_url || null;
+  const cookieData = firstAcc.cookie_data || null;
+
+  // 2. Update package_id on all existing records of this account
+  for (const prof of accountProfiles) {
+    if (prof.package_id !== targetPkgId) {
+      await patchDatabase("accounts", prof.id, {
+        package_id: targetPkgId
+      });
+      prof.package_id = targetPkgId;
+    }
+  }
+
+  // 3. Screen count adjustments matching targetScreensCount
+  const currentCount = accountProfiles.length;
+
+  if (currentCount < targetScreensCount) {
+    // Need to insert missing screens
+    const needed = targetScreensCount - currentCount;
+
+    const existingNumbers = new Set(
+      accountProfiles.map(p => {
+        const m = (p.profile_name || "").match(/\d+/);
+        return m ? parseInt(m[0], 10) : 0;
+      })
+    );
+
+    const appObj = rawApps.find(a => a.id === appId);
+    const isNetflix = appObj && (appObj.name || "").toLowerCase().includes("netflix");
+
+    let maxDisplayId = allAccountsList.reduce((m, a) => Math.max(m, Number(a.display_id) || 0), 3500);
+    let nextDisplayId = Math.max(maxDisplayId, 3512) + 1;
+
+    let nextScreenNum = 1;
+    const newRecords = [];
+
+    for (let i = 0; i < needed; i++) {
+      while (existingNumbers.has(nextScreenNum)) {
+        nextScreenNum++;
+      }
+      existingNumbers.add(nextScreenNum);
+
+      const isTv = isNetflix ? (nextScreenNum > 4) : false;
+
+      newRecords.push({
+        app_id: appId,
+        package_id: targetPkgId,
+        email: firstAcc.email,
+        password: password,
+        profile_name: `จอ ${nextScreenNum}`,
+        pin_code: null,
+        device_type: isTv ? "tv" : "mobile",
+        expiry_date: expiry,
+        status: "available",
+        supplier_url: supplierUrl,
+        cookie_data: cookieData,
+        display_id: nextDisplayId++
+      });
+    }
+
+    if (newRecords.length > 0) {
+      let insertRes;
+      if (currentShop.type === "supabase") {
+        insertRes = await fetch(`${currentShop.url}/rest/v1/accounts`, {
+          method: "POST",
+          headers: {
+            "apikey": currentShop.key,
+            "Authorization": `Bearer ${currentShop.key}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+          },
+          body: JSON.stringify(newRecords)
+        });
+      } else {
+        insertRes = await fetch(`${currentShop.url}/api/accounts`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${currentShop.key}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(newRecords)
+        });
+      }
+
+      if (!insertRes.ok) {
+        throw new Error(await insertRes.text() || `Insert screens error ${insertRes.status}`);
+      }
+    }
+  } else if (currentCount > targetScreensCount) {
+    // Need to reduce available screens down to targetScreensCount
+    const excess = currentCount - targetScreensCount;
+
+    const sortedProfiles = [...accountProfiles].sort((x, y) => {
+      const xNum = parseInt((x.profile_name || "").replace(/\D/g, ""), 10) || 0;
+      const yNum = parseInt((y.profile_name || "").replace(/\D/g, ""), 10) || 0;
+      return yNum - xNum;
+    });
+
+    let deletedCount = 0;
+    for (const prof of sortedProfiles) {
+      if (deletedCount >= excess) break;
+      if (prof.status === "available") {
+        await deleteAccountRecord(prof.id);
+        deletedCount++;
+      }
+    }
+  }
+}
+
+async function deleteAccountRecord(id) {
+  try {
+    if (currentShop.type === "supabase") {
+      await fetch(`${currentShop.url}/rest/v1/customer_bindings?account_id=eq.${id}`, {
+        method: "PATCH",
+        headers: {
+          "apikey": currentShop.key,
+          "Authorization": `Bearer ${currentShop.key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ account_id: null })
+      });
+    } else {
+      await fetch(`${currentShop.url}/api/customer_bindings?account_id=eq.${id}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${currentShop.key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ account_id: null })
+      });
+    }
+  } catch (e) {
+    // Ignore binding patch error
+  }
+
+  let url, headers;
+  if (currentShop.type === "supabase") {
+    url = `${currentShop.url}/rest/v1/accounts?id=eq.${id}`;
+    headers = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`
+    };
+  } else {
+    url = `${currentShop.url}/api/accounts?id=eq.${id}`;
+    headers = {
+      "Authorization": `Bearer ${currentShop.key}`
+    };
+  }
+
+  const res = await fetch(url, { method: "DELETE", headers });
+  if (!res.ok) {
+    console.warn(`Delete account record ${id} error:`, await res.text());
+  }
+}
+
 
 
