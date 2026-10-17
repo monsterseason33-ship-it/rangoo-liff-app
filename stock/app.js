@@ -368,7 +368,9 @@ function initUIEventListeners() {
   const nameInputEl = document.getElementById("send-bind-customer-name");
   if (nameInputEl) {
     nameInputEl.addEventListener("input", (e) => {
-      e.target.value = e.target.value.toUpperCase();
+      updateCustomerNameStatusDisplay(e.target.value);
+    });
+    nameInputEl.addEventListener("change", (e) => {
       updateCustomerNameStatusDisplay(e.target.value);
     });
   }
@@ -4131,23 +4133,52 @@ function generateUniqueCustomerName(length = 18) {
   return name;
 }
 
+// 2.5 Populate Datalist with existing customer names for autocomplete
+function populateCustomerDatalist() {
+  const datalist = document.getElementById("send-bind-customer-datalist");
+  if (!datalist) return;
+  const uniqueNames = new Set();
+  if (Array.isArray(rawBindings)) {
+    rawBindings.forEach(b => {
+      if (b && b.customer_name) {
+        const nm = b.customer_name.trim();
+        if (nm) uniqueNames.add(nm);
+      }
+    });
+  }
+  if (Array.isArray(allAccountsList)) {
+    allAccountsList.forEach(a => {
+      if (a && a.customer_id) {
+        const nm = a.customer_id.trim();
+        if (nm) uniqueNames.add(nm);
+      }
+    });
+  }
+  const sorted = Array.from(uniqueNames).sort((a, b) => a.localeCompare(b, 'th'));
+  datalist.innerHTML = sorted.map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
+}
+
 // 3. Uniqueness and format validator
 function checkCustomerNameStatus(name) {
   if (!name || !name.trim()) {
-    return { valid: false, message: '⚠️ กรุณาระบุชื่อลูกค้า', color: '#ef4444' };
+    return { valid: false, message: 'พิมพ์ชื่อลูกค้าเก่า หรือกดสุ่มชื่อลูกค้าใหม่ 🎲', color: '#94a3b8' };
   }
   const clean = name.trim().toUpperCase();
-  const takenInBindings = (rawBindings || []).some(b => b.customer_name && b.customer_name.trim().toUpperCase() === clean);
-  const takenInAccounts = (allAccountsList || []).some(a => a.customer_id && a.customer_id.trim().toUpperCase() === clean);
-  if (takenInBindings || takenInAccounts) {
-    return { valid: false, isTaken: true, message: '⚠️ ชื่อนี้มีอยู่ในระบบแล้ว (โปรดสุ่มใหม่หรือเปลี่ยน)', color: '#f59e0b' };
+  const existingBindings = (rawBindings || []).filter(b => b.customer_name && b.customer_name.trim().toUpperCase() === clean);
+  const existingAccounts = (allAccountsList || []).filter(a => a.customer_id && a.customer_id.trim().toUpperCase() === clean);
+  const totalExisting = existingBindings.length + existingAccounts.length;
+
+  if (totalExisting > 0) {
+    const activeCount = existingBindings.filter(b => !b.reverted).length;
+    const badgeText = activeCount > 0 ? `${activeCount} รายการผูกสิทธิ์` : `มีประวัติในระบบ`;
+    return { valid: true, isExisting: true, message: `👥 ลูกค้าเก่าในระบบ (${badgeText}) • พร้อมผูกเพิ่ม`, color: '#38bdf8' };
   }
 
   const isAutoRenameFormat = /^[A-Z0-9]{16,20}$/.test(clean);
   if (isAutoRenameFormat) {
-    return { valid: true, isAutoRename: true, message: '✅ รูปแบบ Auto-Rename LINE OA (18 หลัก) • ไม่ซ้ำในระบบ', color: '#34d399' };
+    return { valid: true, isAutoRename: true, message: '✅ รหัส Auto-Rename LINE OA (18 หลัก) • ลูกค้าใหม่', color: '#34d399' };
   }
-  return { valid: true, isAutoRename: false, message: 'ℹ️ ชื่อลูกค้าทั่วไป • ใช้งานได้', color: '#38bdf8' };
+  return { valid: true, isAutoRename: false, message: '✨ ชื่อลูกค้าใหม่ • พร้อมผูกสิทธิ์', color: '#10b981' };
 }
 
 // 4. Open Send & Bind Modal
@@ -4240,10 +4271,19 @@ function openSendBindModal(screenDataset, btnEl = null) {
     </div>
   `;
 
-  // Pre-generate unique customer name
-  const generatedName = generateUniqueCustomerName(18);
-  nameInput.value = generatedName;
-  updateCustomerNameStatusDisplay(generatedName);
+  // Populate datalist with existing customer names for autocomplete
+  populateCustomerDatalist();
+
+  // Reset to empty for existing customer input, ready for user typing
+  nameInput.value = "";
+  updateCustomerNameStatusDisplay("");
+
+  // Auto-focus input so user can start typing immediately
+  setTimeout(() => {
+    try {
+      nameInput.focus();
+    } catch (e) {}
+  }, 100);
 
   // Set default days
   const defaultDays = getPackageDays(pkgName, appId) || 30;
@@ -4314,12 +4354,21 @@ function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, de
   const cleanPin = (context.pinTxt || "🔓 ไม่มี PIN").trim().replace(/^🔢\s*/, "");
   const expStr = formatDateThai(expiryDateObj);
 
+  const isNetflix = (context.appName || '').toLowerCase().includes("netflix");
+  const isWrongPassword = isNetflix && (
+    context.isWrongPassword ||
+    context.problemType === "wrong_password" ||
+    context.targetAcc?.problemType === "wrong_password" ||
+    (typeof context.password === "string" && (context.password.includes("OTP") || context.password.includes("แอดมิน")))
+  );
+  const passwordDisplay = isWrongPassword ? "เข้าระบบแบบ OTP ได้จากแอดมิน" : context.password;
+
   let script = `${headerTitle}\n`;
   script += `[${context.pkgName || `แพ็กเกจ ${days} วัน`}]\n`;
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
   script += `👤 คุณ: *${customerName}*\n`;
   script += `📧 อีเมล: ${context.email}\n`;
-  script += `🔑 รหัสผ่าน: ${context.password}\n`;
+  script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
   script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
   script += `🔢 ${cleanPin}\n`;
   script += `📱 อุปกรณ์: ${device}\n`;
@@ -4340,7 +4389,7 @@ async function executeConfirmSendBind() {
   const nameInput = document.getElementById("send-bind-customer-name");
   const customerName = (nameInput.value || "").trim().toUpperCase();
   if (!customerName) {
-    showToast("⚠️ โปรดระบุชื่อลูกค้าก่อนผูกสิทธิ์", "warning");
+    showToast("⚠️ โปรดระบุชื่อลูกค้าก่อนผูกสิทธิ์ (พิมพ์ชื่อลูกค้าเก่า หรือกดสุ่มชื่อใหม่)", "warning");
     nameInput.focus();
     return;
   }
@@ -4452,7 +4501,8 @@ async function executeCopyCustomerName() {
   const nameInput = document.getElementById("send-bind-customer-name");
   const nameVal = (nameInput.value || "").trim().toUpperCase();
   if (!nameVal) {
-    showToast("⚠️ โปรดสุ่มหรือพิมพ์ชื่อลูกค้าก่อน", "warning");
+    showToast("⚠️ โปรดพิมพ์ชื่อลูกค้า หรือกดสุ่มชื่อก่อน", "warning");
+    nameInput.focus();
     return;
   }
   await copyToClipboard(nameVal);
@@ -4474,6 +4524,7 @@ function executeRandomizeCustomerName() {
   if (nameInput) {
     nameInput.value = newName;
     updateCustomerNameStatusDisplay(newName);
+    nameInput.focus();
   }
   showToast(`🎲 สุ่มชื่อใหม่ 18 หลัก: ${newName}`);
 }

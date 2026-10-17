@@ -521,8 +521,11 @@
         </div>
 
         <input type="text" id="send-bind-customer-name" class="prem-input" 
-               placeholder="ชื่อลูกค้า หรือคลิกสุ่มชื่อ LINE OA..." 
-               style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+               placeholder="พิมพ์ชื่อลูกค้าเก่า หรือคลิกสุ่มชื่อใหม่..." 
+               list="send-bind-customer-datalist"
+               autocomplete="off"
+               style="font-family: 'JetBrains Mono', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+        <datalist id="send-bind-customer-datalist"></datalist>
 
         <!-- Quick actions row for customer name -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
@@ -536,7 +539,7 @@
           </button>
         </div>
         <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; line-height: 1.4;">
-          💡 รูปแบบเดียวกับ <b>Auto-renaming LINE OA</b> (18 ตัวอักษรพิมพ์ใหญ่ + ตัวเลข) ไม่ซ้ำกับลูกค้าในระบบ สามารถคัดลอกไปเปลี่ยนชื่อลูกค้าใหม่ใน LINE OA เพื่อให้ค้นหาตรงกันได้ง่าย
+          💡 <b>ลูกค้าเก่า:</b> พิมพ์ชื่อเดิมเพื่อผูกรวมพอร์ทัลเดียวกัน • <b>ลูกค้าใหม่:</b> กด <b>สุ่มชื่อใหม่</b> แล้วคัดลอกไปเปลี่ยนชื่อใน LINE OA
         </div>
       </div>
 
