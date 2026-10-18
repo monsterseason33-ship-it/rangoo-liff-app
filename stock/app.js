@@ -6371,16 +6371,17 @@ function handleDisneyWizardRawPasteInput() {
     disneyWizardState.profile = profileMatch[1].trim();
   }
 
-  // 4. PIN detection
-  const pinMatch = text.match(/(?:pin|รหัสพิน|พิน)\s*[:#-]?\s*(\d{4})/i);
+  // 4. PIN detection (Profile PIN: 4 digits)
+  const pinMatch = text.match(/(?:pinจอ|รหัสจอ|พินจอ|pin|รหัสพิน|พิน)\s*[:#-]?\s*(\d{4})\b/i);
   if (pinMatch) {
     disneyWizardState.pin = pinMatch[1].trim();
   }
 
-  // 5. PIN Mail detection (พินเมล / พินเมลล์ / pinmail / pin mail / รหัสเมล)
-  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)[:\s\t\-=]*([^\s\n\r,]+)/i);
+  // 5. PIN Mail detection (พินเมล / พินเมลล์ / pinmail / pin mail / รหัสเมล, or 6-digit PIN)
+  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail|รหัสเมล|รหัสเมลล์)[:\s\t\-=]*([^\s\n\r,]+)/i) ||
+                       text.match(/(?:pin|พิน)\s*[:#-]?\s*(\d{6})\b/i);
   if (pinMailMatch) {
-    disneyWizardState.pinMail = pinMailMatch[1].trim();
+    disneyWizardState.pinMail = (pinMailMatch[1] || pinMailMatch[0]).trim();
   } else {
     disneyWizardState.pinMail = "";
   }
