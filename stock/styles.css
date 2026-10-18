@@ -2909,5 +2909,55 @@ body {
   transform: scale(0.95);
 }
 
+/* ============================================================================
+   🏰 Disney+ Wizard & Button Styling
+============================================================================ */
+.group-disney-btn {
+  background: rgba(0, 210, 255, 0.15);
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  color: #00d2ff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  user-select: none;
+}
 
+.group-disney-btn:hover {
+  background: rgba(0, 210, 255, 0.28);
+  border-color: #00d2ff;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 210, 255, 0.25);
+}
 
+.group-disney-btn:active {
+  transform: scale(0.95);
+}
+
+.disney-wizard-sheet {
+  background: #0b0f19 !important;
+  color: #f1f5f9;
+}
+
+.disney-step-tab {
+  transition: all 0.2s ease;
+}
+
+.disney-step-tab.active {
+  background: linear-gradient(135deg, #a855f7, #6366f1) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
+}
+
+.btn-disney-quick-day.active {
+  border-color: #34d399 !important;
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.15) !important;
+}

@@ -290,6 +290,14 @@ function initUIEventListeners() {
         return;
       }
 
+      // 2.05 Open Disney Wizard from group card header
+      const disneyBtn = e.target.closest(".group-disney-btn");
+      if (disneyBtn) {
+        e.stopPropagation();
+        openDisneyOverlayWizard(disneyBtn.dataset.appId);
+        return;
+      }
+
       // 2.1 Quick Copy Normal Sales Script (1-Tap from card header)
       const salesBtn = e.target.closest(".group-sales-btn");
       if (salesBtn) {
@@ -476,6 +484,9 @@ function initUIEventListeners() {
   if (btnCopySalesFinal) {
     btnCopySalesFinal.addEventListener("click", copySalesScriptFromModal);
   }
+
+  // Initialize Disney+ Overlay Wizard Event Listeners
+  initDisneyOverlayEventListeners();
 }
 
 // ----------------------------------------------------------------------------
@@ -891,6 +902,11 @@ function renderStockFeed() {
             }
           </div>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            ${(group.appName || '').toLowerCase().includes("disney") ? `
+            <button type="button" class="group-disney-btn" data-app-id="${escapeHtml(group.appId)}" title="เปิดวิซาร์ดผูก Disney+ และส่งรหัส OTP">
+              🏰 ผูก Disney+
+            </button>
+            ` : ""}
             <button type="button" class="group-sales-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกบทเสนอขาย (ปกติ)">
               📢 เสนอขาย
             </button>
@@ -5662,6 +5678,969 @@ async function copySalesScriptFromModal() {
 
   showToast("📋 คัดลอกบทเสนอขายเรียบร้อยแล้ว!");
 }
+
+// ============================================================================
+// 🏰 DISNEY+ OVERLAY PANEL WIZARD (STOCK & EXTENSION COMPATIBLE)
+// ============================================================================
+
+const DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT = `1️⃣ คัดลอกแล้ววาง เบอร์โทรศัพท์ ด้านบนลงในช่องของ Disney+
+2️⃣ เลือกส่งรหัสทาง E-mail เท่านั้น (ห้ามส่งผ่านเบอร์เด็ดขาด)
+🔴 ทักแชทพิมพ์บอกแอดว่า "ขอรหัส" ได้เลยครับ! (ต้องพิมพ์แจ้งน้า ไม่ทักแอดจะไม่รู้ แล้วจะส่ง OTP ให้ไม่ได้งับ 🥺🙏)`;
+
+const DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT = `1️⃣ คัดลอกแล้ววาง E-mail ด้านบนลงในช่องของ Disney+
+2️⃣ เลือกส่งรหัสทาง E-mail เท่านั้น
+🔴 ทักแชทพิมพ์บอกแอดว่า "ขอรหัส" ได้เลยครับ! (ต้องพิมพ์แจ้งน้า ไม่ทักแอดจะไม่รู้ แล้วจะส่ง OTP ให้ไม่ได้งับ 🥺🙏)`;
+
+const DEFAULT_DISNEY_OTP_SCRIPT = `🔐 OTP Code: {otp}\n\nเช็กความถูกต้องแล้วไปต่อกันได้เลยครับ\n\nพิมพ์ "ถูก" เพื่อรับข้อมูลโปรไฟล์เข้าใช้งาน\nถ้ายังไม่ใช่ กดส่งใหม่อีกครั้งทาง "อีเมล" (ย้ำว่า "อีเมล" เท่านั้น) แล้วพิมพ์ "ขอใหม่" ได้เลย ⚡️`;
+
+const DEFAULT_DISNEY_TV_SCRIPT_1 = `รบกวนเปิด Disney+ บนทีวี แล้วถ่ายภาพหรือพิมพ์ ตัวเลข 8 หลัก ส่งมาให้หน่อยน้า พิมพ์ตัวเลขมาเลยยิ่งไวเลยครับ 📺✨\n\nถ้าหน้าจอไม่มีโค้ด 8 หลักขึ้น ลองลบแล้วลงแอปใหม่ดูอีกรอบนึงน้า จะได้อัปเดตเป็นเวอร์ชันล่าสุดด้วย 📲\n\nแต่ถ้าลงใหม่แล้วยังไม่มาเหมือนเดิม ส่งภาพหน้าจอล่าสุดมาให้ดูอีกทีได้เลย เดี๋ยวช่วยเช็กให้ต่อครับผม 🤝`;
+
+const DEFAULT_DISNEY_TV_SCRIPT_2 = `รบกวนเปิดหน้าจอนี้ค้างไว้ก่อนน้า ระบบกำลังรันให้แบบอัตโนมัติ ✨\n\nถ้าสังเกตเห็นตัวเลข 8 หลักมีการขยับหรือเปลี่ยนไป สะกิดบอกแอดมินได้ทันทีเลยครับ 💬`;
+
+const DEFAULT_DISNEY_NON_TV_SCRIPT = `รบกวนแคปหรือถ่ายภาพหน้าเข้าสู่ระบบของ Disney+ บนอุปกรณ์ที่ต้องการใช้งานส่งให้แอดมินหน่อยครับ`;
+
+let disneyGuideScriptPhoneTemplate = (typeof localStorage !== "undefined" && localStorage.getItem("disneyGuideScriptPhoneTemplate")) || DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT;
+let disneyGuideScriptEmailTemplate = (typeof localStorage !== "undefined" && localStorage.getItem("disneyGuideScriptEmailTemplate")) || DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT;
+let disneyOtpScriptTemplate = (typeof localStorage !== "undefined" && localStorage.getItem("disneyOtpScriptTemplate")) || DEFAULT_DISNEY_OTP_SCRIPT;
+let disneyTvScript1Template = (typeof localStorage !== "undefined" && localStorage.getItem("disneyTvScript1Template")) || DEFAULT_DISNEY_TV_SCRIPT_1;
+let disneyTvScript2Template = (typeof localStorage !== "undefined" && localStorage.getItem("disneyTvScript2Template")) || DEFAULT_DISNEY_TV_SCRIPT_2;
+let disneyNonTvScriptTemplate = (typeof localStorage !== "undefined" && localStorage.getItem("disneyNonTvScriptTemplate")) || DEFAULT_DISNEY_NON_TV_SCRIPT;
+let disneyLoginType = (typeof localStorage !== "undefined" && localStorage.getItem("disney_login_type")) || "phone";
+
+let disneyWizardState = {
+  appId: null,
+  appName: "Disney+ Hotstar",
+  accountId: null,
+  email: "",
+  password: "",
+  phone: "",
+  profile: "",
+  pin: "",
+  screenId: "",
+  pkgName: "",
+  targetAcc: null
+};
+
+let currentDisneyWizardStep = 1;
+
+function getDisneyApp() {
+  if (!rawApps || !rawApps.length) return null;
+  return rawApps.find(a => (a.name || '').toLowerCase().includes("disney") || (a.display_name || '').toLowerCase().includes("disney")) || null;
+}
+
+function loadDisneyScriptsFromAppsDb() {
+  const disneyApp = getDisneyApp();
+  if (disneyApp && disneyApp.instruction_text) {
+    try {
+      const parsed = JSON.parse(disneyApp.instruction_text);
+      if (parsed.guidePhone) disneyGuideScriptPhoneTemplate = parsed.guidePhone;
+      if (parsed.guideEmail) disneyGuideScriptEmailTemplate = parsed.guideEmail;
+      if (parsed.otp) disneyOtpScriptTemplate = parsed.otp;
+      if (parsed.tvScript1) disneyTvScript1Template = parsed.tvScript1;
+      if (parsed.tvScript2) disneyTvScript2Template = parsed.tvScript2;
+      if (parsed.nonTvScript) disneyNonTvScriptTemplate = parsed.nonTvScript;
+    } catch (e) {}
+  }
+}
+
+async function syncDisneyScriptsToSupabase(callback) {
+  const disneyApp = getDisneyApp();
+  if (!disneyApp || currentShop.type !== "supabase") {
+    if (typeof callback === "function") callback(false);
+    return;
+  }
+  try {
+    const payloadData = {
+      guide: (disneyLoginType === "email" ? disneyGuideScriptEmailTemplate : disneyGuideScriptPhoneTemplate) || DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT,
+      guidePhone: disneyGuideScriptPhoneTemplate || DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT,
+      guideEmail: disneyGuideScriptEmailTemplate || DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT,
+      otp: disneyOtpScriptTemplate || DEFAULT_DISNEY_OTP_SCRIPT,
+      tvScript1: disneyTvScript1Template || DEFAULT_DISNEY_TV_SCRIPT_1,
+      tvScript2: disneyTvScript2Template || DEFAULT_DISNEY_TV_SCRIPT_2,
+      nonTvScript: disneyNonTvScriptTemplate || DEFAULT_DISNEY_NON_TV_SCRIPT
+    };
+    await fetch(`${currentShop.url}/rest/v1/apps?id=eq.${disneyApp.id}`, {
+      method: "PATCH",
+      headers: {
+        "apikey": currentShop.key,
+        "Authorization": `Bearer ${currentShop.key}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ instruction_text: JSON.stringify(payloadData) })
+    });
+    if (typeof callback === "function") callback(true);
+  } catch (err) {
+    console.warn("Failed to sync Disney scripts to Supabase:", err);
+    if (typeof callback === "function") callback(false);
+  }
+}
+
+function initDisneyOverlayEventListeners() {
+  // Top toolbar button to open wizard
+  const btnOpenWizard = document.getElementById("btn-open-disney-wizard");
+  if (btnOpenWizard) {
+    btnOpenWizard.addEventListener("click", () => openDisneyOverlayWizard());
+  }
+
+  // Close modal button
+  const btnClose = document.getElementById("btn-close-disney-overlay");
+  if (btnClose) {
+    btnClose.addEventListener("click", closeDisneyOverlayWizard);
+  }
+
+  // Modal backdrop click
+  const overlay = document.getElementById("disney-overlay-panel");
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeDisneyOverlayWizard();
+    });
+  }
+
+  // Stepper tabs
+  const tab1 = document.getElementById("tab-disney-step-1");
+  const tab2 = document.getElementById("tab-disney-step-2");
+  if (tab1) tab1.addEventListener("click", () => switchDisneyWizardStep(1));
+  if (tab2) tab2.addEventListener("click", () => switchDisneyWizardStep(2));
+
+  // Device select change (shows/hides Smart TV box)
+  const deviceSelect = document.getElementById("wizard-bind-device-select");
+  if (deviceSelect) {
+    deviceSelect.addEventListener("change", updateDisneyTvQuickScriptsVisibility);
+  }
+
+  // Login Channel Selector (Phone vs Email)
+  const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
+  if (loginTypeSelect) {
+    loginTypeSelect.value = disneyLoginType || "phone";
+    loginTypeSelect.addEventListener("change", () => {
+      disneyLoginType = loginTypeSelect.value;
+      try {
+        localStorage.setItem("disney_login_type", disneyLoginType);
+      } catch (e) {}
+      updateDisneyGuideEditPanelUI();
+      haptic();
+      showToast(disneyLoginType === "email" ? "📧 เลือกส่งสคริปต์ทาง E-mail" : "📞 เลือกส่งสคริปต์ทาง เบอร์โทรศัพท์");
+    });
+  }
+
+  // Quick Stock Fetch button
+  const btnQuickFetch = document.getElementById("btn-wizard-quick-stock-fetch");
+  if (btnQuickFetch) {
+    btnQuickFetch.addEventListener("click", handleDisneyQuickStockFetch);
+  }
+
+  // Select Screen in Stock modal button
+  const btnOpenStockModal = document.getElementById("btn-wizard-open-stock-modal");
+  if (btnOpenStockModal) {
+    btnOpenStockModal.addEventListener("click", handleDisneySelectStockScreen);
+  }
+
+  // Raw paste textarea
+  const rawPaste = document.getElementById("wizard-bind-raw-paste");
+  if (rawPaste) {
+    rawPaste.addEventListener("input", handleDisneyWizardRawPasteInput);
+  }
+
+  // Step 1: Copy Guide script button
+  const btnStep1 = document.getElementById("btn-wizard-step1");
+  if (btnStep1) {
+    btnStep1.addEventListener("click", handleDisneyCopyStep1Guide);
+  }
+
+  // Guide script edit controls
+  const btnEditGuide = document.getElementById("btn-edit-disney-guide-script");
+  if (btnEditGuide) {
+    btnEditGuide.addEventListener("click", toggleDisneyGuideScriptEditPanel);
+  }
+  const btnSaveGuide = document.getElementById("btn-save-disney-guide-script");
+  if (btnSaveGuide) {
+    btnSaveGuide.addEventListener("click", handleDisneySaveGuideScript);
+  }
+  const btnResetGuide = document.getElementById("btn-reset-disney-guide-script");
+  if (btnResetGuide) {
+    btnResetGuide.addEventListener("click", handleDisneyResetGuideScript);
+  }
+
+  // OTP Send & Resend buttons
+  const btnSendOtp = document.getElementById("btn-wizard-send-otp");
+  if (btnSendOtp) {
+    btnSendOtp.addEventListener("click", handleDisneySendOtpAction);
+  }
+  const btnResendOtp = document.getElementById("btn-wizard-resend-otp");
+  if (btnResendOtp) {
+    btnResendOtp.addEventListener("click", handleDisneyResendOtpAction);
+  }
+
+  // OTP script edit controls
+  const btnEditOtp = document.getElementById("btn-edit-disney-otp-script");
+  if (btnEditOtp) {
+    btnEditOtp.addEventListener("click", toggleDisneyOtpScriptEditPanel);
+  }
+  const btnSaveOtp = document.getElementById("btn-save-disney-otp-script");
+  if (btnSaveOtp) {
+    btnSaveOtp.addEventListener("click", handleDisneySaveOtpScript);
+  }
+  const btnResetOtp = document.getElementById("btn-reset-disney-otp-script");
+  if (btnResetOtp) {
+    btnResetOtp.addEventListener("click", handleDisneyResetOtpScript);
+  }
+
+  // Smart TV Controls
+  const btnTvScript1 = document.getElementById("btn-disney-tv-script-1");
+  if (btnTvScript1) {
+    btnTvScript1.addEventListener("click", () => handleDisneyCopyTvScript(1));
+  }
+  const btnTvScript2 = document.getElementById("btn-disney-tv-script-2");
+  if (btnTvScript2) {
+    btnTvScript2.addEventListener("click", () => handleDisneyCopyTvScript(2));
+  }
+
+  const tvCodeInput = document.getElementById("disney-tv-code-input");
+  if (tvCodeInput) {
+    tvCodeInput.addEventListener("input", (e) => {
+      const val = (e.target.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      e.target.value = val;
+      const countEl = document.getElementById("disney-tv-code-char-count");
+      if (countEl) countEl.textContent = `${val.length}/8`;
+    });
+  }
+
+  const btnCopyTvCode = document.getElementById("btn-copy-tv-code");
+  if (btnCopyTvCode) {
+    btnCopyTvCode.addEventListener("click", handleDisneyCopyTvCode);
+  }
+
+  const btnOpenTv = document.getElementById("btn-open-disney-tv");
+  if (btnOpenTv) {
+    btnOpenTv.addEventListener("click", () => {
+      window.open("https://www.hotstar.com/th/activate", "_blank");
+    });
+  }
+
+  const btnClearTv = document.getElementById("btn-clear-tv-code");
+  if (btnClearTv) {
+    btnClearTv.addEventListener("click", handleDisneyClearTvCode);
+  }
+
+  // TV Scripts Edit controls
+  const btnEditTv = document.getElementById("btn-edit-disney-tv-scripts");
+  if (btnEditTv) {
+    btnEditTv.addEventListener("click", toggleDisneyTvScriptEditPanel);
+  }
+  const btnSaveTv = document.getElementById("btn-save-disney-tv-scripts");
+  if (btnSaveTv) {
+    btnSaveTv.addEventListener("click", handleDisneySaveTvScripts);
+  }
+  const btnResetTv = document.getElementById("btn-reset-disney-tv-scripts");
+  if (btnResetTv) {
+    btnResetTv.addEventListener("click", handleDisneyResetTvScripts);
+  }
+
+  // Step 2 Customer Randomize & Quick Days
+  const btnRandomName = document.getElementById("btn-disney-wizard-random-name");
+  if (btnRandomName) {
+    btnRandomName.addEventListener("click", handleDisneyWizardRandomName);
+  }
+
+  document.querySelectorAll(".btn-disney-quick-day").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      const days = btn.dataset.days;
+      const input = document.getElementById("disney-wizard-days");
+      if (input) input.value = days;
+      document.querySelectorAll(".btn-disney-quick-day").forEach(b => {
+        b.classList.toggle("active", b.dataset.days === days);
+        if (b.dataset.days === days) {
+          b.style.borderColor = "#34d399";
+          b.style.color = "#34d399";
+        } else {
+          b.style.borderColor = "";
+          b.style.color = "";
+        }
+      });
+    });
+  });
+
+  // Step 2 Final Complete button
+  const btnStep2 = document.getElementById("btn-wizard-step2");
+  if (btnStep2) {
+    btnStep2.addEventListener("click", handleDisneyCompleteBindingStep2);
+  }
+}
+
+function openDisneyOverlayWizard(appId = null) {
+  haptic();
+  loadDisneyScriptsFromAppsDb();
+
+  const disneyApp = appId ? rawApps.find(a => a.id === appId) : getDisneyApp();
+  if (disneyApp) {
+    disneyWizardState.appId = disneyApp.id;
+    disneyWizardState.appName = disneyApp.display_name || disneyApp.name || "Disney+ Hotstar";
+  }
+
+  // Populate Package Selector
+  const pkgSelect = document.getElementById("disney-wizard-pkg-select");
+  if (pkgSelect) {
+    pkgSelect.innerHTML = `<option value="">-- ออโต้ / ตามสต็อก --</option>`;
+    const matchingPkgs = rawPackages.filter(p => !disneyWizardState.appId || p.app_id === disneyWizardState.appId);
+    matchingPkgs.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.name;
+      opt.textContent = p.name + (p.price ? ` (${p.price}฿)` : '');
+      pkgSelect.appendChild(opt);
+    });
+  }
+
+  // Set Login Channel Selector
+  const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
+  if (loginTypeSelect) {
+    loginTypeSelect.value = disneyLoginType || "phone";
+  }
+
+  // Update step and open modal
+  switchDisneyWizardStep(1);
+  updateDisneyTvQuickScriptsVisibility();
+  updateDisneyGuideEditPanelUI();
+
+  const modal = document.getElementById("disney-overlay-panel");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeDisneyOverlayWizard() {
+  haptic();
+  const modal = document.getElementById("disney-overlay-panel");
+  if (modal) modal.style.display = "none";
+}
+
+function switchDisneyWizardStep(step) {
+  haptic();
+  currentDisneyWizardStep = step;
+  const tab1 = document.getElementById("tab-disney-step-1");
+  const tab2 = document.getElementById("tab-disney-step-2");
+  const step1 = document.getElementById("disney-wizard-step-1");
+  const step2 = document.getElementById("disney-wizard-step-2");
+
+  if (step === 1) {
+    if (tab1) {
+      tab1.classList.add("active");
+      tab1.style.background = "linear-gradient(135deg, #a855f7, #6366f1)";
+      tab1.style.color = "#fff";
+    }
+    if (tab2) {
+      tab2.classList.remove("active");
+      tab2.style.background = "transparent";
+      tab2.style.color = "#94a3b8";
+    }
+    if (step1) step1.style.display = "flex";
+    if (step2) step2.style.display = "none";
+  } else {
+    if (tab2) {
+      tab2.classList.add("active");
+      tab2.style.background = "linear-gradient(135deg, #10b981, #059669)";
+      tab2.style.color = "#fff";
+    }
+    if (tab1) {
+      tab1.classList.remove("active");
+      tab1.style.background = "transparent";
+      tab1.style.color = "#94a3b8";
+    }
+    if (step1) step1.style.display = "none";
+    if (step2) step2.style.display = "flex";
+  }
+}
+
+function updateDisneyTvQuickScriptsVisibility() {
+  const deviceSelect = document.getElementById("wizard-bind-device-select");
+  const tvCard = document.getElementById("disney-tv-quick-scripts-card");
+  if (!tvCard || !deviceSelect) return;
+  const isTv = (deviceSelect.value || '').includes("ทีวี");
+  tvCard.style.display = isTv ? "flex" : "none";
+}
+
+function updateDisneyWizardBadgesUI() {
+  const list = document.getElementById("wizard-bind-parsed-list");
+  if (!list) return;
+
+  const items = [];
+  if (disneyWizardState.phone) {
+    items.push(`
+      <span class="parsed-badge" style="background: rgba(14, 165, 233, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;" title="แตะเพื่อคัดลอกเบอร์" data-copy-val="${escapeHtml(disneyWizardState.phone)}">
+        📞 ${escapeHtml(disneyWizardState.phone)}
+      </span>
+    `);
+  }
+  if (disneyWizardState.email) {
+    items.push(`
+      <span class="parsed-badge" style="background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(192, 132, 252, 0.4); color: #c084fc; font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;" title="แตะเพื่อคัดลอกอีเมล" data-copy-val="${escapeHtml(disneyWizardState.email)}">
+        📧 ${escapeHtml(disneyWizardState.email)}
+      </span>
+    `);
+  }
+  if (disneyWizardState.profile) {
+    items.push(`
+      <span class="parsed-badge" style="background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); color: #34d399; font-size: 11px; padding: 3px 8px; border-radius: 6px;">
+        👤 ${escapeHtml(disneyWizardState.profile)}
+      </span>
+    `);
+  }
+  if (disneyWizardState.pin) {
+    items.push(`
+      <span class="parsed-badge" style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); color: #fbbf24; font-size: 11px; padding: 3px 8px; border-radius: 6px;">
+        🔒 PIN: ${escapeHtml(disneyWizardState.pin)}
+      </span>
+    `);
+  }
+
+  if (items.length > 0) {
+    list.style.display = "flex";
+    list.style.flexWrap = "wrap";
+    list.innerHTML = items.join("");
+  } else {
+    list.style.display = "none";
+    list.innerHTML = "";
+  }
+}
+
+function handleDisneyWizardRawPasteInput() {
+  const textarea = document.getElementById("wizard-bind-raw-paste");
+  if (!textarea) return;
+  const text = textarea.value.trim();
+  if (!text) {
+    disneyWizardState.phone = "";
+    disneyWizardState.email = "";
+    disneyWizardState.profile = "";
+    disneyWizardState.pin = "";
+    updateDisneyWizardBadgesUI();
+    return;
+  }
+
+  // 1. Phone detection (08x, 09x, 06x, 9-10 digits)
+  const phoneMatch = text.match(/(?:(?:\+66|0)[689]\d{8}|\b0\d{8,9}\b|\b0\d{1,2}[-\s]?\d{3}[-\s]?\d{4}\b)/);
+  if (phoneMatch) {
+    disneyWizardState.phone = phoneMatch[0].replace(/[-\s]/g, "");
+  }
+
+  // 2. Email detection
+  const emailMatch = text.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) {
+    disneyWizardState.email = emailMatch[0].trim();
+  }
+
+  // 3. Profile / Screen detection
+  const profileMatch = text.match(/(?:จอ|โปรไฟล์|profile|screen)\s*[:#-]?\s*([^\n,]+)/i);
+  if (profileMatch) {
+    disneyWizardState.profile = profileMatch[1].trim();
+  }
+
+  // 4. PIN detection
+  const pinMatch = text.match(/(?:pin|รหัสพิน|พิน)\s*[:#-]?\s*(\d{4})/i);
+  if (pinMatch) {
+    disneyWizardState.pin = pinMatch[1].trim();
+  }
+
+  // Auto-detect login channel:
+  // If email is present and NO phone is detected -> auto select email
+  // If phone is detected -> default to phone
+  const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
+  if (loginTypeSelect) {
+    if (disneyWizardState.email && !disneyWizardState.phone) {
+      disneyLoginType = "email";
+      loginTypeSelect.value = "email";
+    } else if (disneyWizardState.phone) {
+      disneyLoginType = "phone";
+      loginTypeSelect.value = "phone";
+    }
+    try { localStorage.setItem("disney_login_type", disneyLoginType); } catch (e) {}
+    updateDisneyGuideEditPanelUI();
+  }
+
+  updateDisneyWizardBadgesUI();
+}
+
+function handleDisneyQuickStockFetch() {
+  haptic();
+  // Look for available Disney accounts in rawAccounts
+  const availableDisneyAccounts = rawAccounts.filter(a => 
+    (a.app_name || '').toLowerCase().includes("disney") && a.status === "available"
+  );
+
+  if (!availableDisneyAccounts.length) {
+    showToast("⚠️ ไม่พบบัญชี Disney+ ที่ว่างอยู่ในสต็อกขณะนี้", "warning");
+    return;
+  }
+
+  // Pick first available screen
+  const acc = availableDisneyAccounts[0];
+  disneyWizardState.accountId = acc.id;
+  disneyWizardState.targetAcc = acc;
+  disneyWizardState.email = acc.email || "";
+  disneyWizardState.password = acc.password || "";
+  disneyWizardState.profile = acc.profile_name || "จอ 1";
+  disneyWizardState.pin = acc.pin_code || "";
+  disneyWizardState.screenId = acc.display_id || acc.id;
+  disneyWizardState.pkgName = acc.package_name || "";
+
+  // Check phone from email or supplier notes if any
+  const phoneMatch = (acc.email || '').match(/(?:(?:\+66|0)[689]\d{8}|\b0\d{8,9}\b)/);
+  if (phoneMatch) {
+    disneyWizardState.phone = phoneMatch[0];
+  } else {
+    disneyWizardState.phone = "";
+  }
+
+  // Fill raw paste textarea
+  const textarea = document.getElementById("wizard-bind-raw-paste");
+  if (textarea) {
+    let rawText = `อีเมล: ${acc.email}\nรหัสผ่าน: ${acc.password}\nจอ: ${acc.profile_name || 'จอ 1'}`;
+    if (acc.pin_code) rawText += `\nPIN: ${acc.pin_code}`;
+    if (disneyWizardState.phone) rawText += `\nเบอร์: ${disneyWizardState.phone}`;
+    textarea.value = rawText;
+  }
+
+  // Auto-detect login channel
+  const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
+  if (loginTypeSelect) {
+    if (disneyWizardState.email && !disneyWizardState.phone) {
+      disneyLoginType = "email";
+      loginTypeSelect.value = "email";
+    } else if (disneyWizardState.phone) {
+      disneyLoginType = "phone";
+      loginTypeSelect.value = "phone";
+    }
+    try { localStorage.setItem("disney_login_type", disneyLoginType); } catch (e) {}
+    updateDisneyGuideEditPanelUI();
+  }
+
+  // Pre-fill Step 2 values
+  const pkgSelect = document.getElementById("disney-wizard-pkg-select");
+  if (pkgSelect && acc.package_name) {
+    pkgSelect.value = acc.package_name;
+  }
+
+  updateDisneyWizardBadgesUI();
+  showToast(`⚡ ดึงสต็อกว่างสำเร็จ: ${acc.email} (${acc.profile_name || 'จอว่าง'})`);
+}
+
+function handleDisneySelectStockScreen() {
+  haptic();
+  const availableDisneyAccounts = rawAccounts.filter(a => 
+    (a.app_name || '').toLowerCase().includes("disney") && a.status === "available"
+  );
+
+  if (!availableDisneyAccounts.length) {
+    showToast("⚠️ ไม่พบจอ Disney+ ที่ว่างอยู่ในสต็อก", "warning");
+    return;
+  }
+
+  let promptText = "🎬 เลือกหมายเลขจอที่ต้องการดึงข้อมูล:\n";
+  availableDisneyAccounts.slice(0, 15).forEach((a, idx) => {
+    promptText += `${idx + 1}. ${a.email} [${a.profile_name || 'จอว่าง'}] (ID: ${a.display_id || a.id})\n`;
+  });
+  promptText += "\nพิมพ์หมายเลข (1-" + Math.min(15, availableDisneyAccounts.length) + "):";
+
+  const choice = prompt(promptText, "1");
+  if (!choice) return;
+  const num = parseInt(choice, 10);
+  if (isNaN(num) || num < 1 || num > availableDisneyAccounts.length) {
+    showToast("⚠️ หมายเลขไม่ถูกต้อง", "warning");
+    return;
+  }
+
+  const acc = availableDisneyAccounts[num - 1];
+  disneyWizardState.accountId = acc.id;
+  disneyWizardState.targetAcc = acc;
+  disneyWizardState.email = acc.email || "";
+  disneyWizardState.password = acc.password || "";
+  disneyWizardState.profile = acc.profile_name || "จอ 1";
+  disneyWizardState.pin = acc.pin_code || "";
+  disneyWizardState.screenId = acc.display_id || acc.id;
+  disneyWizardState.pkgName = acc.package_name || "";
+
+  const phoneMatch = (acc.email || '').match(/(?:(?:\+66|0)[689]\d{8}|\b0\d{8,9}\b)/);
+  disneyWizardState.phone = phoneMatch ? phoneMatch[0] : "";
+
+  const textarea = document.getElementById("wizard-bind-raw-paste");
+  if (textarea) {
+    let rawText = `อีเมล: ${acc.email}\nรหัสผ่าน: ${acc.password}\nจอ: ${acc.profile_name || 'จอ 1'}`;
+    if (acc.pin_code) rawText += `\nPIN: ${acc.pin_code}`;
+    if (disneyWizardState.phone) rawText += `\nเบอร์: ${disneyWizardState.phone}`;
+    textarea.value = rawText;
+  }
+
+  const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
+  if (loginTypeSelect) {
+    if (disneyWizardState.email && !disneyWizardState.phone) {
+      disneyLoginType = "email";
+      loginTypeSelect.value = "email";
+    } else if (disneyWizardState.phone) {
+      disneyLoginType = "phone";
+      loginTypeSelect.value = "phone";
+    }
+    try { localStorage.setItem("disney_login_type", disneyLoginType); } catch (e) {}
+    updateDisneyGuideEditPanelUI();
+  }
+
+  updateDisneyWizardBadgesUI();
+  showToast(`✅ เลือกจอสำเร็จ: ${acc.email} [${acc.profile_name || 'จอว่าง'}]`);
+}
+
+async function handleDisneyCopyStep1Guide() {
+  haptic();
+  const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
+  const currentType = loginTypeSelect ? loginTypeSelect.value : (disneyLoginType || "phone");
+
+  const tpl = (currentType === "email")
+    ? (disneyGuideScriptEmailTemplate || DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT)
+    : (disneyGuideScriptPhoneTemplate || DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT);
+
+  let scriptText = tpl
+    .replace(/\{phone\}/g, disneyWizardState.phone || '-')
+    .replace(/\{email\}/g, disneyWizardState.email || '-');
+
+  const loginIdentifier = (currentType === "email")
+    ? (disneyWizardState.email || '')
+    : (disneyWizardState.phone || disneyWizardState.email || '');
+
+  if (loginIdentifier) {
+    scriptText = `${loginIdentifier}\n\n${scriptText}`;
+  }
+
+  await copyToClipboard(scriptText);
+
+  const btn = document.getElementById("btn-wizard-step1");
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<span>✅</span><span>คัดลอกคู่มือขอ OTP แล้ว!</span>`;
+    setTimeout(() => { btn.innerHTML = origHtml; }, 1600);
+  }
+
+  showToast(`📋 คัดลอกคู่มือขอ OTP (${currentType === 'email' ? 'อีเมล' : 'เบอร์โทรศัพท์'}) เรียบร้อยแล้ว!`);
+}
+
+async function handleDisneySendOtpAction() {
+  haptic();
+  const input = document.getElementById("wizard-bind-otp");
+  const otpVal = (input ? input.value : "").trim();
+  if (!otpVal) {
+    showToast("⚠️ กรุณากรอกรหัส OTP ก่อนคัดลอกส่งให้ลูกค้า", "warning");
+    if (input) input.focus();
+    return;
+  }
+
+  const script = (disneyOtpScriptTemplate || DEFAULT_DISNEY_OTP_SCRIPT).replace(/\{otp\}/g, otpVal);
+  await copyToClipboard(script);
+
+  const btn = document.getElementById("btn-wizard-send-otp");
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<span>✅</span><span>คัดลอก OTP แล้ว!</span>`;
+    setTimeout(() => { btn.innerHTML = origHtml; }, 1500);
+  }
+
+  showToast(`🔐 คัดลอกรหัส OTP: ${otpVal} พร้อมสคริปต์เรียบร้อย!`);
+}
+
+async function handleDisneyResendOtpAction() {
+  haptic();
+  const script = `ถ้ายังไม่ใช่หรือรหัสหมดอายุ กดส่งใหม่อีกครั้งทาง "อีเมล" (ย้ำว่า "อีเมล" เท่านั้น) แล้วทักบอกแอดมินว่า "ขอใหม่" ได้เลยครับ ⚡️`;
+  await copyToClipboard(script);
+  showToast("🔄 คัดลอกสคริปต์ขอ OTP ใหม่อีกครั้งแล้ว!");
+}
+
+async function handleDisneyCopyTvScript(num) {
+  haptic();
+  const script = (num === 2)
+    ? (disneyTvScript2Template || DEFAULT_DISNEY_TV_SCRIPT_2)
+    : (disneyTvScript1Template || DEFAULT_DISNEY_TV_SCRIPT_1);
+
+  await copyToClipboard(script);
+  showToast(`📺 คัดลอกสคริปต์ TV ${num} เรียบร้อยแล้ว!`);
+}
+
+async function handleDisneyCopyTvCode() {
+  haptic();
+  const input = document.getElementById("disney-tv-code-input");
+  const code = (input ? input.value : "").trim();
+  if (!code) {
+    showToast("⚠️ ไม่มีรหัสทีวีให้คัดลอก", "warning");
+    return;
+  }
+  await copyToClipboard(code);
+  showToast(`📋 คัดลอกรหัสทีวี 8 หลัก: ${code}`);
+}
+
+function handleDisneyClearTvCode() {
+  haptic();
+  const input = document.getElementById("disney-tv-code-input");
+  if (input) input.value = "";
+  const countEl = document.getElementById("disney-tv-code-char-count");
+  if (countEl) countEl.textContent = "0/8";
+  showToast("🔄 เคลียร์รหัสทีวีแล้ว");
+}
+
+function updateDisneyGuideEditPanelUI() {
+  const titleEl = document.getElementById("disney-guide-script-edit-title");
+  const textarea = document.getElementById("disney-guide-script-textarea");
+  if (!titleEl || !textarea) return;
+
+  if (disneyLoginType === "email") {
+    titleEl.textContent = "✏️ แก้ไขสคริปต์คู่มือขอ OTP (สำหรับ E-mail):";
+    textarea.value = disneyGuideScriptEmailTemplate || DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT;
+  } else {
+    titleEl.textContent = "✏️ แก้ไขสคริปต์คู่มือขอ OTP (สำหรับเบอร์โทรศัพท์):";
+    textarea.value = disneyGuideScriptPhoneTemplate || DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT;
+  }
+}
+
+function toggleDisneyGuideScriptEditPanel() {
+  haptic();
+  const panel = document.getElementById("disney-guide-script-edit-panel");
+  if (!panel) return;
+  const isHidden = panel.style.display === "none" || !panel.style.display;
+  panel.style.display = isHidden ? "block" : "none";
+  if (isHidden) {
+    updateDisneyGuideEditPanelUI();
+  }
+}
+
+function handleDisneySaveGuideScript() {
+  haptic();
+  const textarea = document.getElementById("disney-guide-script-textarea");
+  if (!textarea) return;
+  const val = textarea.value.trim();
+  if (!val) {
+    showToast("⚠️ ข้อความสคริปต์ว่างเปล่า", "warning");
+    return;
+  }
+
+  if (disneyLoginType === "email") {
+    disneyGuideScriptEmailTemplate = val;
+    try { localStorage.setItem("disneyGuideScriptEmailTemplate", val); } catch (e) {}
+  } else {
+    disneyGuideScriptPhoneTemplate = val;
+    try { localStorage.setItem("disneyGuideScriptPhoneTemplate", val); } catch (e) {}
+  }
+
+  syncDisneyScriptsToSupabase((synced) => {
+    showToast(synced ? "💾 บันทึกและซิงค์สคริปต์คู่มือแล้ว!" : "💾 บันทึกสคริปต์คู่มือลงเครื่องแล้ว!");
+  });
+
+  const panel = document.getElementById("disney-guide-script-edit-panel");
+  if (panel) panel.style.display = "none";
+}
+
+function handleDisneyResetGuideScript() {
+  haptic();
+  const textarea = document.getElementById("disney-guide-script-textarea");
+  if (disneyLoginType === "email") {
+    disneyGuideScriptEmailTemplate = DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT;
+    try { localStorage.removeItem("disneyGuideScriptEmailTemplate"); } catch (e) {}
+    if (textarea) textarea.value = DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT;
+  } else {
+    disneyGuideScriptPhoneTemplate = DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT;
+    try { localStorage.removeItem("disneyGuideScriptPhoneTemplate"); } catch (e) {}
+    if (textarea) textarea.value = DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT;
+  }
+  syncDisneyScriptsToSupabase(() => {
+    showToast("🔄 คืนค่าสคริปต์คู่มือเป็นค่าเริ่มต้นแล้ว");
+  });
+}
+
+function toggleDisneyOtpScriptEditPanel() {
+  haptic();
+  const panel = document.getElementById("disney-otp-script-edit-panel");
+  const textarea = document.getElementById("disney-otp-script-textarea");
+  if (!panel) return;
+  const isHidden = panel.style.display === "none" || !panel.style.display;
+  panel.style.display = isHidden ? "block" : "none";
+  if (isHidden && textarea) {
+    textarea.value = disneyOtpScriptTemplate || DEFAULT_DISNEY_OTP_SCRIPT;
+  }
+}
+
+function handleDisneySaveOtpScript() {
+  haptic();
+  const textarea = document.getElementById("disney-otp-script-textarea");
+  if (!textarea) return;
+  const val = textarea.value.trim();
+  if (!val) return;
+  disneyOtpScriptTemplate = val;
+  try { localStorage.setItem("disneyOtpScriptTemplate", val); } catch (e) {}
+  syncDisneyScriptsToSupabase((synced) => {
+    showToast(synced ? "💾 บันทึกและซิงค์สคริปต์ OTP แล้ว!" : "💾 บันทึกสคริปต์ OTP แล้ว!");
+  });
+  const panel = document.getElementById("disney-otp-script-edit-panel");
+  if (panel) panel.style.display = "none";
+}
+
+function handleDisneyResetOtpScript() {
+  haptic();
+  disneyOtpScriptTemplate = DEFAULT_DISNEY_OTP_SCRIPT;
+  try { localStorage.removeItem("disneyOtpScriptTemplate"); } catch (e) {}
+  const textarea = document.getElementById("disney-otp-script-textarea");
+  if (textarea) textarea.value = DEFAULT_DISNEY_OTP_SCRIPT;
+  syncDisneyScriptsToSupabase(() => {
+    showToast("🔄 คืนค่าสคริปต์ OTP เป็นค่าเริ่มต้นแล้ว");
+  });
+}
+
+function toggleDisneyTvScriptEditPanel() {
+  haptic();
+  const panel = document.getElementById("disney-tv-scripts-edit-panel");
+  const t1 = document.getElementById("disney-tv-script-1-textarea");
+  const t2 = document.getElementById("disney-tv-script-2-textarea");
+  const tNon = document.getElementById("disney-non-tv-script-textarea");
+  if (!panel) return;
+  const isHidden = panel.style.display === "none" || !panel.style.display;
+  panel.style.display = isHidden ? "block" : "none";
+  if (isHidden) {
+    if (t1) t1.value = disneyTvScript1Template || DEFAULT_DISNEY_TV_SCRIPT_1;
+    if (t2) t2.value = disneyTvScript2Template || DEFAULT_DISNEY_TV_SCRIPT_2;
+    if (tNon) tNon.value = disneyNonTvScriptTemplate || DEFAULT_DISNEY_NON_TV_SCRIPT;
+  }
+}
+
+function handleDisneySaveTvScripts() {
+  haptic();
+  const t1 = document.getElementById("disney-tv-script-1-textarea");
+  const t2 = document.getElementById("disney-tv-script-2-textarea");
+  const tNon = document.getElementById("disney-non-tv-script-textarea");
+  if (t1 && t1.value.trim()) {
+    disneyTvScript1Template = t1.value.trim();
+    try { localStorage.setItem("disneyTvScript1Template", disneyTvScript1Template); } catch (e) {}
+  }
+  if (t2 && t2.value.trim()) {
+    disneyTvScript2Template = t2.value.trim();
+    try { localStorage.setItem("disneyTvScript2Template", disneyTvScript2Template); } catch (e) {}
+  }
+  if (tNon && tNon.value.trim()) {
+    disneyNonTvScriptTemplate = tNon.value.trim();
+    try { localStorage.setItem("disneyNonTvScriptTemplate", disneyNonTvScriptTemplate); } catch (e) {}
+  }
+  syncDisneyScriptsToSupabase((synced) => {
+    showToast(synced ? "💾 บันทึกและซิงค์สคริปต์ Smart TV แล้ว!" : "💾 บันทึกสคริปต์ Smart TV แล้ว!");
+  });
+  const panel = document.getElementById("disney-tv-scripts-edit-panel");
+  if (panel) panel.style.display = "none";
+}
+
+function handleDisneyResetTvScripts() {
+  haptic();
+  disneyTvScript1Template = DEFAULT_DISNEY_TV_SCRIPT_1;
+  disneyTvScript2Template = DEFAULT_DISNEY_TV_SCRIPT_2;
+  disneyNonTvScriptTemplate = DEFAULT_DISNEY_NON_TV_SCRIPT;
+  try {
+    localStorage.removeItem("disneyTvScript1Template");
+    localStorage.removeItem("disneyTvScript2Template");
+    localStorage.removeItem("disneyNonTvScriptTemplate");
+  } catch (e) {}
+  const t1 = document.getElementById("disney-tv-script-1-textarea");
+  const t2 = document.getElementById("disney-tv-script-2-textarea");
+  const tNon = document.getElementById("disney-non-tv-script-textarea");
+  if (t1) t1.value = DEFAULT_DISNEY_TV_SCRIPT_1;
+  if (t2) t2.value = DEFAULT_DISNEY_TV_SCRIPT_2;
+  if (tNon) tNon.value = DEFAULT_DISNEY_NON_TV_SCRIPT;
+  syncDisneyScriptsToSupabase(() => {
+    showToast("🔄 คืนค่าสคริปต์ Smart TV เป็นค่าเริ่มต้นแล้ว");
+  });
+}
+
+function handleDisneyWizardRandomName() {
+  haptic();
+  const newName = generateUniqueCustomerName(18);
+  const nameInput = document.getElementById("disney-wizard-cust-name");
+  if (nameInput) {
+    nameInput.value = newName;
+  }
+  showToast(`🎲 สุ่มชื่อลูกค้าใหม่ 18 หลัก: ${newName}`);
+}
+
+async function handleDisneyCompleteBindingStep2() {
+  haptic();
+  const nameInput = document.getElementById("disney-wizard-cust-name");
+  let customerName = (nameInput ? nameInput.value : "").trim().toUpperCase();
+  if (!customerName) {
+    customerName = generateUniqueCustomerName(18);
+    if (nameInput) nameInput.value = customerName;
+  }
+
+  const days = parseInt(document.getElementById("disney-wizard-days")?.value, 10) || 30;
+  const device = document.getElementById("wizard-bind-device-select")?.value || "สมาร์ททีวี";
+  const pkgName = document.getElementById("disney-wizard-pkg-select")?.value || disneyWizardState.pkgName || "Disney+ Hotstar";
+
+  // Calculate expiry date: Day 1 begins today, expires at (days - 1) days 23:59:00
+  const expiryDateObj = new Date();
+  expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
+  expiryDateObj.setHours(23, 59, 0, 0);
+
+  const context = {
+    accountId: disneyWizardState.accountId,
+    appName: disneyWizardState.appName || "Disney+ Hotstar",
+    appId: disneyWizardState.appId,
+    email: disneyWizardState.email || "-",
+    password: disneyWizardState.password || "-",
+    screenName: disneyWizardState.profile || "จอ 1",
+    pinTxt: disneyWizardState.pin ? `🔒 PIN: ${disneyWizardState.pin}` : "🔓 ไม่มี PIN",
+    pinCode: disneyWizardState.pin || "",
+    screenId: disneyWizardState.screenId || "",
+    pkgName: pkgName,
+    deviceType: device,
+    targetAcc: disneyWizardState.targetAcc
+  };
+
+  const deliveryScript = buildUnifiedHandoverText(customerName, context, days, expiryDateObj, device);
+  await copyToClipboard(deliveryScript);
+
+  // If we have an account in stock, save binding into database
+  if (disneyWizardState.accountId) {
+    try {
+      const formattedExpiry = expiryDateObj.toISOString();
+      const rawAccountData = `📧 อีเมล: ${context.email}\n🔑 รหัสผ่าน: ${context.password}\n👤 หน้าจอ: ${context.screenName}${context.pinCode ? `\n🔒 รหัส PIN: ${context.pinCode}` : ''}`;
+      
+      const bindingPayload = {
+        customer_name: customerName,
+        chat_url: "https://chat.line.biz/",
+        app_name: context.appName,
+        package_name: context.pkgName,
+        days: days,
+        expiry_date: formattedExpiry,
+        device_type: device,
+        raw_account_data: rawAccountData,
+        account_id: disneyWizardState.accountId,
+        price_paid: 0,
+        reverted: false
+      };
+
+      if (disneyWizardState.targetAcc) {
+        if (disneyWizardState.targetAcc.supplier_order_id) {
+          bindingPayload.supplier_order_id = disneyWizardState.targetAcc.supplier_order_id;
+        }
+        if (disneyWizardState.targetAcc.supplier_url) {
+          bindingPayload.supplier_url = disneyWizardState.targetAcc.supplier_url;
+        }
+      }
+
+      await insertDatabase("customer_bindings", bindingPayload);
+      await patchDatabase("accounts", disneyWizardState.accountId, {
+        status: "used",
+        customer_id: customerName,
+        sold_at: new Date().toISOString(),
+        expiry_date: formattedExpiry
+      });
+
+      closeDisneyOverlayWizard();
+      showToast(`🎉 ผูกสิทธิ์คุณ ${customerName} สำเร็จ & คัดลอกสคริปต์ส่งมอบแล้ว!`);
+      await loadData(true);
+      return;
+    } catch (err) {
+      console.warn("Database binding save warning:", err);
+    }
+  }
+
+  closeDisneyOverlayWizard();
+  showToast(`📋 คัดลอกสคริปต์ส่งมอบ Disney+ (${customerName}) เรียบร้อยแล้ว!`);
+}
+
 
 
 
