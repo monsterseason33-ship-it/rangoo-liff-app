@@ -717,10 +717,10 @@
           </div>
         </div>
 
-        <!-- Disney+ Smart TV Quick Scripts Box -->
+        <!-- Disney+ Quick Scripts Box (Adaptive: TV 8-Digit or Non-TV Screenshots) -->
         <div id="disney-tv-quick-scripts-card" style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
           <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 800; color: #38bdf8;">
+            <div id="disney-tv-scripts-card-title" style="display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 800; color: #38bdf8;">
               <span>📺 สคริปต์ด่วน Smart TV (Disney+):</span>
             </div>
             <button id="btn-edit-disney-tv-scripts" type="button" style="font-size: 10px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; padding: 2px 8px; border-radius: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; font-weight: 600;" title="แก้ไขข้อความสคริปต์">
@@ -728,8 +728,8 @@
             </button>
           </div>
 
-          <!-- Quick Action Buttons -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+          <!-- Quick Action Buttons (Adaptive Grid) -->
+          <div id="disney-tv-scripts-btn-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <button id="btn-disney-tv-script-1" type="button" class="prem-btn" style="height: 32px; font-size: 11px; font-weight: 800; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border: 1px solid rgba(56, 189, 248, 0.5); color: #ffffff; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; margin: 0;">
               📺 พร้อมเข้า?
             </button>
@@ -738,8 +738,8 @@
             </button>
           </div>
 
-          <!-- 8-Digit TV Code Monitor & Launcher -->
-          <div style="padding: 8px 10px; background: rgba(10, 15, 30, 0.95); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; display: flex; flex-direction: column; gap: 6px;">
+          <!-- 8-Digit TV Code Monitor & Launcher (Hidden on Non-TV) -->
+          <div id="disney-tv-code-monitor-card" style="padding: 8px 10px; background: rgba(10, 15, 30, 0.95); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; display: flex; flex-direction: column; gap: 6px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #38bdf8;">
                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
@@ -939,7 +939,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.7"></script>
+  <script src="app.js?v=2.8"></script>
 </body>
 
 </html>

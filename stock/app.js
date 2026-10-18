@@ -5853,7 +5853,7 @@ const DEFAULT_DISNEY_TV_SCRIPT_1 = `รบกวนเปิด Disney+ บน�
 
 const DEFAULT_DISNEY_TV_SCRIPT_2 = `รบกวนเปิดหน้าจอนี้ค้างไว้ก่อนน้า ระบบกำลังรันให้แบบอัตโนมัติ ✨\n\nถ้าสังเกตเห็นตัวเลข 8 หลักมีการขยับหรือเปลี่ยนไป สะกิดบอกแอดมินได้ทันทีเลยครับ 💬`;
 
-const DEFAULT_DISNEY_NON_TV_SCRIPT = `รบกวนแคปหรือถ่ายภาพหน้าเข้าสู่ระบบของ Disney+ บนอุปกรณ์ที่ต้องการใช้งานส่งให้แอดมินหน่อยครับ`;
+const DEFAULT_DISNEY_NON_TV_SCRIPT = `รบกวนแคปหรือถ่ายภาพหน้าเข้าสู่ระบบของ Disney+ บนอุปกรณ์ที่ต้องการใช้งาน พร้อมบอกประเภทของอุปกรณ์ เช่น มือถือ, แท็บเล็ต/iPadหรือคอมพิวเตอร์ ส่งให้แอดมินหน่อยครับ`;
 
 let disneyGuideScriptPhoneTemplate = (typeof localStorage !== "undefined" && localStorage.getItem("disneyGuideScriptPhoneTemplate")) || DEFAULT_DISNEY_GUIDE_PHONE_SCRIPT;
 let disneyGuideScriptEmailTemplate = (typeof localStorage !== "undefined" && localStorage.getItem("disneyGuideScriptEmailTemplate")) || DEFAULT_DISNEY_GUIDE_EMAIL_SCRIPT;
@@ -6208,9 +6208,46 @@ function switchDisneyWizardStep(step) {
 function updateDisneyTvQuickScriptsVisibility() {
   const deviceSelect = document.getElementById("wizard-bind-device-select");
   const tvCard = document.getElementById("disney-tv-quick-scripts-card");
-  if (!tvCard || !deviceSelect) return;
-  const isTv = (deviceSelect.value || '').includes("ทีวี");
-  tvCard.style.display = isTv ? "flex" : "none";
+  const monitorCard = document.getElementById("disney-tv-code-monitor-card");
+  const btnScript1 = document.getElementById("btn-disney-tv-script-1");
+  const btnScript2 = document.getElementById("btn-disney-tv-script-2");
+  const titleEl = document.getElementById("disney-tv-scripts-card-title");
+  const btnGrid = document.getElementById("disney-tv-scripts-btn-grid");
+
+  if (!tvCard) return;
+
+  // The quick scripts card is always shown for all devices in Disney+ wizard
+  tvCard.style.display = "flex";
+
+  const currentDevice = (deviceSelect ? deviceSelect.value : (disneyWizardState.deviceType || "")) || "";
+  const isTv = currentDevice === "สมาร์ททีวี" || currentDevice.toLowerCase().includes("tv") || currentDevice.includes("ทีวี");
+
+  if (isTv) {
+    // 📺 Device is Smart TV
+    if (monitorCard) monitorCard.style.display = "flex";
+    if (btnScript2) btnScript2.style.display = "flex";
+    if (btnGrid) btnGrid.style.gridTemplateColumns = "1fr 1fr";
+    if (titleEl) {
+      titleEl.innerHTML = "<span>📺 สคริปต์ด่วน Smart TV (Disney+):</span>";
+    }
+    if (btnScript1) {
+      btnScript1.innerHTML = "📺 พร้อมเข้า?";
+      btnScript1.title = "คลิกเพื่อคัดลอกสคริปต์ขอเลข 8 หลัก";
+    }
+  } else {
+    // 📱 Device is NOT TV (มือถือ, แท็บเล็ต/iPad, คอมพิวเตอร์)
+    if (monitorCard) monitorCard.style.display = "none";
+    if (btnScript2) btnScript2.style.display = "none";
+    if (btnGrid) btnGrid.style.gridTemplateColumns = "1fr";
+    if (titleEl) {
+      const devLabel = currentDevice || "อุปกรณ์อื่น";
+      titleEl.innerHTML = `<span>📱 สคริปต์ด่วน Disney+ (${devLabel}):</span>`;
+    }
+    if (btnScript1) {
+      btnScript1.innerHTML = "📸 ขอภาพหน้าจอเข้าสู่ระบบ";
+      btnScript1.title = "คลิกเพื่อคัดลอกสคริปต์ขอภาพหน้าจอเข้าสู่ระบบ";
+    }
+  }
 }
 
 function updateDisneyWizardBadgesUI() {
@@ -6505,12 +6542,36 @@ async function handleDisneyResendOtpAction() {
 
 async function handleDisneyCopyTvScript(num) {
   haptic();
-  const script = (num === 2)
-    ? (disneyTvScript2Template || DEFAULT_DISNEY_TV_SCRIPT_2)
-    : (disneyTvScript1Template || DEFAULT_DISNEY_TV_SCRIPT_1);
+  const deviceSelect = document.getElementById("wizard-bind-device-select");
+  const currentDevice = (deviceSelect ? deviceSelect.value : (disneyWizardState.deviceType || "")) || "";
+  const isTv = currentDevice === "สมาร์ททีวี" || currentDevice.toLowerCase().includes("tv") || currentDevice.includes("ทีวี");
+
+  let script = "";
+  if (isTv) {
+    script = (num === 2)
+      ? (disneyTvScript2Template || DEFAULT_DISNEY_TV_SCRIPT_2)
+      : (disneyTvScript1Template || DEFAULT_DISNEY_TV_SCRIPT_1);
+  } else {
+    script = disneyNonTvScriptTemplate || DEFAULT_DISNEY_NON_TV_SCRIPT;
+  }
 
   await copyToClipboard(script);
-  showToast(`📺 คัดลอกสคริปต์ TV ${num} เรียบร้อยแล้ว!`);
+
+  const btnScript1 = document.getElementById("btn-disney-tv-script-1");
+  const btnScript2 = document.getElementById("btn-disney-tv-script-2");
+  const targetBtn = (num === 2) ? btnScript2 : btnScript1;
+
+  if (targetBtn) {
+    const origHtml = targetBtn.innerHTML;
+    targetBtn.innerHTML = `<span>✅ คัดลอกแล้ว!</span>`;
+    setTimeout(() => { targetBtn.innerHTML = origHtml; }, 1400);
+  }
+
+  if (isTv) {
+    showToast(`📺 คัดลอกสคริปต์ TV ${num} เรียบร้อยแล้ว!`);
+  } else {
+    showToast(`📸 คัดลอกสคริปต์ขอภาพหน้าจอ Disney+ (${currentDevice || 'อุปกรณ์อื่น'}) เรียบร้อยแล้ว!`);
+  }
 }
 
 async function handleDisneyCopyTvCode() {
