@@ -1593,7 +1593,8 @@ function getPackageDays(pkgName, appId = null) {
 
 function setDefaultExpiry(days) {
   const date = new Date();
-  date.setDate(date.getDate() + days);
+  const daysToAdd = Math.max(0, days - 1);
+  date.setDate(date.getDate() + daysToAdd);
   date.setHours(23, 59, 0, 0);
   const pad = n => String(n).padStart(2, '0');
   const str = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T23:59`;
@@ -1898,7 +1899,8 @@ function openThaiDatePicker(options = {}) {
           return;
         }
         const targetD = new Date();
-        targetD.setDate(targetD.getDate() + daysToAdd);
+        const offsetDays = Math.max(0, daysToAdd - 1);
+        targetD.setDate(targetD.getDate() + offsetDays);
         targetD.setHours(23, 59, 0, 0);
 
         tempYear = targetD.getFullYear();
@@ -2263,7 +2265,7 @@ function parseRawAccountText(cleanText) {
       const d = parseInt(relDaysMatch[1], 10);
       if (d > 0 && d <= 1000) {
         const targetDate = new Date();
-        targetDate.setDate(targetDate.getDate() + d);
+        targetDate.setDate(targetDate.getDate() + Math.max(0, d - 1));
         targetDate.setHours(23, 59, 0, 0);
         const pad = n => String(n).padStart(2, '0');
         expiryDateStr = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
@@ -4883,7 +4885,7 @@ async function executeConfirmSendBind() {
 
   try {
     const expiryDateObj = new Date();
-    expiryDateObj.setDate(expiryDateObj.getDate() + days);
+    expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
     expiryDateObj.setHours(23, 59, 0, 0);
 
     const pad = (num) => String(num).padStart(2, '0');
@@ -4963,7 +4965,7 @@ async function executeSendBindCopyOnly() {
   const device = document.getElementById("send-bind-device").value || "มือถือ / PC";
 
   const expiryDateObj = new Date();
-  expiryDateObj.setDate(expiryDateObj.getDate() + days);
+  expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
   expiryDateObj.setHours(23, 59, 0, 0);
 
   const deliveryScript = buildUnifiedHandoverText(customerName, currentSendBindContext, days, expiryDateObj, device);
