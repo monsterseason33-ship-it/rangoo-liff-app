@@ -2506,4 +2506,376 @@ body {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
 }
 
+/* ==========================================================================
+   📅 Custom Thai Buddhist Era Datepicker (Mobile-first UX)
+   ========================================================================== */
+.thai-datepicker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.thai-datepicker-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 15, 30, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: thai-datepicker-fade 0.2s ease-out;
+}
+
+@keyframes thai-datepicker-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.thai-datepicker-content {
+  position: relative;
+  width: 100%;
+  max-width: 350px;
+  max-height: 94vh;
+  overflow-y: auto;
+  background: linear-gradient(135deg, rgba(20, 30, 50, 0.98) 0%, rgba(10, 15, 30, 0.99) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.18);
+  z-index: 1;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: thai-datepicker-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-sizing: border-box;
+}
+
+@keyframes thai-datepicker-slide-in {
+  from {
+    opacity: 0;
+    transform: scale(0.93) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.thai-datepicker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+}
+
+.thai-datepicker-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.thai-datepicker-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.thai-datepicker-close-btn:hover {
+  color: #f87171;
+}
+
+.thai-datepicker-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.thai-datepicker-nav-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.thai-datepicker-nav-btn:hover,
+.thai-datepicker-nav-btn:active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.thai-datepicker-selectors {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.thai-datepicker-month-select,
+.thai-datepicker-year-select {
+  background: rgba(15, 23, 42, 0.85) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%2338bdf8' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E") no-repeat right 6px center;
+  background-size: 14px;
+  padding-right: 22px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 8px;
+  padding-left: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  height: 32px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  font-family: inherit;
+}
+
+.thai-datepicker-month-select:focus,
+.thai-datepicker-year-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+}
+
+.thai-datepicker-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.thai-datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  padding: 2px 0;
+}
+
+.thai-datepicker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.thai-datepicker-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.thai-datepicker-day:hover:not(.empty) {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.thai-datepicker-day.selected {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #042f2e !important;
+  font-weight: 800;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+  transform: scale(1.06);
+  border-color: #34d399 !important;
+}
+
+.thai-datepicker-day.today {
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  color: #38bdf8;
+}
+
+.thai-datepicker-day.inactive {
+  opacity: 0.25;
+}
+
+.thai-datepicker-day.empty {
+  cursor: default;
+}
+
+.thai-datepicker-time-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.thai-datepicker-time-section .time-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.time-picker-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-picker-controls select {
+  background: rgba(15, 23, 42, 0.9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%2338bdf8' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E") no-repeat right 3px center;
+  background-size: 12px;
+  padding-right: 14px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 6px;
+  padding-left: 6px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  height: 28px;
+  width: 52px;
+  text-align: left;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.time-picker-controls select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.25);
+}
+
+.thai-datepicker-quick-time-btn {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.thai-datepicker-quick-time-btn:hover,
+.thai-datepicker-quick-time-btn:active {
+  background: #38bdf8;
+  color: #0f172a;
+}
+
+.thai-datepicker-duration-info {
+  font-size: 11px;
+  text-align: center;
+  padding: 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.thai-datepicker-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.thai-datepicker-presets .preset-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  padding: 6px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.thai-datepicker-presets .preset-btn:hover,
+.thai-datepicker-presets .preset-btn:active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #fff;
+}
+
+.thai-datepicker-footer {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+.thai-datepicker-btn {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.thai-datepicker-btn.btn-cancel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.thai-datepicker-btn.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.thai-datepicker-btn.btn-confirm {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.thai-datepicker-btn.btn-confirm:hover {
+  filter: brightness(1.1);
+}
+
+
 

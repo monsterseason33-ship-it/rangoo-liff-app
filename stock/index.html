@@ -215,12 +215,12 @@
         <div style="position: relative;" class="acc-expiry-input-wrapper">
           <div id="acc-expiry-trigger" class="prem-input" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
             <span id="acc-expiry-text" style="color: #38bdf8; font-weight: 600;">📅 วันหมดอายุจะแสดงที่นี่...</span>
-            <span class="expiry-cal-btn" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 6px; color: #38bdf8; pointer-events: none;">
+            <span class="expiry-cal-btn" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 6px; color: #38bdf8;">
               <span>📅</span>
               <span>เลือกวัน</span>
             </span>
           </div>
-          <input type="datetime-local" id="acc-expiry" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2;">
+          <input type="datetime-local" id="acc-expiry" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; z-index: -1;">
         </div>
       </div>
 
@@ -441,7 +441,16 @@
 
         <div id="edit-creds-expiry-group" style="display: none;">
           <label class="prem-label">📅 วันหมดอายุ (Expiry Date):</label>
-          <input type="datetime-local" id="edit-creds-expiry" class="prem-input" style="margin-bottom: 0;">
+          <div style="position: relative;" class="acc-expiry-input-wrapper">
+            <div id="edit-creds-expiry-trigger" class="prem-input" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+              <span id="edit-creds-expiry-text" style="color: #38bdf8; font-weight: 600;">📅 คลิกเลือกวันเวลา...</span>
+              <span class="expiry-cal-btn" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 6px; color: #38bdf8;">
+                <span>📅</span>
+                <span>เลือกวัน</span>
+              </span>
+            </div>
+            <input type="datetime-local" id="edit-creds-expiry" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; z-index: -1;">
+          </div>
         </div>
 
         <div>
@@ -612,7 +621,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.9"></script>
+  <script src="app.js?v=2.0"></script>
 </body>
 
 </html>

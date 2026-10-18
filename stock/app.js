@@ -214,6 +214,25 @@ function initUIEventListeners() {
   // Initialize Troubleshooting Modals Listeners
   initTroubleshootingModalListeners();
 
+  // Global event delegation for any .expiry-cal-btn or datepicker trigger
+  document.body.addEventListener("click", (e) => {
+    const calBtn = e.target.closest(".expiry-cal-btn");
+    if (calBtn) {
+      const trigger = calBtn.closest("#acc-expiry-trigger, #edit-creds-expiry-trigger");
+      if (trigger) return; // Managed by specific trigger listener
+      const wrapper = calBtn.closest(".acc-expiry-input-wrapper");
+      if (wrapper) {
+        const input = wrapper.querySelector("input[type='datetime-local'], input[type='text'], input[type='hidden']");
+        const text = wrapper.querySelector("span");
+        openThaiDatePicker({
+          inputEl: input,
+          textEl: text,
+          title: "📆 เลือกวันหมดอายุ (พ.ศ.)"
+        });
+      }
+    }
+  });
+
   // Chips Event Delegation (App filters)
   const chipsContainer = document.getElementById("chips-container");
   if (chipsContainer) {
@@ -1603,20 +1622,399 @@ function clearQuickDateActive() {
   document.querySelectorAll(".quick-date-btn").forEach(btn => btn.classList.remove("active"));
 }
 
+function formatThaiDateTime(dateOrStr) {
+  if (!dateOrStr) return "📅 คลิกเลือกวันเวลา...";
+  const d = typeof dateOrStr === "string" ? new Date(dateOrStr) : dateOrStr;
+  if (!d || isNaN(d.getTime())) return "📅 คลิกเลือกวันเวลา...";
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const pad = n => String(n).padStart(2, '0');
+  const day = d.getDate();
+  const m = thaiMonths[d.getMonth()];
+  const y = d.getFullYear() + 543;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `📅 ${day} ${m} ${y} เวลา ${time} น.`;
+}
+
 function updateExpiryText(dateObj) {
   const textEl = document.getElementById("acc-expiry-text");
   if (!textEl) return;
-  if (!dateObj || isNaN(dateObj.getTime())) {
-    textEl.textContent = "📅 คลิกเลือกวันเวลา...";
-    return;
+  textEl.textContent = formatThaiDateTime(dateObj);
+}
+
+// ============================================================================
+// 📅 Custom Thai Buddhist Era Datepicker (Mobile-first UX)
+// ============================================================================
+function openThaiDatePicker(options = {}) {
+  haptic();
+  const {
+    inputEl = null,
+    textEl = null,
+    initialDate = null,
+    onConfirm = null,
+    title = "📆 เลือกวันหมดอายุ (พ.ศ.)"
+  } = options;
+
+  // Resolve starting date
+  let startD = new Date();
+  if (initialDate instanceof Date && !isNaN(initialDate.getTime())) {
+    startD = new Date(initialDate.getTime());
+  } else if (typeof initialDate === "string" && initialDate.trim()) {
+    const parsed = new Date(initialDate);
+    if (!isNaN(parsed.getTime())) startD = parsed;
+  } else if (inputEl && inputEl.value) {
+    const parsed = new Date(inputEl.value);
+    if (!isNaN(parsed.getTime())) startD = parsed;
   }
-  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-  const pad = n => String(n).padStart(2, '0');
-  const d = dateObj.getDate();
-  const m = thaiMonths[dateObj.getMonth()];
-  const y = dateObj.getFullYear() + 543;
-  const time = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
-  textEl.textContent = `📅 ${d} ${m} ${y} เวลา ${time} น.`;
+
+  let tempYear = startD.getFullYear();
+  let tempMonth = startD.getMonth();
+  let tempDay = startD.getDate();
+  let tempHour = startD.getHours();
+  let tempMinute = startD.getMinutes();
+
+  // Subscription expiry default time is 23:59 if midnight
+  if (tempHour === 0 && tempMinute === 0) {
+    tempHour = 23;
+    tempMinute = 59;
+  }
+
+  // Close any existing datepicker modals
+  document.querySelectorAll(".thai-datepicker-modal").forEach(m => m.remove());
+
+  const modal = document.createElement("div");
+  modal.className = "thai-datepicker-modal";
+  document.body.appendChild(modal);
+
+  const thaiMonths = [
+    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+  ];
+
+  function render() {
+    const daysInMonth = new Date(tempYear, tempMonth + 1, 0).getDate();
+    const firstDayIndex = new Date(tempYear, tempMonth, 1).getDay();
+    const prevMonthDays = new Date(tempYear, tempMonth, 0).getDate();
+
+    const currentYear = new Date().getFullYear();
+    let yearOptionsHtml = "";
+    for (let y = currentYear - 2; y <= currentYear + 10; y++) {
+      const beYear = y + 543;
+      const selected = y === tempYear ? "selected" : "";
+      yearOptionsHtml += `<option value="${y}" ${selected}>${beYear} (${y})</option>`;
+    }
+
+    let monthOptionsHtml = thaiMonths.map((m, idx) => {
+      const selected = idx === tempMonth ? "selected" : "";
+      return `<option value="${idx}" ${selected}>${m}</option>`;
+    }).join("");
+
+    let hourOptionsHtml = "";
+    for (let h = 0; h < 24; h++) {
+      const hStr = String(h).padStart(2, '0');
+      const selected = h === tempHour ? "selected" : "";
+      hourOptionsHtml += `<option value="${h}" ${selected}>${hStr}</option>`;
+    }
+
+    let minuteOptionsHtml = "";
+    for (let m = 0; m < 60; m++) {
+      const mStr = String(m).padStart(2, '0');
+      const selected = m === tempMinute ? "selected" : "";
+      minuteOptionsHtml += `<option value="${m}" ${selected}>${mStr}</option>`;
+    }
+
+    let daysHtml = "";
+    for (let x = firstDayIndex; x > 0; x--) {
+      const d = prevMonthDays - x + 1;
+      daysHtml += `<div class="thai-datepicker-day inactive empty" data-day="${d}">${d}</div>`;
+    }
+
+    const todayDate = new Date();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const isToday = i === todayDate.getDate() && tempMonth === todayDate.getMonth() && tempYear === todayDate.getFullYear();
+      const isSelected = i === tempDay;
+      daysHtml += `
+        <div class="thai-datepicker-day current-month-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" data-day="${i}">
+          ${i}
+        </div>
+      `;
+    }
+
+    const totalCells = firstDayIndex + daysInMonth;
+    const nextMonthPadding = (totalCells % 7 === 0) ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= nextMonthPadding; i++) {
+      daysHtml += `<div class="thai-datepicker-day inactive empty" data-day="${i}">${i}</div>`;
+    }
+
+    modal.innerHTML = `
+      <div class="thai-datepicker-backdrop"></div>
+      <div class="thai-datepicker-content">
+        <div class="thai-datepicker-header">
+          <span class="thai-datepicker-title">
+            <span>📅</span>
+            <span>${escapeHtml(title)}</span>
+          </span>
+          <button class="thai-datepicker-close-btn" type="button" title="ปิด">&times;</button>
+        </div>
+        
+        <div class="thai-datepicker-nav">
+          <button class="thai-datepicker-nav-btn prev-month" type="button" title="เดือนก่อนหน้า">&lsaquo;</button>
+          <div class="thai-datepicker-selectors">
+            <select class="thai-datepicker-month-select">
+              ${monthOptionsHtml}
+            </select>
+            <select class="thai-datepicker-year-select">
+              ${yearOptionsHtml}
+            </select>
+          </div>
+          <button class="thai-datepicker-nav-btn next-month" type="button" title="เดือนถัดไป">&rsaquo;</button>
+        </div>
+
+        <div class="thai-datepicker-calendar">
+          <div class="thai-datepicker-weekdays">
+            <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
+          </div>
+          <div class="thai-datepicker-days">
+            ${daysHtml}
+          </div>
+        </div>
+
+        <div class="thai-datepicker-time-section">
+          <span class="time-label">🕒 เวลา:</span>
+          <div class="time-picker-controls">
+            <select class="thai-datepicker-hour-select">
+              ${hourOptionsHtml}
+            </select>
+            <span style="color: #94a3b8; font-weight: bold;">:</span>
+            <select class="thai-datepicker-minute-select">
+              ${minuteOptionsHtml}
+            </select>
+          </div>
+          <button class="thai-datepicker-quick-time-btn" type="button" title="ตั้งเวลา 23:59 น.">23:59</button>
+        </div>
+
+        <div class="thai-datepicker-duration-info"></div>
+
+        <div class="thai-datepicker-presets">
+          <button type="button" class="preset-btn" data-days="0">วันนี้ (Today)</button>
+          <button type="button" class="preset-btn" data-days="7">+7 วัน</button>
+          <button type="button" class="preset-btn" data-days="30">+30 วัน</button>
+          <button type="button" class="preset-btn" data-days="90">+90 วัน</button>
+          <button type="button" class="preset-btn" data-days="365">+1 ปี</button>
+          <button type="button" class="preset-btn btn-clear-date" style="background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.3); color: #f87171;">ล้างค่า (Clear)</button>
+        </div>
+
+        <div class="thai-datepicker-footer">
+          <button class="thai-datepicker-btn btn-cancel" type="button">ยกเลิก</button>
+          <button class="thai-datepicker-btn btn-confirm" type="button">ตกลง</button>
+        </div>
+      </div>
+    `;
+
+    modal.querySelector(".thai-datepicker-close-btn").addEventListener("click", closeModal);
+    modal.querySelector(".thai-datepicker-backdrop").addEventListener("click", closeModal);
+    modal.querySelector(".thai-datepicker-btn.btn-cancel").addEventListener("click", closeModal);
+    modal.querySelector(".thai-datepicker-btn.btn-confirm").addEventListener("click", confirmSelection);
+
+    modal.querySelector(".prev-month").addEventListener("click", () => {
+      haptic();
+      tempMonth--;
+      if (tempMonth < 0) {
+        tempMonth = 11;
+        tempYear--;
+      }
+      adjustTempDayLimit();
+      render();
+    });
+
+    modal.querySelector(".next-month").addEventListener("click", () => {
+      haptic();
+      tempMonth++;
+      if (tempMonth > 11) {
+        tempMonth = 0;
+        tempYear++;
+      }
+      adjustTempDayLimit();
+      render();
+    });
+
+    modal.querySelector(".thai-datepicker-month-select").addEventListener("change", (e) => {
+      tempMonth = parseInt(e.target.value, 10);
+      adjustTempDayLimit();
+      render();
+    });
+
+    modal.querySelector(".thai-datepicker-year-select").addEventListener("change", (e) => {
+      tempYear = parseInt(e.target.value, 10);
+      adjustTempDayLimit();
+      render();
+    });
+
+    modal.querySelector(".thai-datepicker-hour-select").addEventListener("change", (e) => {
+      tempHour = parseInt(e.target.value, 10);
+      updateDurationInfo();
+    });
+
+    modal.querySelector(".thai-datepicker-minute-select").addEventListener("change", (e) => {
+      tempMinute = parseInt(e.target.value, 10);
+      updateDurationInfo();
+    });
+
+    modal.querySelectorAll(".current-month-day").forEach(el => {
+      el.addEventListener("click", () => {
+        haptic();
+        tempDay = parseInt(el.getAttribute("data-day"), 10);
+        modal.querySelectorAll(".current-month-day").forEach(dEl => dEl.classList.remove("selected"));
+        el.classList.add("selected");
+        updateDurationInfo();
+      });
+    });
+
+    modal.querySelector(".thai-datepicker-quick-time-btn").addEventListener("click", () => {
+      haptic();
+      tempHour = 23;
+      tempMinute = 59;
+      const hSelect = modal.querySelector(".thai-datepicker-hour-select");
+      const mSelect = modal.querySelector(".thai-datepicker-minute-select");
+      if (hSelect) hSelect.value = "23";
+      if (mSelect) mSelect.value = "59";
+      updateDurationInfo();
+      showToast("🕒 ตั้งเวลาเสร็จสิ้น (23:59)");
+    });
+
+    modal.querySelectorAll(".thai-datepicker-presets .preset-btn").forEach(btn => {
+      if (btn.classList.contains("btn-clear-date")) return;
+      btn.addEventListener("click", () => {
+        haptic();
+        const daysToAdd = parseInt(btn.getAttribute("data-days"), 10);
+        if (daysToAdd === 0) {
+          const today = new Date();
+          tempYear = today.getFullYear();
+          tempMonth = today.getMonth();
+          tempDay = today.getDate();
+          tempHour = today.getHours();
+          tempMinute = today.getMinutes();
+          render();
+          showToast("🟢 ปรับเวลาเป็นวันนี้สำเร็จ");
+          return;
+        }
+        const targetD = new Date();
+        targetD.setDate(targetD.getDate() + daysToAdd);
+        targetD.setHours(23, 59, 0, 0);
+
+        tempYear = targetD.getFullYear();
+        tempMonth = targetD.getMonth();
+        tempDay = targetD.getDate();
+        tempHour = 23;
+        tempMinute = 59;
+
+        render();
+        showToast(`🟢 ปรับวันที่เป็น +${daysToAdd} วัน (23:59)`);
+      });
+    });
+
+    const btnClearDate = modal.querySelector(".btn-clear-date");
+    if (btnClearDate) {
+      btnClearDate.addEventListener("click", () => {
+        haptic();
+        if (inputEl) {
+          inputEl.value = "";
+          inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+          inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (textEl) {
+          textEl.textContent = "📅 คลิกเลือกวันเวลา...";
+        }
+        clearQuickDateActive();
+        closeModal();
+        showToast("🟢 ล้างค่าวันหมดอายุเรียบร้อยแล้ว");
+        if (typeof onConfirm === "function") {
+          onConfirm("", null);
+        }
+      });
+    }
+
+    updateDurationInfo();
+  }
+
+  function adjustTempDayLimit() {
+    const maxDays = new Date(tempYear, tempMonth + 1, 0).getDate();
+    if (tempDay > maxDays) {
+      tempDay = maxDays;
+    }
+  }
+
+  function closeModal() {
+    modal.remove();
+  }
+
+  function updateDurationInfo() {
+    const infoEl = modal.querySelector(".thai-datepicker-duration-info");
+    if (!infoEl) return;
+
+    const selectedD = new Date(tempYear, tempMonth, tempDay, tempHour, tempMinute, 0);
+    const nowD = new Date();
+
+    const diffMs = selectedD.getTime() - nowD.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMs > 0) {
+      const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffHrs < 24) {
+        infoEl.style.color = "#34d399";
+        infoEl.style.backgroundColor = "rgba(16, 185, 129, 0.08)";
+        infoEl.style.borderColor = "rgba(52, 211, 153, 0.25)";
+        infoEl.textContent = `⏳ เหลืออีกประมาณ ${diffHrs} ชั่วโมง`;
+      } else {
+        infoEl.style.color = "#34d399";
+        infoEl.style.backgroundColor = "rgba(16, 185, 129, 0.08)";
+        infoEl.style.borderColor = "rgba(52, 211, 153, 0.25)";
+        infoEl.textContent = `🟢 เหลือเวลาอีก ${diffDays} วัน`;
+      }
+    } else {
+      const absDays = Math.abs(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+      infoEl.style.color = "#f87171";
+      infoEl.style.backgroundColor = "rgba(239, 68, 68, 0.08)";
+      infoEl.style.borderColor = "rgba(239, 68, 68, 0.25)";
+      if (absDays === 0) {
+        const absHrs = Math.abs(Math.floor(diffMs / (1000 * 60 * 60)));
+        infoEl.textContent = `⚠️ หมดอายุมาแล้ว ${absHrs} ชั่วโมง`;
+      } else {
+        infoEl.textContent = `🔴 หมดอายุมาแล้ว ${absDays} วัน`;
+      }
+    }
+  }
+
+  function confirmSelection() {
+    haptic();
+    const finalDate = new Date(tempYear, tempMonth, tempDay, tempHour, tempMinute, 0);
+    if (isNaN(finalDate.getTime())) {
+      showToast("❌ เลือกวันที่ไม่ถูกต้อง");
+      return;
+    }
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const valStr = `${finalDate.getFullYear()}-${pad(finalDate.getMonth() + 1)}-${pad(finalDate.getDate())}T${pad(finalDate.getHours())}:${pad(finalDate.getMinutes())}`;
+
+    if (inputEl) {
+      inputEl.value = valStr;
+      inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+      inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    if (textEl) {
+      textEl.textContent = formatThaiDateTime(finalDate);
+    }
+
+    clearQuickDateActive();
+    closeModal();
+    showToast(`📅 ตั้งวันหมดอายุ: ${tempDay} ${thaiMonths[tempMonth]} ${tempYear + 543} สำเร็จ!`);
+
+    if (typeof onConfirm === "function") {
+      onConfirm(valStr, finalDate);
+    }
+  }
+
+  render();
 }
 
 function generateRandomPassword() {
@@ -2242,35 +2640,24 @@ function initStockFormEventListeners() {
     });
   }
 
-  // Expiry datetime change & picker trigger
+  // Expiry datetime change & Custom Thai Datepicker trigger
   const expInput = document.getElementById("acc-expiry");
   const expTrigger = document.getElementById("acc-expiry-trigger");
+  const expText = document.getElementById("acc-expiry-text");
   const autoCalcBtn = document.getElementById("expiry-auto-badge");
 
-  const openExpiryPicker = () => {
-    if (!expInput) return;
-    try {
-      if (typeof expInput.showPicker === "function") {
-        expInput.showPicker();
-      } else {
-        expInput.focus();
-      }
-    } catch (e) {
-      expInput.focus();
-    }
-  };
-
   if (expTrigger) {
-    expTrigger.addEventListener("click", () => {
-      haptic();
-      openExpiryPicker();
+    expTrigger.addEventListener("click", (e) => {
+      e.preventDefault();
+      openThaiDatePicker({
+        inputEl: expInput,
+        textEl: expText,
+        title: "📆 เลือกวันหมดอายุบัญชี (พ.ศ.)"
+      });
     });
   }
 
   if (expInput) {
-    expInput.addEventListener("click", () => {
-      openExpiryPicker();
-    });
     expInput.addEventListener("change", (e) => {
       if (e.target.value) {
         updateExpiryText(new Date(e.target.value));
@@ -2976,6 +3363,19 @@ function initTroubleshootingModalListeners() {
   const confirmEditCredsBtn = document.getElementById("btn-confirm-edit-creds");
   if (confirmEditCredsBtn) confirmEditCredsBtn.addEventListener("click", executeConfirmEditCreds);
 
+  const editExpTrigger = document.getElementById("edit-creds-expiry-trigger");
+  if (editExpTrigger) {
+    editExpTrigger.addEventListener("click", () => {
+      const expInput = document.getElementById("edit-creds-expiry");
+      const expText = document.getElementById("edit-creds-expiry-text");
+      openThaiDatePicker({
+        inputEl: expInput,
+        textEl: expText,
+        title: "📆 แก้ไขวันหมดอายุ (พ.ศ.)"
+      });
+    });
+  }
+
   const editRandomPwBtn = document.getElementById("btn-edit-random-pw");
   if (editRandomPwBtn) {
     editRandomPwBtn.addEventListener("click", () => {
@@ -3477,17 +3877,21 @@ function openEditStockAccountModal(groupKey, emailKey, targetAccountId = null) {
   if (expiryGroup) {
     expiryGroup.style.display = "block";
     const expInput = document.getElementById("edit-creds-expiry");
+    const expText = document.getElementById("edit-creds-expiry-text");
     if (expInput) {
       if (acc.expiry_date) {
         const d = new Date(acc.expiry_date);
         if (!isNaN(d.getTime())) {
           const pad = n => String(n).padStart(2, '0');
           expInput.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          if (expText) expText.textContent = formatThaiDateTime(d);
         } else {
           expInput.value = "";
+          if (expText) expText.textContent = "📅 คลิกเลือกวันเวลา...";
         }
       } else {
         expInput.value = "";
+        if (expText) expText.textContent = "📅 คลิกเลือกวันเวลา...";
       }
     }
   }
