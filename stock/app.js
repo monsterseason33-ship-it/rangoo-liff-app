@@ -306,6 +306,17 @@ function initUIEventListeners() {
         return;
       }
 
+      // 2.2 Toggle Group Broken or Open Resolve Broken Modal
+      const brokenToggleBtn = e.target.closest(".btn-toggle-group-broken");
+      if (brokenToggleBtn) {
+        e.stopPropagation();
+        const email = brokenToggleBtn.dataset.email;
+        const appId = brokenToggleBtn.dataset.appId;
+        const isBroken = brokenToggleBtn.classList.contains("active");
+        handleToggleGroupBroken(email, appId, isBroken);
+        return;
+      }
+
       // 3. Copy account script
       const copyAccBtn = e.target.closest(".btn-copy-account-script");
       if (copyAccBtn) {
@@ -595,10 +606,10 @@ function processData() {
   const now = new Date();
   const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
 
-  // 1. Filter out expired or <24h accounts
-  const validAccounts = rawAccounts.filter(a => {
-    if (a.status !== "available") return false;
-    if (a.expiry_date) {
+  // 1. Filter accounts: available (exclude <24h) and broken accounts for recovery
+  const validAccounts = allAccountsList.filter(a => {
+    if (a.status !== "available" && a.status !== "broken") return false;
+    if (a.status === "available" && a.expiry_date) {
       const expDate = new Date(a.expiry_date);
       if (!isNaN(expDate.getTime()) && (expDate.getTime() - now.getTime()) <= MS_IN_24_HOURS) {
         return false;
@@ -636,11 +647,17 @@ function processData() {
         email: acc.email || "-",
         password: acc.password || "-",
         expiry_date: acc.expiry_date,
-        screens: []
+        screens: [],
+        hasBroken: false
       };
     }
 
-    appGroups[groupKey].totalScreens++;
+    if (acc.status === "available") {
+      appGroups[groupKey].totalScreens++;
+    } else if (acc.status === "broken") {
+      appGroups[groupKey].accountsByEmail[emailKey].hasBroken = true;
+    }
+
     appGroups[groupKey].accountsByEmail[emailKey].screens.push(acc);
   });
 }
@@ -954,15 +971,32 @@ function renderStockFeed() {
         return nameA.localeCompare(nameB, "th", { numeric: true, sensitivity: "base" });
       });
 
+      const isAccountBroken = acc.hasBroken || allAccountsList.some(a => 
+        (a.email || '').trim().toLowerCase() === emailKey.toLowerCase() && 
+        a.status === "broken"
+      );
+
       html += `
-        <div class="account-card">
+        <div class="account-card ${isAccountBroken ? 'broken-account' : ''}">
           <div class="acc-cred-row">
-            <!-- Email row with 1-tap copy capsule -->
+            <!-- Email row with 1-tap copy capsule & Broken Toggle -->
             <div class="cred-item">
               <span class="cred-label">🔹 อีเมล:</span>
-              <div class="cred-pill-box" data-copy-val="${escapeHtml(acc.email)}" data-copy-label="อีเมล" title="แตะเพื่อคัดลอกอีเมล">
-                <span class="cred-val">${escapeHtml(acc.email)}</span>
-                <button type="button" class="btn-mini-copy" data-copy-val="${escapeHtml(acc.email)}" data-copy-label="อีเมล">คัดลอก</button>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1;">
+                <div class="cred-pill-box" data-copy-val="${escapeHtml(acc.email)}" data-copy-label="อีเมล" title="แตะเพื่อคัดลอกอีเมล">
+                  <span class="cred-val">${escapeHtml(acc.email)}</span>
+                  <button type="button" class="btn-mini-copy" data-copy-val="${escapeHtml(acc.email)}" data-copy-label="อีเมล">คัดลอก</button>
+                </div>
+                <button type="button" 
+                        class="action-icon-btn btn-toggle-group-broken ${isAccountBroken ? 'active' : ''}" 
+                        title="${isAccountBroken ? 'กำลังแก้ไขปัญหา (แตะเพื่อกู้คืนสถานะ / เปลี่ยนข้อมูล)' : '⚠️ ติดสถานะบัญชีมีปัญหา (ทุกจอในกลุ่ม)'}" 
+                        data-email="${escapeHtml(acc.email)}" 
+                        data-app-id="${escapeHtml(group.appId)}" 
+                        data-group-key="${escapeHtml(groupKey)}" 
+                        data-email-key="${escapeHtml(emailKey)}">
+                  <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: currentColor;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                  <span>${isAccountBroken ? 'มีปัญหา' : 'แจ้งปัญหา'}</span>
+                </button>
               </div>
             </div>
 
@@ -1002,7 +1036,7 @@ function renderStockFeed() {
           <div class="screens-section">
             <div class="screens-title">
               <span class="live-pulse-dot"></span>
-              <span>จอว่างพร้อมส่ง (${sortedScreens.length} จอ)</span>
+              <span>${isAccountBroken ? 'จอในบัญชีที่มีปัญหา' : 'จอว่างพร้อมส่ง'} (${sortedScreens.length} จอ)</span>
             </div>
             <div class="screens-grid">
               ${sortedScreens.map(s => {
@@ -1010,12 +1044,15 @@ function renderStockFeed() {
                 const hasPin = Boolean(s.pin_code && s.pin_code !== "-" && s.pin_code.trim() !== "");
                 const pinTxt = hasPin ? `🔒 PIN: ${s.pin_code}` : "🔓 ไม่มี PIN";
                 const screenId = s.display_id || s.id || "";
+                const isBrokenScreen = s.status === "broken";
                 return `
-                  <div class="screen-item">
+                  <div class="screen-item ${isBrokenScreen ? 'broken' : ''}">
                     <div class="screen-info-col">
                       <div class="screen-primary-info">
-                        <span class="live-pulse-dot"></span>
-                        <span class="screen-slot-badge">${escapeHtml(pName)}</span>
+                        <span class="live-pulse-dot" style="${isBrokenScreen ? 'background: #f59e0b;' : ''}"></span>
+                        <span class="screen-slot-badge" style="${isBrokenScreen ? 'background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5); color: #fbbf24;' : ''}">
+                          ${isBrokenScreen ? '⚠️ ' : ''}${escapeHtml(pName)}
+                        </span>
                         ${screenId ? `
                           <span class="screen-id-tag" data-copy-val="${escapeHtml(String(screenId))}" data-copy-label="ID จอ" title="แตะเพื่อคัดลอก ID จอ">
                             🆔 #${escapeHtml(String(screenId))}
@@ -1032,6 +1069,11 @@ function renderStockFeed() {
                         title="แก้ไขจอนี้: เปลี่ยน/สุ่ม PIN, แก้ไขรหัสผ่าน, ชื่อจอ, อุปกรณ์">
                         ✏️
                       </button>
+                      ${isBrokenScreen ? `
+                      <button type="button" class="btn-screen-broken-tag" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: default;" title="จอนี้ติดสถานะมีปัญหา">
+                        ⚠️ มีปัญหา
+                      </button>
+                      ` : `
                       <button type="button" class="btn-screen-send"
                         data-account-id="${s.id}"
                         data-app-name="${escapeHtml(group.appName)}"
@@ -1048,6 +1090,7 @@ function renderStockFeed() {
                         data-device-type="${escapeHtml(s.device_type || '')}">
                         🚀 ส่งจอนี้
                       </button>
+                      `}
                     </div>
                   </div>
                 `;
@@ -6640,6 +6683,477 @@ async function handleDisneyCompleteBindingStep2() {
   closeDisneyOverlayWizard();
   showToast(`📋 คัดลอกสคริปต์ส่งมอบ Disney+ (${customerName}) เรียบร้อยแล้ว!`);
 }
+
+// ============================================================================
+// 🛠️ RESOLVE BROKEN ACCOUNT MODAL (WITH QUICK-PASTE & STATUS RECOVERY)
+// ============================================================================
+
+function handleToggleGroupBroken(email, appId, isBroken) {
+  haptic();
+  if (!email) return;
+
+  if (isBroken) {
+    openResolveBrokenModal(email, appId);
+  } else {
+    if (confirm(`คุณต้องการติดสถานะ 'มีปัญหา' สำหรับบัญชี ${email} ใช่หรือไม่?\n\n(ทุกจอในกลุ่มนี้จะถูกปรับเป็นสถานะ 'มีปัญหา')`)) {
+      markGroupBrokenInDb(email, appId);
+    }
+  }
+}
+
+async function markGroupBrokenInDb(email, appId) {
+  try {
+    showToast(`⏳ กำลังเปลี่ยนสถานะบัญชี ${email} เป็น 'มีปัญหา'...`);
+    const targetAccounts = allAccountsList.filter(a =>
+      (a.email || '').trim().toLowerCase() === email.trim().toLowerCase() &&
+      (!appId || a.app_id === appId)
+    );
+
+    if (!targetAccounts.length) {
+      showToast("⚠️ ไม่พบบัญชีในระบบ", "warning");
+      return;
+    }
+
+    for (const a of targetAccounts) {
+      await patchDatabase("accounts", a.id, { status: "broken" });
+    }
+
+    showToast(`⚠️ เปลี่ยนสถานะบัญชี ${email} เป็น 'มีปัญหา' สำเร็จ!`);
+    await loadData(true);
+  } catch (err) {
+    console.error("Mark broken error:", err);
+    showToast(`❌ เกิดข้อผิดพลาด: ${err.message}`, "error");
+  }
+}
+
+function openResolveBrokenModal(email, appId) {
+  haptic();
+  if (!email) return;
+
+  const existingModal = document.getElementById("prem-resolve-broken-modal");
+  if (existingModal) existingModal.remove();
+
+  const groupAccounts = allAccountsList.filter(a =>
+    (a.email || '').trim().toLowerCase() === email.trim().toLowerCase() &&
+    (!appId || a.app_id === appId)
+  );
+
+  const firstAcc = groupAccounts[0] || {};
+  const expiryDateVal = firstAcc.expiry_date;
+  const expiryDisplay = expiryDateVal ? formatDateThai(new Date(expiryDateVal)) : "ไม่มีกำหนดวันหมดอายุ";
+  const oldPassword = firstAcc.password || "";
+
+  const appObj = rawApps.find(a => a.id === appId) || {};
+  const appName = appObj.display_name || appObj.name || firstAcc.app_name || "App";
+
+  const boundCustomers = [];
+  groupAccounts.forEach(acc => {
+    const binds = (rawBindings || []).filter(b => !b.reverted && b.account_id === acc.id);
+    binds.forEach(b => {
+      boundCustomers.push({
+        bindingId: b.id,
+        accountId: acc.id,
+        profileName: acc.profile_name || `จอ ${acc.display_id || ''}`,
+        customerName: b.customer_name,
+        chatUrl: b.chat_url
+      });
+    });
+    if (binds.length === 0 && acc.customer_id) {
+      boundCustomers.push({
+        bindingId: null,
+        accountId: acc.id,
+        profileName: acc.profile_name || `จอ ${acc.display_id || ''}`,
+        customerName: acc.customer_id,
+        chatUrl: null
+      });
+    }
+  });
+
+  const overlay = document.createElement("div");
+  overlay.id = "prem-resolve-broken-modal";
+  overlay.className = "modal-overlay";
+  overlay.style.display = "flex";
+
+  const customersChipsHtml = boundCustomers.length > 0
+    ? boundCustomers.map(c => `
+        <div class="prem-res-chip" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(167, 139, 250, 0.12); border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 6px; padding: 3px 7px; font-size: 10px; line-height: 1.2;">
+          <span style="color: #c084fc; font-weight: 700;">👤 ${escapeHtml(c.profileName)}</span>
+          <span style="color: #ffffff; font-weight: 600; font-family: monospace;">${escapeHtml(c.customerName)}</span>
+          ${c.chatUrl ? `<a href="${escapeHtml(c.chatUrl)}" target="_blank" style="text-decoration: none; font-size: 10px; margin-left: 2px;" title="เปิดห้องแชท LINE">💬</a>` : ''}
+        </div>
+      `).join('')
+    : '<div style="font-size: 10.5px; color: #94a3b8; font-style: italic; padding: 4px 0;">ไม่มีลูกค้าผูกสิทธิ์อยู่ในขณะนี้</div>';
+
+  overlay.innerHTML = `
+    <div class="prem-res-card">
+      <!-- Header -->
+      <div class="prem-res-header">
+        <div class="prem-res-title-area">
+          <div class="prem-res-header-icon">
+            <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: #fbbf24;"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+          </div>
+          <div>
+            <div class="prem-res-title">คืนสถานะบัญชีเป็นปกติ / จัดการปัญหา</div>
+            <div class="prem-res-subtitle">เลือกรูปแบบการกู้คืนสถานะเพื่อนำกลับมาใช้งานในระบบ</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close-resolve-modal modal-close-btn" title="ปิดหน้าต่าง">✕</button>
+      </div>
+
+      <!-- Account Snapshot Card -->
+      <div class="prem-res-snapshot">
+        <!-- Row 1: Email & App tag -->
+        <div class="prem-res-snap-row">
+          <div style="font-size: 11px; color: #94a3b8;">
+            <span>📧 บัญชีเดิม:</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">${escapeHtml(appName)}</span>
+            <div style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 6px;">
+              <span style="color: #fff; font-weight: 600; font-size: 11px;">${escapeHtml(email)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Expiry & Old Password -->
+        <div class="prem-res-snap-row">
+          <div style="font-size: 11px; color: #94a3b8;">
+            <span>📅 วันหมดอายุเดิม:</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: #34d399; font-weight: 600;">${expiryDisplay}</span>
+            ${oldPassword ? `
+              <div style="display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px;">
+                <span style="font-size: 10px; color: #94a3b8;">🔑 รหัสเดิม:</span>
+                <span style="font-size: 10.5px; font-family: monospace; color: #cbd5e1;">${escapeHtml(oldPassword)}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Row 3: Bound Customers -->
+        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">👥 ลูกค้าที่ผูกสิทธิ์อยู่ (${boundCustomers.length} ท่าน):</span>
+            <span style="font-size: 10px; color: #34d399; font-weight: 600;">🛡️ สิทธิ์คงเดิม ไม่หลุด</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto;">
+            ${customersChipsHtml}
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode Selection Tabs -->
+      <div class="prem-res-tabs-wrapper">
+        <button type="button" id="tab-mode-new-creds" class="prem-res-tab active">
+          <span>⚡ เปลี่ยนเป็นข้อมูลใหม่</span>
+        </button>
+        <button type="button" id="tab-mode-orig-creds" class="prem-res-tab">
+          <span>🔄 ใช้ข้อมูลเดิม</span>
+        </button>
+      </div>
+
+      <!-- Pane 1: New Credentials Mode -->
+      <div id="pane-new-creds" style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- Notice Callout -->
+        <div class="prem-res-notice-box blue">
+          <span style="font-size: 14px;">💡</span>
+          <div>
+            <div style="font-weight: 700; color: #fff; font-size: 11px;">เปลี่ยนอีเมล &amp; รหัสผ่านใหม่</div>
+            <div style="font-size: 10px; color: #cbd5e1; line-height: 1.4;">
+              ระบบจะล้าง PIN จอเป็นค่าว่างทันที คงวันหมดอายุเดิม และคงการผูกสิทธิ์ลูกค้าทุกคนไว้
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Paste Area for Auto Extraction (textarea#acc-quick-paste) -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1;" for="acc-quick-paste">
+              <span>📋 วางข้อความดิบ (สกัดอีเมล &amp; รหัสผ่านอัตโนมัติ)</span>
+            </label>
+            <span style="font-size: 10px; color: #38bdf8; font-weight: 600;">⚡ แยกอีเมล:รหัสผ่าน</span>
+          </div>
+          <textarea id="acc-quick-paste" class="prem-input parser-success-flash" style="height: 52px; font-size: 11px; resize: none; width: 100%; padding: 8px 10px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; color: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1.4; outline: none; margin-bottom: 0;" placeholder="📋 วางชุดข้อความที่นี่ เช่น user@gmail.com:pass1234 หรือ ข้อความจัดส่ง..."></textarea>
+        </div>
+
+        <!-- Input New Email -->
+        <div>
+          <label style="font-size: 11px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 3px;" for="input-new-email">
+            <span>อีเมลบัญชีใหม่</span> <span style="color: #f87171;">*</span>
+          </label>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; pointer-events: none; opacity: 0.7;">✉️</span>
+            <input type="email" id="input-new-email" class="prem-input" style="padding-left: 30px; margin-bottom: 0; font-size: 12px;" placeholder="กรอกอีเมลใหม่ เช่น new@email.com" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+
+        <!-- Input New Password -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <label style="font-size: 11px; font-weight: 600; color: #cbd5e1;" for="input-new-password">
+              <span>รหัสผ่านใหม่</span> <span style="color: #f87171;">*</span>
+            </label>
+            <button type="button" id="btn-modal-random-pw" class="prem-btn prem-btn-secondary" style="font-size: 10px; padding: 2px 7px; height: 22px; min-height: unset; margin: 0;">
+              🎲 สุ่มรหัส
+            </button>
+          </div>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; pointer-events: none; opacity: 0.7;">🔑</span>
+            <input type="text" id="input-new-password" class="prem-input" style="padding-left: 30px; padding-right: 34px; margin-bottom: 0; font-size: 12px;" placeholder="กรอกรหัสผ่านใหม่" autocomplete="off" spellcheck="false">
+            <button type="button" id="btn-toggle-pw-visibility" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 13px; cursor: pointer; color: #94a3b8;" title="ซ่อน/แสดงรหัสผ่าน">👁️</button>
+          </div>
+        </div>
+
+        <!-- Checklist -->
+        <div class="prem-res-checklist">
+          <div class="prem-res-check-item success">
+            <span>✓</span>
+            <span>ปรับ PIN ทุกจอเป็นค่าว่างทันที (PIN ว่าง) พร้อมให้ลูกค้าตั้งใหม่</span>
+          </div>
+          <div class="prem-res-check-item cyan">
+            <span>✓</span>
+            <span>วันหมดอายุคงเดิม (${expiryDisplay})</span>
+          </div>
+          <div class="prem-res-check-item purple">
+            <span>✓</span>
+            <span>สิทธิ์ลูกค้าเดิม (${boundCustomers.length} ท่าน) ยังคงผูกอยู่เหมือนเดิม ไม่หลุด</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="prem-res-actions-row">
+          <button type="button" id="btn-confirm-new-creds" class="prem-res-btn-submit green">
+            ⚡ ยืนยันเปลี่ยนข้อมูลใหม่ &amp; คืนสถานะปกติ
+          </button>
+          <button type="button" class="btn-cancel-resolve-modal prem-res-btn-cancel">
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+
+      <!-- Pane 2: Original Credentials Mode -->
+      <div id="pane-orig-creds" style="display: none; flex-direction: column; gap: 10px;">
+        <div class="prem-res-notice-box amber">
+          <span style="font-size: 14px;">🔄</span>
+          <div>
+            <div style="font-weight: 700; color: #fff; font-size: 11px;">คืนสถานะด้วยข้อมูลเดิม</div>
+            <div style="font-size: 10px; color: #cbd5e1; line-height: 1.4;">
+              ใช้สำหรับกรณีแก้ไขหรือตรวจสอบบัญชีเดิมเสร็จสิ้นแล้ว โดยใช้อีเมลและรหัสผ่านเดิมต่อไป
+            </div>
+          </div>
+        </div>
+
+        <div class="prem-res-checklist">
+          <div class="prem-res-check-item purple">
+            <span>✓</span>
+            <span>จอที่ผูกสิทธิ์ลูกค้า (${boundCustomers.length} จอ) ➔ คืนเป็นสถานะ <b>"ขายแล้ว"</b></span>
+          </div>
+          <div class="prem-res-check-item success">
+            <span>✓</span>
+            <span>จอที่ไม่มีลูกค้า ➔ คืนเป็นสถานะ <b>"ว่าง"</b> พร้อมจำหน่าย</span>
+          </div>
+          <div class="prem-res-check-item cyan">
+            <span>✓</span>
+            <span>คงวันหมดอายุและรหัสผ่านเดิมไว้ทั้งหมด</span>
+          </div>
+        </div>
+
+        <div class="prem-res-actions-row">
+          <button type="button" id="btn-confirm-orig-creds" class="prem-res-btn-submit blue">
+            🔄 ยืนยันคืนสถานะ (ใช้ข้อมูลเดิม)
+          </button>
+          <button type="button" class="btn-cancel-resolve-modal prem-res-btn-cancel">
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => {
+    overlay.remove();
+  };
+
+  overlay.querySelector(".btn-close-resolve-modal").onclick = closeModal;
+  overlay.querySelectorAll(".btn-cancel-resolve-modal").forEach(btn => {
+    btn.onclick = closeModal;
+  });
+
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closeModal();
+  };
+
+  const tabNew = overlay.querySelector("#tab-mode-new-creds");
+  const tabOrig = overlay.querySelector("#tab-mode-orig-creds");
+  const paneNew = overlay.querySelector("#pane-new-creds");
+  const paneOrig = overlay.querySelector("#pane-orig-creds");
+  const inputNewEmail = overlay.querySelector("#input-new-email");
+  const inputNewPassword = overlay.querySelector("#input-new-password");
+
+  tabNew.onclick = () => {
+    tabNew.classList.add("active");
+    tabOrig.classList.remove("active");
+    paneNew.style.display = "flex";
+    paneOrig.style.display = "none";
+  };
+
+  tabOrig.onclick = () => {
+    tabOrig.classList.add("active");
+    tabNew.classList.remove("active");
+    paneOrig.style.display = "flex";
+    paneNew.style.display = "none";
+  };
+
+  // Auto-focus and quick paste extraction
+  const quickPasteInput = overlay.querySelector("#acc-quick-paste");
+  setTimeout(() => {
+    if (quickPasteInput) quickPasteInput.focus();
+    else if (inputNewEmail) inputNewEmail.focus();
+  }, 80);
+
+  if (quickPasteInput) {
+    quickPasteInput.addEventListener("input", () => {
+      const text = (quickPasteInput.value || "").trim();
+      if (!text) return;
+
+      let extractedEmail = "";
+      let extractedPassword = "";
+
+      const comboMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})[:|\s/]+([^\s\n\r]+)/);
+      if (comboMatch) {
+        extractedEmail = comboMatch[1].trim();
+        extractedPassword = comboMatch[2].trim();
+      } else {
+        const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (emailMatch) extractedEmail = emailMatch[0].trim();
+
+        const passMatch = text.match(/(?:pass(?:word)?|รหัส(?:ผ่าน)?|pwd)\s*[:=]\s*([^\s\n\r]+)/i);
+        if (passMatch) {
+          extractedPassword = passMatch[1].trim();
+        } else if (extractedEmail) {
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            if (!line.includes(extractedEmail) && line.length >= 4 && !line.includes("@")) {
+              extractedPassword = line.replace(/^[🔑🔒\s:]+/, '').trim();
+              break;
+            }
+          }
+        }
+      }
+
+      let updated = false;
+      if (extractedEmail && inputNewEmail) {
+        inputNewEmail.value = extractedEmail;
+        updated = true;
+      }
+      if (extractedPassword && inputNewPassword) {
+        inputNewPassword.value = extractedPassword;
+        updated = true;
+      }
+
+      if (updated) {
+        quickPasteInput.classList.remove("parser-success-flash");
+        void quickPasteInput.offsetWidth;
+        quickPasteInput.classList.add("parser-success-flash");
+        showToast(`✨ สกัดข้อมูลสำเร็จ: ${extractedEmail || ''} ${extractedPassword ? '🔑' : ''}`);
+      }
+    });
+  }
+
+  // Random Password Generator
+  const btnRandomPw = overlay.querySelector("#btn-modal-random-pw");
+  if (btnRandomPw && inputNewPassword) {
+    btnRandomPw.onclick = () => {
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let pwd = "";
+      for (let i = 0; i < 8; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+      inputNewPassword.value = pwd;
+      inputNewPassword.focus();
+      copyToClipboard(pwd);
+      showToast(`🎲 สุ่มรหัสผ่าน: ${pwd} (คัดลอกแล้ว)`);
+    };
+  }
+
+  // Toggle Password Visibility
+  const btnTogglePw = overlay.querySelector("#btn-toggle-pw-visibility");
+  if (btnTogglePw && inputNewPassword) {
+    let isVisible = true;
+    btnTogglePw.onclick = () => {
+      isVisible = !isVisible;
+      inputNewPassword.type = isVisible ? "text" : "password";
+      btnTogglePw.innerText = isVisible ? "👁️" : "🙈";
+    };
+  }
+
+  // Confirm Original Credentials Mode
+  const btnConfirmOrig = overlay.querySelector("#btn-confirm-orig-creds");
+  if (btnConfirmOrig) {
+    btnConfirmOrig.onclick = async () => {
+      btnConfirmOrig.disabled = true;
+      btnConfirmOrig.textContent = "⏳ กำลังดำเนินการ...";
+      try {
+        for (const a of groupAccounts) {
+          const hasActiveBinding = (rawBindings || []).some(b => !b.reverted && b.account_id === a.id);
+          const hasCust = !!(a.customer_id && a.customer_id.trim() !== "");
+          const newStatus = (hasActiveBinding || hasCust) ? "used" : "available";
+          await patchDatabase("accounts", a.id, { status: newStatus });
+        }
+        closeModal();
+        showToast(`🟢 คืนสถานะบัญชี ${email} เป็นปกติเรียบร้อย!`);
+        await loadData(true);
+      } catch (err) {
+        console.error("Resolve original error:", err);
+        showToast(`❌ ล้มเหลว: ${err.message}`, "error");
+        btnConfirmOrig.disabled = false;
+        btnConfirmOrig.textContent = "🔄 ยืนยันคืนสถานะ (ใช้ข้อมูลเดิม)";
+      }
+    };
+  }
+
+  // Confirm New Credentials Mode
+  const btnConfirmNew = overlay.querySelector("#btn-confirm-new-creds");
+  if (btnConfirmNew) {
+    btnConfirmNew.onclick = async () => {
+      const newEmail = (inputNewEmail ? inputNewEmail.value : "").trim();
+      const newPassword = (inputNewPassword ? inputNewPassword.value : "").trim();
+
+      if (!newEmail || !newPassword) {
+        showToast("⚠️ กรุณากรอกอีเมลและรหัสผ่านใหม่ให้ครบถ้วน", "warning");
+        return;
+      }
+
+      btnConfirmNew.disabled = true;
+      btnConfirmNew.textContent = "⏳ กำลังดำเนินการ...";
+
+      try {
+        for (const a of groupAccounts) {
+          const hasActiveBinding = (rawBindings || []).some(b => !b.reverted && b.account_id === a.id);
+          const hasCust = !!(a.customer_id && a.customer_id.trim() !== "");
+          const newStatus = (hasActiveBinding || hasCust) ? "used" : "available";
+          await patchDatabase("accounts", a.id, {
+            email: newEmail,
+            password: newPassword,
+            pin_code: null,
+            status: newStatus
+          });
+        }
+
+        closeModal();
+        showToast(`🎉 เปลี่ยนข้อมูลบัญชีเป็น ${newEmail} และคืนสถานะปกติเรียบร้อย!`);
+        await loadData(true);
+      } catch (err) {
+        console.error("Resolve new creds error:", err);
+        showToast(`❌ ล้มเหลว: ${err.message}`, "error");
+        btnConfirmNew.disabled = false;
+        btnConfirmNew.textContent = "⚡ ยืนยันเปลี่ยนข้อมูลใหม่ & คืนสถานะปกติ";
+      }
+    };
+  }
+}
+
 
 
 

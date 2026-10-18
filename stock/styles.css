@@ -2961,3 +2961,253 @@ body {
   color: #34d399 !important;
   background: rgba(16, 185, 129, 0.15) !important;
 }
+
+/* ============================================================================
+   Action Icon Button & Group Broken Toggle
+============================================================================ */
+.action-icon-btn.btn-toggle-group-broken {
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.08);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.action-icon-btn.btn-toggle-group-broken:hover {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  transform: translateY(-1px);
+}
+
+.action-icon-btn.btn-toggle-group-broken.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.15) 100%) !important;
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
+  animation: pulseBrokenBadge 2s infinite ease-in-out;
+}
+
+@keyframes pulseBrokenBadge {
+  0% { box-shadow: 0 0 6px rgba(245, 158, 11, 0.25); }
+  50% { box-shadow: 0 0 14px 2px rgba(245, 158, 11, 0.45); }
+  100% { box-shadow: 0 0 6px rgba(245, 158, 11, 0.25); }
+}
+
+.account-card.broken-account {
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  background: linear-gradient(160deg, rgba(30, 20, 10, 0.5) 0%, rgba(15, 23, 42, 0.8) 100%) !important;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
+}
+
+/* ============================================================================
+   prem-res-card & Resolve Broken Modal Styling
+============================================================================ */
+#prem-resolve-broken-modal .prem-res-card {
+  width: 480px;
+  max-width: 95vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.8), 0 0 28px rgba(245, 158, 11, 0.18);
+  border-radius: 16px;
+  padding: 18px 20px;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+#prem-resolve-broken-modal .prem-res-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+}
+
+#prem-resolve-broken-modal .prem-res-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#prem-resolve-broken-modal .prem-res-header-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#prem-resolve-broken-modal .prem-res-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+#prem-resolve-broken-modal .prem-res-subtitle {
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+#prem-resolve-broken-modal .prem-res-snapshot {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+}
+
+#prem-resolve-broken-modal .prem-res-snap-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#prem-resolve-broken-modal .prem-res-tabs-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#prem-resolve-broken-modal .prem-res-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+#prem-resolve-broken-modal .prem-res-tab.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+}
+
+#prem-resolve-broken-modal .prem-res-notice-box {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+#prem-resolve-broken-modal .prem-res-notice-box.blue {
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  color: #cbd5e1;
+}
+
+#prem-resolve-broken-modal .prem-res-notice-box.amber {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #cbd5e1;
+}
+
+#prem-resolve-broken-modal .prem-res-checklist {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10.5px;
+}
+
+#prem-resolve-broken-modal .prem-res-check-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.35;
+}
+
+#prem-resolve-broken-modal .prem-res-check-item.success { color: #34d399; }
+#prem-resolve-broken-modal .prem-res-check-item.cyan { color: #38bdf8; }
+#prem-resolve-broken-modal .prem-res-check-item.purple { color: #c084fc; }
+#prem-resolve-broken-modal .prem-res-check-item.amber { color: #fbbf24; }
+
+#prem-resolve-broken-modal .prem-res-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+#prem-resolve-broken-modal .prem-res-btn-submit {
+  flex: 1.5;
+  height: 38px;
+  border-radius: 8px;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+#prem-resolve-broken-modal .prem-res-btn-submit.green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+#prem-resolve-broken-modal .prem-res-btn-submit.blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+}
+
+#prem-resolve-broken-modal .prem-res-btn-cancel {
+  flex: 0.8;
+  height: 38px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
