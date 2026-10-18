@@ -1579,8 +1579,28 @@ function setDefaultExpiry(days) {
   const pad = n => String(n).padStart(2, '0');
   const str = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T23:59`;
   const expInput = document.getElementById("acc-expiry");
-  if (expInput) expInput.value = str;
+  if (expInput) {
+    expInput.value = str;
+    expInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expInput.dispatchEvent(new Event("input", { bubbles: true }));
+  }
   updateExpiryText(date);
+  highlightQuickDateBtn(days);
+}
+
+function highlightQuickDateBtn(days) {
+  document.querySelectorAll(".quick-date-btn").forEach(btn => {
+    const d = parseInt(btn.dataset.days, 10);
+    if (d === days) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+function clearQuickDateActive() {
+  document.querySelectorAll(".quick-date-btn").forEach(btn => btn.classList.remove("active"));
 }
 
 function updateExpiryText(dateObj) {
@@ -1712,6 +1732,7 @@ function handleQuickPaste() {
     if (expInput) {
       expInput.value = single.expiryDateStr;
       updateExpiryText(new Date(single.expiryDateStr));
+      clearQuickDateActive();
     }
   }
   if (single.otpUrl) {
@@ -2221,24 +2242,76 @@ function initStockFormEventListeners() {
     });
   }
 
-  // Expiry datetime change
+  // Expiry datetime change & picker trigger
   const expInput = document.getElementById("acc-expiry");
+  const expTrigger = document.getElementById("acc-expiry-trigger");
+  const autoCalcBtn = document.getElementById("expiry-auto-badge");
+
+  const openExpiryPicker = () => {
+    if (!expInput) return;
+    try {
+      if (typeof expInput.showPicker === "function") {
+        expInput.showPicker();
+      } else {
+        expInput.focus();
+      }
+    } catch (e) {
+      expInput.focus();
+    }
+  };
+
+  if (expTrigger) {
+    expTrigger.addEventListener("click", () => {
+      haptic();
+      openExpiryPicker();
+    });
+  }
+
   if (expInput) {
+    expInput.addEventListener("click", () => {
+      openExpiryPicker();
+    });
     expInput.addEventListener("change", (e) => {
       if (e.target.value) {
         updateExpiryText(new Date(e.target.value));
+        clearQuickDateActive();
+      }
+    });
+    expInput.addEventListener("input", (e) => {
+      if (e.target.value) {
+        updateExpiryText(new Date(e.target.value));
+        clearQuickDateActive();
       }
     });
   }
 
   // Quick date buttons
   document.querySelectorAll(".quick-date-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
       haptic();
       const days = parseInt(btn.dataset.days, 10);
-      if (!isNaN(days)) setDefaultExpiry(days);
+      if (!isNaN(days)) {
+        setDefaultExpiry(days);
+        showToast(`📅 ตั้งวันหมดอายุ: +${days} วัน เรียบร้อยแล้ว`);
+      }
     });
   });
+
+  // Auto calculate expiry button
+  if (autoCalcBtn) {
+    autoCalcBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      haptic();
+      const pkgSelect = document.getElementById("acc-package-select");
+      const pkgId = pkgSelect ? pkgSelect.value : "";
+      const pkg = rawPackages.find(p => p.id === pkgId);
+      const days = pkg ? (pkg.days || getPackageDays(pkg.name, pkg.app_id)) : 30;
+      setDefaultExpiry(days);
+      showToast(`⚡ คำนวณวันหมดอายุอัตโนมัติ: +${days} วัน เรียบร้อยแล้ว`);
+    });
+  }
 
   // Random password button
   const randomPwBtn = document.getElementById("btn-random-password-form");
