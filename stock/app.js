@@ -4819,8 +4819,57 @@ function updateQuickDayChips(selectedDays) {
   });
 }
 
+function getAppDeliverySegments(app) {
+  if (!app || !app.sales_script) return [];
+  const text = (app.sales_script || '').trim();
+  if (!text.startsWith('{') || !text.endsWith('}')) return [];
+  try {
+    const parsed = JSON.parse(text);
+    const sections = [];
+
+    // 1. ส่วนหัวสคริปต์ (คำโปรย / สโลแกน) - ควบคุมด้วย checkbox "header-show-delivery-chk" (แสดงในส่งมอบ)
+    if (parsed.header_show_delivery === true && parsed.header && parsed.header.trim()) {
+      sections.push(parsed.header.trim());
+    }
+
+    // 2. หัวข้อพิเศษเพิ่มเติม (Custom Topics) ที่ติ๊ก "แสดงในส่งมอบ"
+    if (Array.isArray(parsed.customTopics)) {
+      parsed.customTopics.forEach(item => {
+        if (item && item.show_in_delivery === true) {
+          const title = (item.topic || '').trim();
+          const detail = (item.detail || '').trim();
+          if (title && detail) {
+            sections.push(`📌 *${title}*\n${detail}`);
+          } else if (detail) {
+            sections.push(detail);
+          } else if (title) {
+            sections.push(`📌 *${title}*`);
+          }
+        }
+      });
+    }
+
+    // 3. รายละเอียดแอป / ข้อตกลง / กฎการใช้งาน (Details) - ควบคุมด้วย "details-show-delivery-chk"
+    if (parsed.details_show_delivery === true && parsed.details && parsed.details.trim()) {
+      sections.push(parsed.details.trim());
+    }
+
+    // 4. ส่วนท้ายสคริปต์ (Footer) - ควบคุมด้วย "footer-show-delivery-chk"
+    if (parsed.footer_show_delivery === true && parsed.footer && parsed.footer.trim()) {
+      let footerText = parsed.footer.trim();
+      footerText = footerText.replace(/\[IF_SINGLE\](.*?)\[ELSE\].*?\[ENDIF\]/s, "$1")
+                             .replace(/\[IF_SINGLE\](.*?)\[ENDIF\]/s, "$1");
+      if (footerText) sections.push(footerText);
+    }
+
+    return sections;
+  } catch (e) {
+    console.error("Error parsing app sales_script:", e);
+    return [];
+  }
+}
+
 function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, device) {
-  const webappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(customerName)}`;
   const cleanId = (context.screenId && context.screenId !== "-" && context.screenId !== "undefined")
     ? String(context.screenId).trim().replace(/^#/, '')
     : "";
@@ -4830,7 +4879,15 @@ function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, de
 
   const cleanScreenName = (context.screenName || "จอว่าง").trim();
   const formattedProfile = cleanScreenName.startsWith("🟢") ? cleanScreenName : `🟢 ${cleanScreenName}`;
-  const cleanPin = (context.pinTxt || "🔓 ไม่มี PIN").trim().replace(/^🔢\s*/, "");
+
+  let pinDisplay = "ไม่มี PIN";
+  if (context.pinCode && context.pinCode !== "-" && context.pinCode !== "undefined") {
+    pinDisplay = `PIN: ${context.pinCode}`;
+  } else if (context.pinTxt && !context.pinTxt.includes("ไม่มี")) {
+    const rawPin = context.pinTxt.replace(/^[🔒🔓🔢\s:]+/, '').trim();
+    pinDisplay = rawPin ? `PIN: ${rawPin}` : "ไม่มี PIN";
+  }
+
   const expStr = formatDateThai(expiryDateObj);
 
   const isNetflix = (context.appName || '').toLowerCase().includes("netflix");
@@ -4845,18 +4902,29 @@ function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, de
   let script = `${headerTitle}\n`;
   script += `[${context.pkgName || `แพ็กเกจ ${days} วัน`}]\n`;
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  script += `👤 คุณ: *${customerName}*\n`;
   script += `📧 อีเมล: ${context.email}\n`;
   script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
   script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
-  script += `🔢 ${cleanPin}\n`;
+  script += `🔢 ${pinDisplay}\n`;
   script += `📱 อุปกรณ์: ${device}\n`;
   if (expStr !== "-") {
     script += `📅 วันหมดอายุ: ${expStr}\n`;
   }
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  script += `📱 ตรวจสอบสิทธิ์ & รับรหัส OTP ใน WebApp:\n${webappUrl}\n`;
-  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+
+  // ดึงส่วนการตั้งค่าประจำแต่ละแอป (div#app-form-panel ที่มีการติ๊ก "แสดงในส่งมอบ")
+  const appObj = (rawApps && rawApps.length > 0)
+    ? (rawApps.find(a => a.id === context.appId) ||
+       rawApps.find(a => (a.name || '').toLowerCase() === (context.appName || '').toLowerCase()) ||
+       rawApps.find(a => (a.display_name || '').toLowerCase() === (context.appName || '').toLowerCase()))
+    : null;
+
+  const deliverySections = getAppDeliverySegments(appObj);
+  if (deliverySections.length > 0) {
+    script += `\n${deliverySections.join("\n\n")}\n`;
+    script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  }
+
   script += `🙏 ขอบคุณที่ใช้บริการครับ เข้าใช้งานได้ทันทีเลยครับ ✨`;
   return script;
 }
