@@ -4899,25 +4899,32 @@ function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, de
   );
   const passwordDisplay = isWrongPassword ? "เข้าระบบแบบ OTP ได้จากแอดมิน" : context.password;
 
-  let script = `${headerTitle}\n`;
-  script += `[${context.pkgName || `แพ็กเกจ ${days} วัน`}]\n`;
-  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  script += `📧 อีเมล: ${context.email}\n`;
-  script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
-  script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
-  script += `🔢 ${pinDisplay}\n`;
-  script += `📱 อุปกรณ์: ${device}\n`;
-  if (expStr !== "-") {
-    script += `📅 วันหมดอายุ: ${expStr}\n`;
-  }
-  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
-
-  // ดึงส่วนการตั้งค่าประจำแต่ละแอป (div#app-form-panel ที่มีการติ๊ก "แสดงในส่งมอบ")
+  // ดึงส่วนการตั้งค่าประจำแต่ละแอป (div#app-form-panel ที่มีการติ๊ก "แสดงข้อมูลโปรไฟล์ / หน้าจอ" และ "แสดงข้อมูลรหัส PIN")
   const appObj = (rawApps && rawApps.length > 0)
     ? (rawApps.find(a => a.id === context.appId) ||
        rawApps.find(a => (a.name || '').toLowerCase() === (context.appName || '').toLowerCase()) ||
        rawApps.find(a => (a.display_name || '').toLowerCase() === (context.appName || '').toLowerCase()))
     : null;
+
+  const showProfile = appObj ? (appObj.show_profile !== false && appObj.show_profile !== 0 && appObj.show_profile !== "0") : true;
+  const showPin = appObj ? (appObj.show_pin !== false && appObj.show_pin !== 0 && appObj.show_pin !== "0") : true;
+
+  let script = `${headerTitle}\n`;
+  script += `[${context.pkgName || `แพ็กเกจ ${days} วัน`}]\n`;
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  script += `📧 อีเมล: ${context.email}\n`;
+  script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
+  if (showProfile) {
+    script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
+  }
+  if (showPin) {
+    script += `🔢 ${pinDisplay}\n`;
+  }
+  script += `📱 อุปกรณ์: ${device}\n`;
+  if (expStr !== "-") {
+    script += `📅 วันหมดอายุ: ${expStr}\n`;
+  }
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
 
   const deliverySections = getAppDeliverySegments(appObj);
   if (deliverySections.length > 0) {
