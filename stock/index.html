@@ -876,6 +876,36 @@
               </div>
             </div>
 
+            <!-- Maily.space Helper Bar (Optimized for Mobile) -->
+            <div id="maily-space-helper-box" style="margin-bottom: 8px; padding: 8px 10px; background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; font-weight: 700; color: #38bdf8; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>📬</span>
+                  <span>รับรหัสจาก Maily.space (สำหรับมือถือ)</span>
+                </span>
+                <button type="button" id="btn-fetch-maily-otp" class="prem-btn" style="height: 22px; font-size: 10px; padding: 0 8px; background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; font-weight: 700; border-radius: 4px; margin: 0; cursor: pointer;" title="ลองดึงรหัส OTP อัตโนมัติจาก Maily API">
+                  ⚡ ดึง OTP อัตโนมัติ
+                </button>
+              </div>
+
+              <!-- Action buttons row: Open Maily / Copy Email / Copy Pin -->
+              <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
+                <button type="button" id="btn-open-maily-space" class="prem-btn" style="flex: 1.5; min-width: 130px; height: 32px; font-size: 11px; font-weight: 800; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border: 1px solid rgba(56, 189, 248, 0.5); color: #fff; border-radius: 6px; margin: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35); white-space: nowrap;" title="เปิดเว็บ Maily.space เพื่อรับ OTP (คัดลอกอีเมลให้อัตโนมัติ)">
+                  🌐 เปิดเว็บ Maily.space
+                </button>
+                <button type="button" id="btn-copy-maily-email" class="prem-btn prem-btn-secondary" style="height: 32px; font-size: 10.5px; padding: 0 8px; margin: 0; white-space: nowrap;" title="คัดลอกอีเมลลงคลิปบอร์ด">
+                  📋 ก๊อปเมล
+                </button>
+                <button type="button" id="btn-copy-maily-pin" class="prem-btn prem-btn-secondary" style="height: 32px; font-size: 10.5px; padding: 0 8px; margin: 0; white-space: nowrap; display: none;" title="คัดลอกพินเมลลงคลิปบอร์ด">
+                  🔑 ก๊อปพิน
+                </button>
+              </div>
+
+              <div id="maily-status-hint" style="font-size: 9.5px; color: #94a3b8; line-height: 1.3;">
+                💡 เมื่อกด "เปิดเว็บ Maily.space" ระบบจะคัดลอกอีเมลให้อัตโนมัติ เพื่อให้กด "วาง" (Paste) บนเว็บได้ทันที
+              </div>
+            </div>
+
             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; width: 100%;">
               <input type="text" id="wizard-bind-otp" class="prem-input" style="width: 125px !important; min-width: 125px !important; flex: 0 0 125px !important; text-align: center; font-size: 16px; font-weight: 800; letter-spacing: 2px; height: 36px; padding: 0 4px; margin-bottom: 0; color: #facc15; background: rgba(15, 23, 42, 0.95); border: 1.5px solid rgba(245, 158, 11, 0.6);" placeholder="OTP 4-6 หลัก" maxlength="6">
               <button id="btn-wizard-send-otp" class="prem-btn prem-btn-primary" style="flex: 1; height: 36px; padding: 0 10px; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); white-space: nowrap; margin: 0;" type="button">
@@ -939,7 +969,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.8"></script>
+  <script src="app.js?v=2.9"></script>
 </body>
 
 </html>

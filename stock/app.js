@@ -5872,6 +5872,7 @@ let disneyWizardState = {
   phone: "",
   profile: "",
   pin: "",
+  pinMail: "",
   screenId: "",
   pkgName: "",
   targetAcc: null
@@ -6039,6 +6040,24 @@ function initDisneyOverlayEventListeners() {
   const btnResetOtp = document.getElementById("btn-reset-disney-otp-script");
   if (btnResetOtp) {
     btnResetOtp.addEventListener("click", handleDisneyResetOtpScript);
+  }
+
+  // Maily.space Mobile Helper controls
+  const btnOpenMaily = document.getElementById("btn-open-maily-space");
+  if (btnOpenMaily) {
+    btnOpenMaily.addEventListener("click", handleOpenMailySpace);
+  }
+  const btnCopyMailyEmail = document.getElementById("btn-copy-maily-email");
+  if (btnCopyMailyEmail) {
+    btnCopyMailyEmail.addEventListener("click", handleCopyMailyEmail);
+  }
+  const btnCopyMailyPin = document.getElementById("btn-copy-maily-pin");
+  if (btnCopyMailyPin) {
+    btnCopyMailyPin.addEventListener("click", handleCopyMailyPin);
+  }
+  const btnFetchMailyOtp = document.getElementById("btn-fetch-maily-otp");
+  if (btnFetchMailyOtp) {
+    btnFetchMailyOtp.addEventListener("click", handleFetchMailyOtp);
   }
 
   // Smart TV Controls
@@ -6278,16 +6297,42 @@ function updateDisneyWizardBadgesUI() {
   }
   if (disneyWizardState.pin) {
     items.push(`
-      <span class="parsed-badge" style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); color: #fbbf24; font-size: 11px; padding: 3px 8px; border-radius: 6px;">
+      <span class="parsed-badge" style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); color: #fbbf24; font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;" title="แตะเพื่อคัดลอก PIN จอ" data-copy-val="${escapeHtml(disneyWizardState.pin)}">
         🔒 PIN: ${escapeHtml(disneyWizardState.pin)}
       </span>
     `);
+  }
+  if (disneyWizardState.pinMail) {
+    items.push(`
+      <span class="parsed-badge" style="background: rgba(236, 72, 153, 0.2); border: 1px solid rgba(244, 114, 182, 0.45); color: #f472b6; font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;" title="แตะเพื่อคัดลอกพินเมล" data-copy-val="${escapeHtml(disneyWizardState.pinMail)}">
+        🔑 พินเมล: ${escapeHtml(disneyWizardState.pinMail)}
+      </span>
+    `);
+  }
+
+  // Toggle Maily Pin Button visibility
+  const btnCopyMailyPin = document.getElementById("btn-copy-maily-pin");
+  if (btnCopyMailyPin) {
+    btnCopyMailyPin.style.display = disneyWizardState.pinMail ? "inline-flex" : "none";
   }
 
   if (items.length > 0) {
     list.style.display = "flex";
     list.style.flexWrap = "wrap";
     list.innerHTML = items.join("");
+
+    // Delegated click to copy badge values
+    list.querySelectorAll(".parsed-badge[data-copy-val]").forEach(badge => {
+      badge.onclick = (e) => {
+        e.stopPropagation();
+        const val = badge.dataset.copyVal;
+        if (val) {
+          copyToClipboard(val);
+          showToast(`📋 คัดลอก: ${val}`);
+          haptic();
+        }
+      };
+    });
   } else {
     list.style.display = "none";
     list.innerHTML = "";
@@ -6303,6 +6348,7 @@ function handleDisneyWizardRawPasteInput() {
     disneyWizardState.email = "";
     disneyWizardState.profile = "";
     disneyWizardState.pin = "";
+    disneyWizardState.pinMail = "";
     updateDisneyWizardBadgesUI();
     return;
   }
@@ -6329,6 +6375,14 @@ function handleDisneyWizardRawPasteInput() {
   const pinMatch = text.match(/(?:pin|รหัสพิน|พิน)\s*[:#-]?\s*(\d{4})/i);
   if (pinMatch) {
     disneyWizardState.pin = pinMatch[1].trim();
+  }
+
+  // 5. PIN Mail detection (พินเมล / พินเมลล์ / pinmail / pin mail / รหัสเมล)
+  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)[:\s\t\-=]*([^\s\n\r,]+)/i);
+  if (pinMailMatch) {
+    disneyWizardState.pinMail = pinMailMatch[1].trim();
+  } else {
+    disneyWizardState.pinMail = "";
   }
 
   // Auto-detect login channel:
@@ -6381,11 +6435,16 @@ function handleDisneyQuickStockFetch() {
     disneyWizardState.phone = "";
   }
 
+  // Check pinMail from raw_account_data or notes if any
+  const pinMailMatch = (acc.raw_account_data || acc.notes || '').match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)[:\s\t\-=]*([^\s\n\r,]+)/i);
+  disneyWizardState.pinMail = pinMailMatch ? pinMailMatch[1].trim() : "";
+
   // Fill raw paste textarea
   const textarea = document.getElementById("wizard-bind-raw-paste");
   if (textarea) {
     let rawText = `อีเมล: ${acc.email}\nรหัสผ่าน: ${acc.password}\nจอ: ${acc.profile_name || 'จอ 1'}`;
     if (acc.pin_code) rawText += `\nPIN: ${acc.pin_code}`;
+    if (disneyWizardState.pinMail) rawText += `\nพินเมล: ${disneyWizardState.pinMail}`;
     if (disneyWizardState.phone) rawText += `\nเบอร์: ${disneyWizardState.phone}`;
     textarea.value = rawText;
   }
@@ -6452,10 +6511,14 @@ function handleDisneySelectStockScreen() {
   const phoneMatch = (acc.email || '').match(/(?:(?:\+66|0)[689]\d{8}|\b0\d{8,9}\b)/);
   disneyWizardState.phone = phoneMatch ? phoneMatch[0] : "";
 
+  const selPinMailMatch = (acc.raw_account_data || acc.notes || '').match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)[:\s\t\-=]*([^\s\n\r,]+)/i);
+  disneyWizardState.pinMail = selPinMailMatch ? selPinMailMatch[1].trim() : "";
+
   const textarea = document.getElementById("wizard-bind-raw-paste");
   if (textarea) {
     let rawText = `อีเมล: ${acc.email}\nรหัสผ่าน: ${acc.password}\nจอ: ${acc.profile_name || 'จอ 1'}`;
     if (acc.pin_code) rawText += `\nPIN: ${acc.pin_code}`;
+    if (disneyWizardState.pinMail) rawText += `\nพินเมล: ${disneyWizardState.pinMail}`;
     if (disneyWizardState.phone) rawText += `\nเบอร์: ${disneyWizardState.phone}`;
     textarea.value = rawText;
   }
@@ -6538,6 +6601,160 @@ async function handleDisneyResendOtpAction() {
   const script = `ถ้ายังไม่ใช่หรือรหัสหมดอายุ กดส่งใหม่อีกครั้งทาง "อีเมล" (ย้ำว่า "อีเมล" เท่านั้น) แล้วทักบอกแอดมินว่า "ขอใหม่" ได้เลยครับ ⚡️`;
   await copyToClipboard(script);
   showToast("🔄 คัดลอกสคริปต์ขอ OTP ใหม่อีกครั้งแล้ว!");
+}
+
+async function handleOpenMailySpace() {
+  haptic();
+  const email = (disneyWizardState.email || "").trim();
+  const pin = (disneyWizardState.pinMail || "").trim();
+
+  if (email) {
+    await copyToClipboard(email);
+    showToast(`📋 คัดลอกอีเมล (${email}) แล้ว! กำลังเปิด Maily.space...`);
+  } else {
+    showToast("🌐 กำลังเปิด Maily.space...");
+  }
+
+  const mailyUrl = `https://maily.space/mailbox${email ? `#email=${encodeURIComponent(email)}` : ''}${pin ? `&pin=${encodeURIComponent(pin)}` : ''}&autoRefresh=true`;
+  window.open(mailyUrl, "_blank");
+}
+
+async function handleCopyMailyEmail() {
+  haptic();
+  const email = (disneyWizardState.email || "").trim();
+  if (!email) {
+    showToast("⚠️ ยังไม่มีอีเมลให้คัดลอก (กรุณาวางหรือเลือกจอก่อน)", "warning");
+    return;
+  }
+  await copyToClipboard(email);
+  showToast(`📋 คัดลอกอีเมล: ${email}`);
+}
+
+async function handleCopyMailyPin() {
+  haptic();
+  const pin = (disneyWizardState.pinMail || "").trim();
+  if (!pin) {
+    showToast("⚠️ ไม่มีพินเมล", "warning");
+    return;
+  }
+  await copyToClipboard(pin);
+  showToast(`🔑 คัดลอกพินเมล: ${pin}`);
+}
+
+function extractDisneyOtpFromText(rawText) {
+  if (!rawText) return null;
+  const clean = rawText
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ");
+
+  // 1. MyDisney 6-digit near OTP keywords
+  const myDisney6 = clean.match(/(?:รหัสผ่านแบบใช้ครั้งเดียว|one-time passcode|passcode|รหัสยืนยัน)[\s\S]{0,350}?(?<![0-9a-zA-Z])([0-9]{6})(?![0-9a-zA-Z])/i);
+  if (myDisney6) return myDisney6[1];
+
+  // 2. Standalone 6-digit number if context exists
+  if (/disney|hotstar|ดิสนีย์/i.test(clean)) {
+    const all6 = clean.match(/(?<![0-9a-zA-Z])([0-9]{6})(?![0-9a-zA-Z])/g);
+    if (all6 && all6.length > 0) return all6[0];
+  }
+
+  // 3. 4-digit explicit
+  const explicit4 = clean.match(/(?:รหัสผ่านแบบใช้ครั้งเดียว|one-time passcode|your passcode|passcode|รหัสยืนยัน|otp)[\s:]*([0-9]{4})\b/i);
+  if (explicit4) return explicit4[1];
+
+  return null;
+}
+
+async function handleFetchMailyOtp() {
+  haptic();
+  const email = (disneyWizardState.email || "").trim();
+  if (!email || !email.includes("@")) {
+    showToast("⚠️ กรุณาวางหรือเลือกอีเมล Disney+ ก่อนดึง OTP", "warning");
+    return;
+  }
+
+  const parts = email.split("@");
+  const accountName = parts[0].trim();
+  const domainId = parts[1].replace(/\./g, "").trim();
+  const pinMail = (disneyWizardState.pinMail || "").trim();
+
+  const btnFetch = document.getElementById("btn-fetch-maily-otp");
+  if (btnFetch) {
+    btnFetch.disabled = true;
+    btnFetch.innerHTML = `<span>⏳ กำลังดึง...</span>`;
+  }
+
+  try {
+    const headers = {};
+    if (pinMail) {
+      headers["X-Mailbox-Pin"] = pinMail;
+    }
+
+    const apiUrl = `https://api.maily.space/mail/public/mails?size=10&accountName=${encodeURIComponent(accountName)}&domainId=${encodeURIComponent(domainId)}`;
+    const res = await fetch(apiUrl, { headers });
+
+    if (!res.ok) {
+      if (res.status === 403) {
+        showToast("🔒 โดเมนต้องการพินเมล กรุณาระบุพินเมล หรือเปิดเว็บ Maily.space", "warning");
+      } else if (res.status === 404) {
+        showToast("⚠️ ไม่พบบัญชีเมลนี้ หรือยังไม่มีข้อความเข้าใน Maily.space", "warning");
+      } else {
+        showToast(`⚠️ เซิร์ฟเวอร์ Maily: ${res.statusText}`, "warning");
+      }
+      return;
+    }
+
+    const json = await res.json();
+    const mails = json?.data?.mails || [];
+
+    if (!mails.length) {
+      showToast("📭 ยังไม่มีอีเมลเข้าในกล่องจดหมาย Maily.space", "warning");
+      return;
+    }
+
+    let foundOtp = null;
+    for (const mail of mails) {
+      const from = (mail.from || "").toLowerCase();
+      const subject = (mail.subject || "").toLowerCase();
+      const snippet = (mail.snippet || "").toLowerCase();
+      const isDisney = from.includes("disney") || subject.includes("disney") || subject.includes("mydisney") || snippet.includes("disney") || snippet.includes("mydisney");
+      if (!isDisney) continue;
+
+      foundOtp = extractDisneyOtpFromText((mail.subject || "") + " " + (mail.snippet || ""));
+
+      if (!foundOtp && mail.id) {
+        try {
+          const detailUrl = `https://api.maily.space/mail/public/mails/${mail.id}?accountName=${encodeURIComponent(accountName)}&domainId=${encodeURIComponent(domainId)}&size=1`;
+          const detailRes = await fetch(detailUrl, { headers });
+          if (detailRes.ok) {
+            const detailJson = await detailRes.json();
+            const fullText = (detailJson?.data?.text || "") + " " + (detailJson?.data?.html || "");
+            foundOtp = extractDisneyOtpFromText(fullText);
+          }
+        } catch (e) {}
+      }
+
+      if (foundOtp) break;
+    }
+
+    if (foundOtp) {
+      const otpInput = document.getElementById("wizard-bind-otp");
+      if (otpInput) {
+        otpInput.value = foundOtp;
+      }
+      showToast(`🎉 ดึงรหัส OTP สำเร็จ: ${foundOtp} (กรอกลงช่องแล้ว!)`);
+      haptic();
+    } else {
+      showToast("⏳ ยังไม่พบอีเมล OTP ของ Disney+ ในกล่องจดหมาย ลองใหม่อีกครั้ง หรือเปิดดูใน Maily.space", "warning");
+    }
+  } catch (err) {
+    console.warn("Direct Maily fetch error:", err);
+    showToast(`⚠️ ดึงผ่าน API ไม่สำเร็จ กรุณากด 'เปิดเว็บ Maily.space'`, "warning");
+  } finally {
+    if (btnFetch) {
+      btnFetch.disabled = false;
+      btnFetch.innerHTML = `<span>⚡ ดึง OTP อัตโนมัติ</span>`;
+    }
+  }
 }
 
 async function handleDisneyCopyTvScript(num) {
