@@ -3211,3 +3211,109 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ============================================================================
+   Stock Status Segmented Filter Bar (เฉพาะจอว่าง / มีปัญหา / ทั้งหมด)
+============================================================================ */
+.stock-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 8px 16px;
+  gap: 8px;
+}
+
+.stock-status-segmented {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  padding: 3px;
+  width: 100%;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.status-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.status-tab-btn:hover:not(.active) {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.status-tab-btn.active {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #34d399;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.status-tab-btn[data-status-filter="broken"].active {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+.status-tab-btn[data-status-filter="all"].active {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2);
+}
+
+.status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.status-badge.green {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.status-badge.amber {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.status-badge.blue {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.green { background: #10b981; box-shadow: 0 0 6px #10b981; }
+.status-dot.amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.status-dot.blue { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }

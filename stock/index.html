@@ -97,6 +97,27 @@
       <button type="button" class="chip-btn active">🌐 ทั้งหมด</button>
     </nav>
 
+    <!-- Stock Status Filter Tabs (เฉพาะจอว่าง / มีปัญหา / ทั้งหมด) -->
+    <div class="stock-status-bar" id="stock-status-bar">
+      <div class="stock-status-segmented">
+        <button type="button" class="status-tab-btn active" data-status-filter="available" id="filter-btn-available" title="แสดงเฉพาะบัญชีที่มีจอว่างพร้อมส่งมอบ">
+          <span class="status-dot green"></span>
+          <span>เฉพาะจอว่าง</span>
+          <span class="status-badge green" id="badge-avail-screens">0</span>
+        </button>
+        <button type="button" class="status-tab-btn" data-status-filter="broken" id="filter-btn-broken" title="แสดงเฉพาะบัญชีที่ติดปัญหาเพื่อแก้ไข">
+          <span class="status-dot amber"></span>
+          <span>มีปัญหา</span>
+          <span class="status-badge amber" id="badge-broken-screens">0</span>
+        </button>
+        <button type="button" class="status-tab-btn" data-status-filter="all" id="filter-btn-all" title="แสดงบัญชีทั้งหมดในระบบ">
+          <span class="status-dot blue"></span>
+          <span>ทั้งหมด</span>
+          <span class="status-badge blue" id="badge-all-screens">0</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Quick Tools Bar -->
     <section class="quick-tools-bar">
       <span class="tool-left">⚡ จัดการสต็อกและตรวจสอบเรียลไทม์</span>
@@ -918,7 +939,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.6"></script>
+  <script src="app.js?v=2.7"></script>
 </body>
 
 </html>

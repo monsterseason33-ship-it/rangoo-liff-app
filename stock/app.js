@@ -29,6 +29,7 @@ let rawBindings = [];
 let rawApps = [];
 let rawPackages = [];
 let activeAppFilter = "all";
+let activeStockStatusFilter = "available"; // "available" (เฉพาะจอว่าง) | "broken" (มีปัญหา) | "all" (ทั้งหมด)
 let searchQuery = "";
 let bindingSearchQuery = "";
 let bindingFilter = "all"; // "all" | "active" | "expiring" | "expired" | "reverted"
@@ -114,6 +115,23 @@ function initUIEventListeners() {
         searchQuery = "";
         renderStockFeed();
       }
+    });
+  }
+
+  // Stock Status Filter Buttons (เฉพาะจอว่าง / มีปัญหา / ทั้งหมด)
+  document.querySelectorAll(".status-tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setStockStatusFilter(btn.dataset.statusFilter);
+    });
+  });
+
+  // Metric Card click to filter available stock
+  const metricAvailCard = document.getElementById("stat-screens")?.closest(".metric-card");
+  if (metricAvailCard) {
+    metricAvailCard.style.cursor = "pointer";
+    metricAvailCard.setAttribute("title", "แตะเพื่อกรองดูเฉพาะจอว่าง");
+    metricAvailCard.addEventListener("click", () => {
+      setStockStatusFilter("available");
     });
   }
 
@@ -667,13 +685,20 @@ function processData() {
 // ----------------------------------------------------------------------------
 function updateMetrics() {
   let totalScreens = 0;
+  let brokenScreens = 0;
   const emailsSet = new Set();
   const appsSet = new Set();
 
   Object.values(appGroups).forEach(group => {
-    totalScreens += group.totalScreens;
+    totalScreens += (group.totalScreens || 0);
     appsSet.add(group.appId);
-    Object.keys(group.accountsByEmail).forEach(e => emailsSet.add(e));
+    Object.keys(group.accountsByEmail).forEach(e => {
+      emailsSet.add(e);
+      const acc = group.accountsByEmail[e];
+      acc.screens.forEach(s => {
+        if (s.status === "broken") brokenScreens++;
+      });
+    });
   });
 
   const screenEl = document.getElementById("stat-screens");
@@ -685,6 +710,15 @@ function updateMetrics() {
   if (accEl) accEl.textContent = emailsSet.size;
   if (appEl) appEl.textContent = appsSet.size;
   if (bottomBadge) bottomBadge.textContent = `${totalScreens} จอว่าง | ${emailsSet.size} บัญชี`;
+
+  // Status Filter Badges
+  const badgeAvail = document.getElementById("badge-avail-screens");
+  const badgeBroken = document.getElementById("badge-broken-screens");
+  const badgeAll = document.getElementById("badge-all-screens");
+
+  if (badgeAvail) badgeAvail.textContent = totalScreens;
+  if (badgeBroken) badgeBroken.textContent = brokenScreens;
+  if (badgeAll) badgeAll.textContent = totalScreens + brokenScreens;
 }
 
 // ----------------------------------------------------------------------------
@@ -816,14 +850,39 @@ function renderChips() {
   const container = document.getElementById("chips-container");
   if (!container) return;
 
-  // Calculate screens per app
+  // Calculate screens per app based on activeStockStatusFilter
   const appTotals = {};
   let overallScreens = 0;
 
   Object.values(appGroups).forEach(g => {
-    appTotals[g.appId] = (appTotals[g.appId] || 0) + g.totalScreens;
-    overallScreens += g.totalScreens;
+    let screensInGroup = 0;
+    if (activeStockStatusFilter === "available") {
+      screensInGroup = g.totalScreens || 0;
+    } else if (activeStockStatusFilter === "broken") {
+      Object.values(g.accountsByEmail).forEach(acc => {
+        acc.screens.forEach(s => {
+          if (s.status === "broken") screensInGroup++;
+        });
+      });
+    } else {
+      screensInGroup = (g.totalScreens || 0);
+      Object.values(g.accountsByEmail).forEach(acc => {
+        acc.screens.forEach(s => {
+          if (s.status === "broken") screensInGroup++;
+        });
+      });
+    }
+
+    if (screensInGroup > 0) {
+      appTotals[g.appId] = (appTotals[g.appId] || 0) + screensInGroup;
+      overallScreens += screensInGroup;
+    }
   });
+
+  // If the currently selected chip is no longer in appTotals and not "all", reset to "all"
+  if (activeAppFilter !== "all" && !appTotals[activeAppFilter]) {
+    activeAppFilter = "all";
+  }
 
   let html = `
     <button type="button" class="chip-btn ${activeAppFilter === 'all' ? 'active' : ''}" data-app-id="all">
@@ -833,7 +892,7 @@ function renderChips() {
     </button>
   `;
 
-  // Get distinct apps that actually have stock
+  // Get distinct apps that actually have stock in the active filter
   const distinctAppIds = Object.keys(appTotals);
   distinctAppIds.forEach(appId => {
     const app = rawApps.find(a => a.id === appId);
@@ -865,6 +924,16 @@ window.selectChip = function(appId) {
   renderStockFeed();
 };
 
+window.setStockStatusFilter = function(status) {
+  haptic();
+  activeStockStatusFilter = status;
+  document.querySelectorAll(".status-tab-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.statusFilter === status);
+  });
+  renderChips();
+  renderStockFeed();
+};
+
 // ----------------------------------------------------------------------------
 // Render Stock Feed Cards (Brand Themed + Interactive Capsules)
 // ----------------------------------------------------------------------------
@@ -877,7 +946,20 @@ function renderStockFeed() {
     // 1. App filter
     if (activeAppFilter !== "all" && group.appId !== activeAppFilter) return false;
 
-    // 2. Search query
+    // 2. Status filter
+    if (activeStockStatusFilter === "available") {
+      const hasAvailable = Object.values(group.accountsByEmail).some(acc =>
+        acc.screens.some(s => s.status === "available")
+      );
+      if (!hasAvailable) return false;
+    } else if (activeStockStatusFilter === "broken") {
+      const hasBroken = Object.values(group.accountsByEmail).some(acc =>
+        acc.hasBroken || acc.screens.some(s => s.status === "broken")
+      );
+      if (!hasBroken) return false;
+    }
+
+    // 3. Search query
     if (searchQuery) {
       const matchApp = group.appName.toLowerCase().includes(searchQuery);
       const matchPkg = group.pkgName.toLowerCase().includes(searchQuery);
@@ -889,11 +971,22 @@ function renderStockFeed() {
   });
 
   if (filteredGroups.length === 0) {
+    let emptyTitle = "ไม่พบสต็อกพร้อมขาย";
+    let emptyDesc = "ไม่มีบัญชีสถานะว่าง หรือบัญชีกำลังจะหมดอายุใน 24 ชม.";
+    let emptyIcon = "📭";
+    if (activeStockStatusFilter === "broken") {
+      emptyIcon = "🎉";
+      emptyTitle = "ไม่พบบัญชีที่มีปัญหา";
+      emptyDesc = "ยอดเยี่ยม! ทุกบัญชีในระบบปกติ ไม่มีจอที่ติดสถานะมีปัญหา";
+    } else if (activeStockStatusFilter === "available") {
+      emptyTitle = "ไม่มีจอว่างพร้อมขายในขณะนี้";
+      emptyDesc = "ยังไม่มีจอสถานะ 'ว่าง' หรือกำลังจะหมดอายุใน 24 ชม.";
+    }
     feed.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <div class="empty-title">ไม่พบสต็อกพร้อมขาย</div>
-        <p style="font-size:12px; color:var(--text-dim); margin-top:4px;">ไม่มีบัญชีสถานะว่าง หรือบัญชีกำลังจะหมดอายุใน 24 ชม.</p>
+        <div class="empty-icon">${emptyIcon}</div>
+        <div class="empty-title">${emptyTitle}</div>
+        <p style="font-size:12px; color:var(--text-dim); margin-top:4px;">${emptyDesc}</p>
       </div>
     `;
     return;
@@ -904,6 +997,18 @@ function renderStockFeed() {
   filteredGroups.forEach(([groupKey, group]) => {
     const emailKeys = Object.keys(group.accountsByEmail);
     const theme = getAppTheme(group.appName);
+
+    // Filter accounts inside group based on activeStockStatusFilter
+    const validEmailKeys = emailKeys.filter(emailKey => {
+      const acc = group.accountsByEmail[emailKey];
+      const hasAvail = acc.screens.some(s => s.status === "available");
+      const hasBroken = acc.hasBroken || acc.screens.some(s => s.status === "broken");
+      if (activeStockStatusFilter === "available") return hasAvail;
+      if (activeStockStatusFilter === "broken") return hasBroken;
+      return true;
+    });
+
+    if (validEmailKeys.length === 0) return;
 
     html += `
       <div class="group-card" style="--brand-color: ${theme.color}; --brand-gradient: ${theme.gradient}; --brand-border: ${theme.border};">
@@ -934,7 +1039,7 @@ function renderStockFeed() {
         </div>
     `;
 
-    emailKeys.forEach(emailKey => {
+    validEmailKeys.forEach(emailKey => {
       const acc = group.accountsByEmail[emailKey];
       const pwdText = isPasswordHidden ? "••••••••" : acc.password;
 
@@ -958,8 +1063,16 @@ function renderStockFeed() {
         }
       }
 
+      // Filter screens based on activeStockStatusFilter
+      let screensToDisplay = [...acc.screens];
+      if (activeStockStatusFilter === "available") {
+        screensToDisplay = screensToDisplay.filter(s => s.status === "available");
+      } else if (activeStockStatusFilter === "broken") {
+        screensToDisplay = screensToDisplay.filter(s => s.status === "broken");
+      }
+
       // Sort screens
-      const sortedScreens = [...acc.screens].sort((a, b) => {
+      const sortedScreens = screensToDisplay.sort((a, b) => {
         const nameA = a.profile_name || "";
         const nameB = b.profile_name || "";
         const numMatchA = nameA.match(/\d+/);
