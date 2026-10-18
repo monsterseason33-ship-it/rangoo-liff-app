@@ -290,6 +290,14 @@ function initUIEventListeners() {
         return;
       }
 
+      // 2.1 Quick Copy Normal Sales Script (1-Tap from card header)
+      const salesBtn = e.target.closest(".group-sales-btn");
+      if (salesBtn) {
+        e.stopPropagation();
+        handleQuickCopySalesScript(salesBtn.dataset.appId, salesBtn);
+        return;
+      }
+
       // 3. Copy account script
       const copyAccBtn = e.target.closest(".btn-copy-account-script");
       if (copyAccBtn) {
@@ -415,6 +423,59 @@ function initUIEventListeners() {
 
   const btnSendBindCopyOnly = document.getElementById("btn-send-bind-copy-only");
   if (btnSendBindCopyOnly) btnSendBindCopyOnly.addEventListener("click", executeSendBindCopyOnly);
+
+  // Sales Script Modal Event Listeners
+  const btnOpenSales = document.getElementById("btn-open-sales-modal");
+  if (btnOpenSales) {
+    btnOpenSales.addEventListener("click", () => openSalesScriptModal());
+  }
+
+  const btnCloseSales = document.getElementById("btn-close-sales-modal");
+  if (btnCloseSales) {
+    btnCloseSales.addEventListener("click", closeSalesScriptModal);
+  }
+
+  const btnDismissSales = document.getElementById("btn-dismiss-sales-modal");
+  if (btnDismissSales) {
+    btnDismissSales.addEventListener("click", closeSalesScriptModal);
+  }
+
+  const modalSalesOverlay = document.getElementById("modal-sales-script");
+  if (modalSalesOverlay) {
+    modalSalesOverlay.addEventListener("click", (e) => {
+      if (e.target === modalSalesOverlay) closeSalesScriptModal();
+    });
+  }
+
+  const salesAppSelect = document.getElementById("sales-modal-app-select");
+  if (salesAppSelect) {
+    salesAppSelect.addEventListener("change", updateSalesScriptModalPreview);
+  }
+
+  const btnSalesModeNormal = document.getElementById("btn-sales-mode-normal");
+  if (btnSalesModeNormal) {
+    btnSalesModeNormal.addEventListener("click", () => {
+      haptic();
+      currentSalesModalMode = "normal";
+      updateSalesModalModeUI();
+      updateSalesScriptModalPreview();
+    });
+  }
+
+  const btnSalesModeStock = document.getElementById("btn-sales-mode-stock");
+  if (btnSalesModeStock) {
+    btnSalesModeStock.addEventListener("click", () => {
+      haptic();
+      currentSalesModalMode = "stock";
+      updateSalesModalModeUI();
+      updateSalesScriptModalPreview();
+    });
+  }
+
+  const btnCopySalesFinal = document.getElementById("btn-copy-sales-script-final");
+  if (btnCopySalesFinal) {
+    btnCopySalesFinal.addEventListener("click", copySalesScriptFromModal);
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -829,9 +890,14 @@ function renderStockFeed() {
               `<span class="group-pkg-name unassigned btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเลือกแพ็กเกจ & ปรับจำนวนจอ">[⚠️ ยังไม่กำหนดแพ็คเกจ ▾]</span>`
             }
           </div>
-          <button type="button" class="group-copy-app-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกสต็อกทั้งแอปนี้">
-            📋 ก็อปปี้ทั้งแอป (${group.totalScreens})
-          </button>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="group-sales-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกบทเสนอขาย (ปกติ)">
+              📢 เสนอขาย
+            </button>
+            <button type="button" class="group-copy-app-btn" data-app-id="${escapeHtml(group.appId)}" title="คัดลอกสต็อกทั้งแอปนี้">
+              📋 ก็อปปี้ทั้งแอป (${group.totalScreens})
+            </button>
+          </div>
         </div>
     `;
 
@@ -5081,6 +5147,520 @@ function executeRandomizeCustomerName() {
     nameInput.focus();
   }
   showToast(`🎲 สุ่มชื่อใหม่ 18 หลัก: ${newName}`);
+}
+
+// ============================================================================
+// Sales Script Generation & Management (Normal & Stock-based)
+// ============================================================================
+
+let currentSalesModalMode = "normal"; // "normal" | "stock"
+
+function detectPackageDeviceType(pkgName = "") {
+  if (!pkgName) return "";
+  const lower = pkgName.toLowerCase();
+  if (lower.includes("tv") || lower.includes("ทีวี")) {
+    return "TV";
+  }
+  if (lower.includes("มือถือ") || lower.includes("แท็บเล็ต") || lower.includes("ipad") || lower.includes("mobile") || lower.includes("pc")) {
+    return "มือถือ/แท็บเล็ต/PC/iPad";
+  }
+  if (lower.includes("ทุกอุปกรณ์") || lower.includes("all device")) {
+    return "ทุกอุปกรณ์";
+  }
+  return "";
+}
+
+function cleanDeviceSubName(name, devType) {
+  if (!name) return "";
+  let clean = name.trim();
+  if (!devType) return clean;
+
+  const lowerDev = devType.toLowerCase();
+  if (lowerDev.includes("tv") || lowerDev.includes("ทีวี")) {
+    clean = clean.replace(/🖥️/g, "").replace(/\b(?:smart\s*tv|tv|ทีวี)\b/gi, "").replace(/[(\[]\s*(?:tv|ทีวี)\s*[)\]]/gi, "").trim();
+  }
+  if (lowerDev.includes("มือถือ") || lowerDev.includes("แท็บเล็ต") || lowerDev.includes("ipad") || lowerDev.includes("pc")) {
+    clean = clean.replace(/📱/g, "").replace(/💻/g, "")
+      .replace(/มือถือ\s*\/\s*แท็บเล็ต\s*\/\s*pc\s*\/\s*ipad/gi, "")
+      .replace(/มือถือ\s*\/\s*แท็บเล็ต/gi, "")
+      .replace(/มือถือ\s*\/\s*pc/gi, "")
+      .replace(/มือถือ/gi, "")
+      .replace(/[(\[]\s*(?:มือถือ|แท็บเล็ต|pc|ipad)\s*[)\]]/gi, "")
+      .trim();
+  }
+  if (lowerDev.includes("ทุกอุปกรณ์")) {
+    clean = clean.replace(/🌐/g, "").replace(/ทุกอุปกรณ์/gi, "").replace(/[(\[]\s*ทุกอุปกรณ์\s*[)\]]/gi, "").trim();
+  }
+
+  // Clean stray symbols at start or end
+  clean = clean.replace(/^[-\s/|•]+/, "").replace(/[-\s/|•]+$/, "").trim();
+  return clean || name;
+}
+
+function cleanPackageSubName(pkgName, days) {
+  if (!pkgName) return "";
+  let name = pkgName.trim();
+
+  // Strip common leading emojis
+  const commonEmojis = ["🔹", "✅", "🍿", "🔥", "✨", "⭐", "🎬", "💰", "📱", "🔺", "🔴", "🤍", "📌", "▫️", "•"];
+  for (const em of commonEmojis) {
+    while (name.startsWith(em)) {
+      name = name.substring(em.length).trim();
+    }
+  }
+
+  if (days && days > 0) {
+    const daysNumStr = (days % 365 === 0) ? `${days / 365}` : `${days}`;
+    const unitStr = (days % 365 === 0) ? "ปี" : "วัน";
+
+    // Patterns to remove redundant duration info matching group days
+    const patterns = [
+      new RegExp(`^แพ็กเกจ\\s*${daysNumStr}\\s*${unitStr}\\s*`, "gi"),
+      new RegExp(`^${daysNumStr}\\s*${unitStr}\\s*`, "gi"),
+      new RegExp(`\\(${daysNumStr}\\s*${unitStr}\\)`, "gi"),
+      new RegExp(`\\[${daysNumStr}\\s*${unitStr}\\]`, "gi"),
+      new RegExp(`\\(${daysNumStr}\\s*วัน\\)`, "gi"),
+      new RegExp(`\\[${daysNumStr}\\s*วัน\\]`, "gi"),
+      new RegExp(`\\b${daysNumStr}\\s*${unitStr}\\b`, "gi")
+    ];
+
+    for (const pat of patterns) {
+      name = name.replace(pat, "").trim();
+    }
+  }
+
+  // Clean leading/trailing symbols, empty brackets/parentheses
+  name = name.replace(/^[-\s➔➔➜➔➞➪➯➔\u2794\u27a1\u279c\u279d\u279e\u279f\u27a2\u27a5\u27a6\u27a7()\\[\\]:-]+/, "").trim();
+  name = name.replace(/[-()\\[\\]:-]+$/, "").trim();
+
+  // Strip trailing prices or arrows
+  name = name.replace(/(?:[-\s➔➔➜➔➞➪➯➔]|->|=>)+\(?\d+\s*(?:บาท|\.-|baht)?\)?\s*$/gi, "").trim();
+
+  if (!name) {
+    return pkgName;
+  }
+  return name;
+}
+
+function evaluateFooterTemplate(footerText, activePkgsCount) {
+  if (!footerText) return "";
+  const regex = /\[IF_SINGLE\]([\s\S]*?)(?:\[ELSE\]([\s\S]*?))?\[ENDIF\]/i;
+  const match = footerText.match(regex);
+  if (match) {
+    const singleText = match[1].trim();
+    const multiText = match[2] ? match[2].trim() : "";
+    const evaluated = (activePkgsCount === 1) ? singleText : multiText;
+    return footerText.replace(regex, evaluated).trim();
+  }
+  return footerText;
+}
+
+function autoFormatSingularText(text) {
+  if (!text) return "";
+  let clean = text;
+  clean = clean.replace(/เลือกได้ตามใชชอบเลยจ้า/g, "นี้เลยจ้า");
+  clean = clean.replace(/เลือกได้ตามใจชอบเลยจ้า/g, "นี้เลยจ้า");
+  clean = clean.replace(/เลือกได้ตามใชชอบ/g, "นี้");
+  clean = clean.replace(/เลือกได้ตามใจชอบ/g, "นี้");
+  clean = clean.replace(/เลือกได้เลย/g, "รับได้เลย");
+  clean = clean.replace(/([แเ][พภ][็า]?[คก]์?[เ๊๋]?[จช]์?)ไหน/g, "$1นี้");
+  clean = clean.replace(/([แเ][พภ][็า]?[คก]์?[เ๊๋]?[จช]์?)ใด/g, "$1นี้");
+  clean = clean.replace(/(สนใจรับ[\s\S]*?)ไหน/g, "$1นี้");
+  return clean;
+}
+
+function parseSalesScriptConfig(salesScriptText) {
+  const defaultHeader = "🎬 แพ็กเกจพรีเมียมพร้อมจัดส่งทันที!";
+  const defaultDetails = "✨ คมชัดระดับสูงสุด Ultra HD / ไร้โฆษณาคั่น / ใช้งานได้เสถียรตลอดอายุการใช้งาน";
+  const defaultFooter = "📱 [IF_SINGLE]สนใจรับแพ็กเกจนี้ แจ้งแอดมินเพื่อรับยอดโอนได้เลยน้า[ELSE]สนใจรับแพ็กเกจไหน พิมพ์แจ้งแอดมินเพื่อรับยอดโอนได้เลยน้า[ENDIF]";
+  const defaultEmoji = "🔹";
+
+  if (!salesScriptText) {
+    return {
+      header: defaultHeader,
+      header_show_sales: true,
+      details: defaultDetails,
+      details_show_sales: true,
+      footer: defaultFooter,
+      footer_show_sales: true,
+      emoji: defaultEmoji,
+      customTopics: []
+    };
+  }
+
+  const trimmed = salesScriptText.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(salesScriptText);
+      return {
+        header: parsed.header || defaultHeader,
+        header_show_sales: parsed.header_show_sales !== false,
+        details: parsed.details || defaultDetails,
+        details_show_sales: parsed.details_show_sales !== false,
+        footer: parsed.footer || defaultFooter,
+        footer_show_sales: parsed.footer_show_sales !== false,
+        emoji: parsed.emoji || defaultEmoji,
+        customTopics: parsed.customTopics || []
+      };
+    } catch (e) {
+      console.warn("Failed to parse sales_script as JSON, fallback to plaintext:", e);
+    }
+  }
+
+  return {
+    header: defaultHeader,
+    header_show_sales: true,
+    details: defaultDetails,
+    details_show_sales: true,
+    footer: defaultFooter,
+    footer_show_sales: true,
+    emoji: defaultEmoji,
+    customTopics: []
+  };
+}
+
+function formatGroupedPackagesList(activePkgsList, app, defaultEmoji, isSmartMode = false, stockMap = {}) {
+  if (!activePkgsList || activePkgsList.length === 0) {
+    return "";
+  }
+
+  const durationGroups = {};
+  activePkgsList.forEach(pkg => {
+    const days = pkg.days || getPackageDays(pkg.name, pkg.app_id) || 30;
+    if (!durationGroups[days]) {
+      durationGroups[days] = [];
+    }
+    durationGroups[days].push(pkg);
+  });
+
+  const sortedDaysKeys = Object.keys(durationGroups).map(Number).sort((a, b) => a - b);
+  const groupBlocks = [];
+
+  sortedDaysKeys.forEach(days => {
+    const pkgsInGroup = durationGroups[days];
+    const durationLabel = (days % 365 === 0) ? `${days / 365} ปี` : `${days} วัน`;
+    const groupHeader = `🤍 แพ็กเกจ ${durationLabel}`;
+
+    const devSubGroups = {};
+    const devOrder = ["มือถือ/แท็บเล็ต/PC/iPad", "TV", "ทุกอุปกรณ์", "ทั่วไป"];
+
+    pkgsInGroup.forEach(pkg => {
+      let devType = pkg.device_type || detectPackageDeviceType(pkg.name) || "ทั่วไป";
+      const lower = devType.toLowerCase();
+      if (lower.includes("tv") || lower.includes("ทีวี")) devType = "TV";
+      else if (lower.includes("มือถือ") || lower.includes("ipad") || lower.includes("แท็บเล็ต") || lower.includes("pc")) devType = "มือถือ/แท็บเล็ต/PC/iPad";
+      else if (lower.includes("ทุกอุปกรณ์")) devType = "ทุกอุปกรณ์";
+
+      if (!devSubGroups[devType]) devSubGroups[devType] = [];
+      devSubGroups[devType].push(pkg);
+    });
+
+    const hasDeviceDifferentiation = Object.keys(devSubGroups).length > 1 || !devSubGroups["ทั่วไป"];
+    const lines = [groupHeader];
+
+    if (hasDeviceDifferentiation) {
+      const sortedDevTypes = Object.keys(devSubGroups).sort((a, b) => {
+        let idxA = devOrder.indexOf(a);
+        let idxB = devOrder.indexOf(b);
+        if (idxA === -1) idxA = 999;
+        if (idxB === -1) idxB = 999;
+        return idxA - idxB;
+      });
+
+      sortedDevTypes.forEach(devType => {
+        let devHeader = `  📱 [${devType}]`;
+        if (devType === "TV") devHeader = `  🖥️ [TV / สมาร์ททีวี]`;
+        else if (devType === "มือถือ/แท็บเล็ต/PC/iPad") devHeader = `  📱 [มือถือ/แท็บเล็ต/PC/iPad]`;
+        else if (devType === "ทุกอุปกรณ์") devHeader = `  🌐 [ทุกอุปกรณ์]`;
+        else if (devType === "ทั่วไป") devHeader = `  🔹 [ทั่วไป]`;
+
+        lines.push(devHeader);
+
+        devSubGroups[devType].forEach(pkg => {
+          const hasStock = isSmartMode ? ((stockMap[pkg.id] || 0) > 0) : true;
+          let subName = cleanPackageSubName(pkg.name, days);
+          subName = cleanDeviceSubName(subName, devType);
+          const statusPrefix = hasStock ? "" : "🔴 [ปกติหมดชั่วคราว] ";
+          lines.push(`  • ${statusPrefix}${subName} ➔ ${pkg.price}.-`);
+        });
+      });
+    } else {
+      pkgsInGroup.forEach(pkg => {
+        const hasStock = isSmartMode ? ((stockMap[pkg.id] || 0) > 0) : true;
+        const subName = cleanPackageSubName(pkg.name, days);
+        const statusPrefix = hasStock ? "" : "🔴 [ปกติหมดชั่วคราว] ";
+        lines.push(`• ${statusPrefix}${subName} ➔ ${pkg.price}.-`);
+      });
+    }
+
+    groupBlocks.push(lines.join("\n"));
+  });
+
+  return groupBlocks.join("\n\n");
+}
+
+function generateNormalSalesScript(app) {
+  if (!app) return "";
+  const appPkgs = rawPackages.filter(p => p.app_id === app.id);
+  const segments = parseSalesScriptConfig(app.sales_script);
+  const emoji = segments.emoji || "🔹";
+
+  let packagesText = "";
+  let activePkgsCount = 0;
+  if (appPkgs.length === 0) {
+    packagesText = "📍 ขณะนี้ยังไม่มีรายการแพ็กเกจราคาเปิดจำหน่าย ติดต่อแอดมินเพื่อเติมได้เลยค่า!";
+  } else {
+    const activePkgs = [...appPkgs];
+    activePkgs.sort((a, b) => {
+      const daysA = a.days || getPackageDays(a.name, a.app_id) || 30;
+      const daysB = b.days || getPackageDays(b.name, b.app_id) || 30;
+      if (daysA !== daysB) return daysA - daysB;
+      return (a.price || 0) - (b.price || 0);
+    });
+    packagesText = formatGroupedPackagesList(activePkgs, app, emoji, false);
+    activePkgsCount = activePkgs.length;
+  }
+
+  let evaluatedFooter = evaluateFooterTemplate(segments.footer, activePkgsCount);
+  let finalHeader = segments.header;
+  if (activePkgsCount === 1) {
+    finalHeader = autoFormatSingularText(segments.header);
+    evaluatedFooter = autoFormatSingularText(evaluatedFooter);
+  }
+
+  const parts = [];
+  if (segments.header_show_sales !== false && finalHeader) parts.push(finalHeader);
+  if (packagesText) parts.push(packagesText);
+
+  if (segments.customTopics && Array.isArray(segments.customTopics)) {
+    segments.customTopics.forEach(item => {
+      if (item.show_in_sales && item.topic) {
+        parts.push(`${item.topic}\n${item.detail || ""}`);
+      }
+    });
+  }
+
+  if (segments.details_show_sales !== false && segments.details) parts.push(segments.details);
+  if (segments.footer_show_sales !== false && evaluatedFooter) parts.push(evaluatedFooter);
+
+  const divLine = "───────────────────────";
+  return parts.join(`\n${divLine}\n`);
+}
+
+function generateSalesScriptBasedOnStock(app) {
+  if (!app) return "";
+  const appPkgs = rawPackages.filter(p => p.app_id === app.id);
+  const segments = parseSalesScriptConfig(app.sales_script);
+  const emoji = segments.emoji || "🔹";
+
+  // Build stock map from rawAccounts (status === 'available')
+  const stockMap = {};
+  rawAccounts.forEach(acc => {
+    if (acc.app_id === app.id && acc.status === "available") {
+      if (acc.package_id) {
+        stockMap[acc.package_id] = (stockMap[acc.package_id] || 0) + 1;
+      }
+    }
+  });
+
+  const inStockPkgs = appPkgs.filter(pkg => (stockMap[pkg.id] || 0) > 0);
+  const allOutOfStock = appPkgs.length > 0 && inStockPkgs.length === 0;
+
+  let packagesText = "";
+  let activePkgsList = [];
+  let activePkgsCount = 0;
+
+  if (appPkgs.length === 0) {
+    packagesText = "📍 ขณะนี้ยังไม่มีรายการแพ็กเกจราคาเปิดจำหน่าย ติดต่อแอดมินได้เลยค่า!";
+  } else if (allOutOfStock) {
+    activePkgsList = [...appPkgs];
+    activePkgsList.sort((a, b) => {
+      const daysA = a.days || getPackageDays(a.name, a.app_id) || 30;
+      const daysB = b.days || getPackageDays(b.name, b.app_id) || 30;
+      if (daysA !== daysB) return daysA - daysB;
+      return (a.price || 0) - (b.price || 0);
+    });
+    packagesText = formatGroupedPackagesList(activePkgsList, app, emoji, true, stockMap);
+    activePkgsCount = activePkgsList.length;
+  } else {
+    activePkgsList = [...inStockPkgs];
+    activePkgsList.sort((a, b) => {
+      const daysA = a.days || getPackageDays(a.name, a.app_id) || 30;
+      const daysB = b.days || getPackageDays(b.name, b.app_id) || 30;
+      if (daysA !== daysB) return daysA - daysB;
+      return (a.price || 0) - (b.price || 0);
+    });
+    packagesText = formatGroupedPackagesList(activePkgsList, app, emoji, true, stockMap);
+    activePkgsCount = activePkgsList.length;
+  }
+
+  let evaluatedFooter = evaluateFooterTemplate(segments.footer, activePkgsCount);
+  let finalHeader = segments.header;
+  if (activePkgsCount === 1) {
+    finalHeader = autoFormatSingularText(segments.header);
+    evaluatedFooter = autoFormatSingularText(evaluatedFooter);
+  }
+
+  const parts = [];
+  if (segments.header_show_sales !== false && finalHeader) parts.push(finalHeader);
+  if (packagesText) parts.push(packagesText);
+
+  if (segments.customTopics && Array.isArray(segments.customTopics)) {
+    segments.customTopics.forEach(item => {
+      if (item.show_in_sales && item.topic) {
+        parts.push(`${item.topic}\n${item.detail || ""}`);
+      }
+    });
+  }
+
+  if (segments.details_show_sales !== false && segments.details) parts.push(segments.details);
+  if (segments.footer_show_sales !== false && evaluatedFooter) parts.push(evaluatedFooter);
+
+  const divLine = "───────────────────────";
+  return parts.join(`\n${divLine}\n`);
+}
+
+async function handleQuickCopySalesScript(appId, btnElement = null) {
+  haptic();
+  const app = rawApps.find(a => a.id === appId);
+  if (!app) {
+    showToast("⚠️ ไม่พบข้อมูลแอปนี้ในระบบ", "warning");
+    return;
+  }
+
+  const script = generateNormalSalesScript(app);
+  if (!script) {
+    showToast("⚠️ ไม่มีข้อมูลบทเสนอขายสำหรับแอปนี้", "warning");
+    return;
+  }
+
+  await copyToClipboard(script);
+
+  if (btnElement) {
+    const originalText = btnElement.innerHTML;
+    btnElement.innerHTML = `✅ คัดลอกแล้ว!`;
+    setTimeout(() => {
+      btnElement.innerHTML = originalText;
+    }, 1500);
+  }
+
+  showToast(`📢 คัดลอกบทเสนอขาย "${app.display_name || app.name}" เรียบร้อยแล้ว!`);
+}
+
+function openSalesScriptModal(preferredAppId = null) {
+  haptic();
+  const modal = document.getElementById("modal-sales-script");
+  const appSelect = document.getElementById("sales-modal-app-select");
+  if (!modal || !appSelect) return;
+
+  // Populate app dropdown
+  appSelect.innerHTML = "";
+  const appsWithPkgs = rawApps.filter(app => {
+    return rawPackages.some(pkg => pkg.app_id === app.id) || app.sales_script;
+  });
+
+  const listToRender = appsWithPkgs.length > 0 ? appsWithPkgs : rawApps;
+  listToRender.forEach(app => {
+    const opt = document.createElement("option");
+    opt.value = app.id;
+    opt.textContent = app.display_name || app.name;
+    appSelect.appendChild(opt);
+  });
+
+  // Pick initial app
+  if (preferredAppId && listToRender.some(a => a.id === preferredAppId)) {
+    appSelect.value = preferredAppId;
+  } else if (activeAppFilter !== "all" && listToRender.some(a => a.id === activeAppFilter)) {
+    appSelect.value = activeAppFilter;
+  } else if (listToRender.length > 0) {
+    appSelect.value = listToRender[0].id;
+  }
+
+  currentSalesModalMode = "normal";
+  updateSalesModalModeUI();
+  updateSalesScriptModalPreview();
+
+  modal.style.display = "flex";
+}
+
+function closeSalesScriptModal() {
+  const modal = document.getElementById("modal-sales-script");
+  if (modal) modal.style.display = "none";
+}
+
+function updateSalesModalModeUI() {
+  const btnNormal = document.getElementById("btn-sales-mode-normal");
+  const btnStock = document.getElementById("btn-sales-mode-stock");
+  const badge = document.getElementById("sales-script-mode-badge");
+
+  if (btnNormal && btnStock) {
+    if (currentSalesModalMode === "normal") {
+      btnNormal.className = "prem-btn prem-btn-primary";
+      btnNormal.style.background = "";
+      btnStock.className = "prem-btn prem-btn-secondary";
+      btnStock.style.background = "";
+      if (badge) {
+        badge.textContent = "โหมดปกติ (แสดงทุกแพ็กเกจ)";
+        badge.style.color = "#c084fc";
+        badge.style.borderColor = "rgba(168, 85, 247, 0.3)";
+      }
+    } else {
+      btnNormal.className = "prem-btn prem-btn-secondary";
+      btnNormal.style.background = "";
+      btnStock.className = "prem-btn prem-btn-primary";
+      btnStock.style.background = "linear-gradient(135deg, #10b981, #059669)";
+      if (badge) {
+        badge.textContent = "โหมดตามสต็อกในคลัง (เฉพาะพร้อมส่ง)";
+        badge.style.color = "#34d399";
+        badge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+      }
+    }
+  }
+}
+
+function updateSalesScriptModalPreview() {
+  const appSelect = document.getElementById("sales-modal-app-select");
+  const previewArea = document.getElementById("sales-script-preview-area");
+  if (!appSelect || !previewArea) return;
+
+  const appId = appSelect.value;
+  const app = rawApps.find(a => a.id === appId);
+  if (!app) {
+    previewArea.value = "⚠️ ไม่พบข้อมูลแอปที่เลือก";
+    return;
+  }
+
+  let script = "";
+  if (currentSalesModalMode === "stock") {
+    script = generateSalesScriptBasedOnStock(app);
+  } else {
+    script = generateNormalSalesScript(app);
+  }
+
+  previewArea.value = script || "⚠️ ไม่มีข้อมูลบทเสนอขายสำหรับแอปนี้";
+}
+
+async function copySalesScriptFromModal() {
+  haptic();
+  const previewArea = document.getElementById("sales-script-preview-area");
+  const text = (previewArea ? previewArea.value : "").trim();
+  if (!text || text.startsWith("⚠️")) {
+    showToast("⚠️ ไม่มีข้อความสคริปต์ให้คัดลอก", "warning");
+    return;
+  }
+
+  await copyToClipboard(text);
+
+  const btn = document.getElementById("btn-copy-sales-script-final");
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<span>✅</span><span>คัดลอกบทเสนอขายแล้ว!</span>`;
+    setTimeout(() => {
+      btn.innerHTML = origHtml;
+    }, 1500);
+  }
+
+  showToast("📋 คัดลอกบทเสนอขายเรียบร้อยแล้ว!");
 }
 
 
