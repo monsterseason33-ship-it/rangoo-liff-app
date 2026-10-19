@@ -3467,7 +3467,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .btn-device-chip {

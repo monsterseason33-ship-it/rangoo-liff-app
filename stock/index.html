@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=1.8">
+  <link rel="stylesheet" href="styles.css?v=1.9">
 </head>
 
 <body>
@@ -633,17 +633,13 @@
             <span class="chip-check">✓</span>
           </button>
         </div>
-
-        <!-- Custom Styled Native Select -->
-        <div class="send-bind-select-wrapper">
-          <span class="send-bind-select-icon-left">🎮</span>
-          <select id="send-bind-device" class="prem-input">
-            <option value="มือถือ/แท็บเล็ต/PC/iPad">📱 มือถือ/แท็บเล็ต/PC/iPad (ทั่วไป)</option>
-            <option value="TV / PC">📺 TV / PC (สมาร์ททีวี &amp; คอมพิวเตอร์)</option>
-            <option value="ทุกอุปกรณ์">🌐 ทุกอุปกรณ์ (All Devices)</option>
-          </select>
-          <span class="send-bind-select-icon-right">▼</span>
-        </div>
+        
+        <!-- Hidden Native Select for two-way state & JS compatibility -->
+        <select id="send-bind-device" class="prem-input" style="display: none;">
+          <option value="มือถือ/แท็บเล็ต/PC/iPad" selected>มือถือ/แท็บเล็ต/PC/iPad</option>
+          <option value="TV / PC">TV / PC</option>
+          <option value="ทุกอุปกรณ์">ทุกอุปกรณ์</option>
+        </select>
       </div>
 
       <!-- Action Buttons -->
@@ -999,7 +995,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.15"></script>
+  <script src="app.js?v=2.16"></script>
 </body>
 
 </html>
