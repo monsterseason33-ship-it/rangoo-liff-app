@@ -2397,6 +2397,7 @@ function handleQuickPaste() {
 
     renderMultiAccountEditor();
     flashParserSuccess(input);
+    showToast(`✨ ตรวจพบ ${multi.length} บัญชี พร้อมสกัดข้อมูลเรียบร้อย!`);
     return;
   } else {
     parsedBatchAccounts = [];
@@ -2868,6 +2869,172 @@ async function saveSingleBatchAccount(idx, btnEl) {
       btnEl.innerText = "💾 บันทึกลงคลัง";
     }
   }
+}
+
+// ----------------------------------------------------------------------------
+// 📋 Parse multi-line / batch accounts pasted in text (same-line & 2-line sequential)
+// ----------------------------------------------------------------------------
+function parseMultiAccountText(text) {
+  const accounts = [];
+  if (!text || !text.trim()) return accounts;
+
+  const rawLines = text.split(/\r?\n/).map(l => l.replace(/\u00A0/g, ' ').trim()).filter(Boolean);
+
+  // Helper to extract clean email/phone from string
+  const extractEmail = (str) => {
+    if (!str) return "";
+    const emailMatch = str.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (emailMatch) return emailMatch[0].trim();
+    const phoneMatch = str.match(/\b(0[689]\d{8})\b/);
+    if (phoneMatch) return phoneMatch[0].trim();
+    return "";
+  };
+
+  // Helper to extract clean password from string
+  const extractPassword = (str) => {
+    if (!str) return "";
+    const pwMatch = str.match(/(?:พาสเวิร์ด|พาส|pass(?:word)?|pw|รหัสผ่าน|พินเมล|พิน|pin(?:mail)?|key)\s*[:\s\t\-=|]+\s*([^\s\n\r|/]+)/i) ||
+      str.match(/(?:รหัส)\s*[:\s\t\-=|]+\s*([^\s\n\r|/]+)/i);
+    if (pwMatch) return pwMatch[1].trim();
+    let cleaned = str.replace(/^(?:\d+[\.\)]\s*|[-*•|:\s\t\-=/,;]+)+/i, "").trim();
+    cleaned = cleaned.replace(/[|:\s\t\-=/,;]+$/i, "").trim();
+    return cleaned;
+  };
+
+  // Helper to extract date from string
+  const extractExpiry = (str) => {
+    if (!str) return null;
+    const dateMatch = str.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/) || str.match(/\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/);
+    if (dateMatch) {
+      let day, month, year;
+      if (dateMatch[1].length === 4) {
+        year = parseInt(dateMatch[1], 10);
+        month = parseInt(dateMatch[2], 10);
+        day = parseInt(dateMatch[3], 10);
+      } else {
+        day = parseInt(dateMatch[1], 10);
+        month = parseInt(dateMatch[2], 10);
+        year = parseInt(dateMatch[3], 10);
+      }
+      if (year > 2400) year -= 543;
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${year}-${pad(month)}-${pad(day)}T23:59`;
+    }
+    return null;
+  };
+
+  // Helper to extract OTP portal link, gate PIN, and inbox code
+  const extractOtpDetails = (str) => {
+    let otpUrl = null;
+    let gatePin = null;
+    let inboxPin = null;
+
+    const urlMatch = str.match(/(https?:\/\/[^\s\n\r"'>]+)/i);
+    if (urlMatch) {
+      otpUrl = urlMatch[1].replace(/[\/,\s]+$/, "").trim();
+    }
+
+    const gateMatch = str.match(/(?:กรอกรหัส|รหัส\s*gate|gate\s*pin|security\s*(?:pin|otp)|รหัสยืนยัน|รหัสเข้าเว็บ|รหัสผ่านเกต|รหัส\s*เข้า)\s*[:\s\t\-=]*\s*(\d{4,6})/i) ||
+      str.match(/(?:\/\/\s*กรอกรหัส\s*(\d{4,6}))/i);
+    if (gateMatch) {
+      gatePin = (gateMatch[2] || gateMatch[1]).trim();
+    }
+
+    const inboxMatch = str.match(/(?:ใส่เมลล์\s*(?:และ|&)?\s*รหัส|และ\s*รหัส|รหัส\s*inbox|inbox\s*pin|subject\s*code|รหัส\s*เมล|รหัสเมล)\s*[:\s\t\-=]*\s*(\d{4,6})/i);
+    if (inboxMatch) {
+      inboxPin = inboxMatch[1].trim();
+    }
+
+    return { otpUrl, gatePin, inboxPin };
+  };
+
+  // Clustered & Sequential Group Parsing
+  const clusteredAccounts = [];
+  let pendingEmails = [];
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const foundEmail = extractEmail(line);
+    const lineExpiry = extractExpiry(line);
+    const otpDetails = extractOtpDetails(line);
+
+    if (foundEmail) {
+      // Check if password is on the same line after email
+      const emailIdx = line.indexOf(foundEmail);
+      const remainder = line.slice(emailIdx + foundEmail.length).trim();
+      let sameLinePw = "";
+      if (remainder) {
+        sameLinePw = extractPassword(remainder);
+      }
+
+      if (sameLinePw) {
+        clusteredAccounts.push({
+          email: foundEmail,
+          password: sameLinePw,
+          expiry_date: lineExpiry,
+          otp_url: otpDetails.otpUrl,
+          gate_pin: otpDetails.gatePin,
+          inbox_pin: otpDetails.inboxPin,
+          raw_line: line
+        });
+      } else {
+        pendingEmails.push({
+          email: foundEmail,
+          expiry_date: lineExpiry,
+          otp_url: otpDetails.otpUrl,
+          gate_pin: otpDetails.gatePin,
+          inbox_pin: otpDetails.inboxPin,
+          raw_line: line
+        });
+      }
+    } else {
+      // Non-email line: could be a password line for pending emails
+      const foundPw = extractPassword(line);
+      if (foundPw && pendingEmails.length > 0) {
+        pendingEmails.forEach(item => {
+          clusteredAccounts.push({
+            email: item.email,
+            password: foundPw,
+            expiry_date: item.expiry_date || lineExpiry,
+            otp_url: item.otp_url || otpDetails.otpUrl,
+            gate_pin: item.gate_pin || otpDetails.gatePin,
+            inbox_pin: item.inbox_pin || otpDetails.inboxPin,
+            raw_line: item.raw_line || line
+          });
+        });
+        pendingEmails = [];
+      }
+    }
+  }
+
+  // If there are still pending emails left (no trailing password found)
+  if (pendingEmails.length > 0) {
+    pendingEmails.forEach(item => {
+      clusteredAccounts.push({
+        email: item.email,
+        password: "-",
+        expiry_date: item.expiry_date,
+        otp_url: item.otp_url,
+        gate_pin: item.gate_pin,
+        inbox_pin: item.inbox_pin,
+        raw_line: item.raw_line
+      });
+    });
+  }
+
+  if (clusteredAccounts.length > 0) {
+    // If only one password was found across all accounts (e.g. at the bottom of list), apply to all
+    const withPass = clusteredAccounts.filter(a => a.password && a.password !== "-");
+    if (withPass.length === 1 && clusteredAccounts.length > 1) {
+      const sharedPw = withPass[0].password;
+      clusteredAccounts.forEach(a => {
+        if (!a.password || a.password === "-") a.password = sharedPw;
+      });
+    }
+    return clusteredAccounts;
+  }
+
+  return accounts;
 }
 
 function parseRawAccountText(cleanText) {
