@@ -6377,11 +6377,11 @@ function handleDisneyWizardRawPasteInput() {
     disneyWizardState.pin = pinMatch[1].trim();
   }
 
-  // 5. PIN Mail detection (พินเมล / พินเมลล์ / pinmail / pin mail / รหัสเมล, or 6-digit PIN)
-  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail|รหัสเมล|รหัสเมลล์)[:\s\t\-=]*([^\s\n\r,]+)/i) ||
-                       text.match(/(?:pin|พิน)\s*[:#-]?\s*(\d{6})\b/i);
+  // 5. PIN Mail detection (พินเมล / พินเมลล์ / pinmail / pin mail / mail pin / mailypin / รหัสเมล / maily, or any 6-digit PIN)
+  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail|mail\s*pin|mailpin|maily\s*pin|mailypin|maily|รหัสเมล|รหัสเมลล์)[:\s\t\-=]*([^\s\n\r,]+)/i) ||
+                       text.match(/(?:pin|พิน|code|รหัส)?\s*[:#-]?\s*(\b\d{6}\b)/i);
   if (pinMailMatch) {
-    disneyWizardState.pinMail = (pinMailMatch[1] || pinMailMatch[0]).trim();
+    disneyWizardState.pinMail = (pinMailMatch[1] || pinMailMatch[0]).replace(/\D/g, "").slice(0, 6);
   } else {
     disneyWizardState.pinMail = "";
   }
