@@ -3335,10 +3335,10 @@ function renderBindingsFeed() {
       <!-- Header: Customer Info & Status -->
       <div class="binding-card-header">
         <div class="binding-customer-title">
-          <div class="binding-avatar">${escapeHtml(customerInitial)}</div>
+          <div class="binding-avatar btn-copy-cred" data-copy="${escapeHtml(b.customer_name || '')}" data-label="ชื่อลูกค้า" title="คลิกหรือแตะเพื่อคัดลอกชื่อลูกค้า: ${escapeHtml(b.customer_name || '')}" style="cursor: pointer;">${escapeHtml(customerInitial)}</div>
           <div class="binding-cust-names">
             <span class="binding-name-text">
-              <span>👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
+              <span class="binding-customer-name-click btn-copy-cred" data-copy="${escapeHtml(b.customer_name || '')}" data-label="ชื่อลูกค้า" title="คลิกหรือกดเพื่อคัดลอกชื่อลูกค้า: ${escapeHtml(b.customer_name || '')}" style="cursor: pointer;">👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
               ${b.customer_name ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(b.customer_name)}" data-label="ชื่อลูกค้า" title="คัดลอกชื่อลูกค้า">📋</button>` : ''}
             </span>
             <span class="binding-sub-id btn-copy-cred" data-copy="${escapeHtml(b.id || '')}" data-label="ID สิทธิ์" title="แตะเพื่อคัดลอก ID สิทธิ์เต็ม" style="cursor: pointer;">ID: ${escapeHtml((b.id || '').substring(0, 8))}... 📋</span>
@@ -3503,13 +3503,29 @@ function initTroubleshootingModalListeners() {
   const bindingsFeed = document.getElementById("bindings-feed");
   if (bindingsFeed) {
     bindingsFeed.addEventListener("click", (e) => {
-      // 1. Copy Credential mini button
+      // 1. Copy Credential mini button or customer name
       const copyBtn = e.target.closest(".btn-copy-cred");
       if (copyBtn) {
         e.stopPropagation();
         const text = copyBtn.dataset.copy;
         const label = copyBtn.dataset.label || "ข้อมูล";
-        if (text) copySingleValue(text, label, copyBtn);
+        if (text) {
+          if (copyBtn.classList.contains("binding-customer-name-click") || copyBtn.classList.contains("binding-avatar")) {
+            haptic();
+            copyToClipboard(text);
+            const targetColorEl = copyBtn.classList.contains("binding-customer-name-click") ? copyBtn : copyBtn.closest(".binding-customer-title")?.querySelector(".binding-customer-name-click");
+            if (targetColorEl) {
+              const originalColor = targetColorEl.style.color;
+              targetColorEl.style.color = "#34d399";
+              setTimeout(() => {
+                targetColorEl.style.color = originalColor;
+              }, 1000);
+            }
+            showToast(`📋 คัดลอกชื่อลูกค้า "${text}" เรียบร้อยแล้ว!`);
+          } else {
+            copySingleValue(text, label, copyBtn);
+          }
+        }
         return;
       }
 
