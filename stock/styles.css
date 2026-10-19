@@ -3413,3 +3413,183 @@ body {
 .status-dot.green { background: #10b981; box-shadow: 0 0 6px #10b981; }
 .status-dot.amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
 .status-dot.blue { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+
+/* ==========================================================================
+   📱 Custom Send-Bind Device Selector & Interactive Chips
+   ========================================================================== */
+.send-bind-device-container {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.send-bind-device-container:focus-within {
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.12);
+}
+
+.send-bind-device-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.send-bind-device-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+}
+
+.send-bind-device-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+/* Device Chip Grid */
+.send-bind-device-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.btn-device-chip {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 40px;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-device-chip.full-width {
+  grid-column: span 2;
+}
+
+.btn-device-chip:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #f1f5f9;
+}
+
+.btn-device-chip:active {
+  transform: scale(0.98);
+}
+
+.btn-device-chip.active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.35) 100%);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25), inset 0 0 10px rgba(56, 189, 248, 0.2);
+  font-weight: 700;
+}
+
+.btn-device-chip .chip-check {
+  font-size: 11px;
+  color: #38bdf8;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: auto;
+}
+
+.btn-device-chip.active .chip-check {
+  opacity: 1;
+  transform: scale(1);
+  color: #38bdf8;
+}
+
+/* Custom-styled select dropdown */
+.send-bind-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+select#send-bind-device.prem-input {
+  width: 100%;
+  height: 42px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 9px;
+  color: #f8fafc;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 0 34px 0 38px;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+select#send-bind-device.prem-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2), inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  outline: none;
+}
+
+select#send-bind-device.prem-input option {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.send-bind-select-icon-left {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-bind-select-icon-right {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 10px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+select#send-bind-device.prem-input:focus ~ .send-bind-select-icon-right {
+  color: #38bdf8;
+  transform: translateY(-50%) rotate(180deg);
+}

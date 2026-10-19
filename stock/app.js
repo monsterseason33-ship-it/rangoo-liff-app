@@ -455,6 +455,27 @@ function initUIEventListeners() {
     });
   });
 
+  // Device Selection Chips for Send-Bind Modal
+  document.querySelectorAll(".btn-device-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      haptic();
+      const dev = chip.dataset.device;
+      const deviceSelect = document.getElementById("send-bind-device");
+      if (deviceSelect && dev) {
+        deviceSelect.value = dev;
+        updateSendBindDeviceUI(dev);
+        deviceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+  });
+
+  const deviceSelect = document.getElementById("send-bind-device");
+  if (deviceSelect) {
+    deviceSelect.addEventListener("change", () => {
+      updateSendBindDeviceUI(deviceSelect.value);
+    });
+  }
+
   const btnConfirmSendBind = document.getElementById("btn-confirm-send-bind");
   if (btnConfirmSendBind) btnConfirmSendBind.addEventListener("click", executeConfirmSendBind);
 
@@ -5109,11 +5130,14 @@ function openSendBindModal(screenDataset, btnEl = null) {
   }
   priceInput.value = defaultPrice;
 
-  // Set device
+  // Set device (มือถือ/แท็บเล็ต/PC/iPad | TV / PC | ทุกอุปกรณ์)
   if (deviceSelect) {
     const isTv = (deviceType && (deviceType.toLowerCase().includes('tv') || deviceType.includes('ทีวี'))) ||
                  (screenName && (screenName.toLowerCase().includes('tv') || /จอ\s*5/.test(screenName)));
-    deviceSelect.value = isTv ? "สมาร์ททีวี" : (deviceType || "มือถือ / PC");
+    const isAll = deviceType && (deviceType.includes('ทุก') || deviceType.toLowerCase().includes('all'));
+    const targetDevice = isTv ? "TV / PC" : (isAll ? "ทุกอุปกรณ์" : "มือถือ/แท็บเล็ต/PC/iPad");
+    deviceSelect.value = targetDevice;
+    updateSendBindDeviceUI(targetDevice);
   }
 
   // Reset confirm button state
@@ -5144,6 +5168,19 @@ function updateQuickDayChips(selectedDays) {
   document.querySelectorAll(".btn-quick-day-chip").forEach(chip => {
     const chipDays = parseInt(chip.dataset.days, 10);
     if (chipDays === parseInt(selectedDays, 10)) {
+      chip.classList.add("active");
+    } else {
+      chip.classList.remove("active");
+    }
+  });
+}
+
+function updateSendBindDeviceUI(val) {
+  const badge = document.getElementById("send-bind-device-badge");
+  if (badge) badge.textContent = val;
+
+  document.querySelectorAll(".btn-device-chip").forEach(chip => {
+    if (chip.dataset.device === val) {
       chip.classList.add("active");
     } else {
       chip.classList.remove("active");
@@ -5282,7 +5319,7 @@ async function executeConfirmSendBind() {
 
   const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
   const price = parseFloat(document.getElementById("send-bind-price").value) || 0;
-  const device = document.getElementById("send-bind-device").value || "มือถือ / PC";
+  const device = document.getElementById("send-bind-device").value || "มือถือ/แท็บเล็ต/PC/iPad";
 
   const confirmBtn = document.getElementById("btn-confirm-send-bind");
   if (confirmBtn) {
@@ -5369,7 +5406,7 @@ async function executeSendBindCopyOnly() {
   const nameInput = document.getElementById("send-bind-customer-name");
   const customerName = (nameInput.value || "").trim().toUpperCase() || "ลูกค้า";
   const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
-  const device = document.getElementById("send-bind-device").value || "มือถือ / PC";
+  const device = document.getElementById("send-bind-device").value || "มือถือ/แท็บเล็ต/PC/iPad";
 
   const expiryDateObj = new Date();
   expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
@@ -5425,7 +5462,7 @@ function detectPackageDeviceType(pkgName = "") {
   if (!pkgName) return "";
   const lower = pkgName.toLowerCase();
   if (lower.includes("tv") || lower.includes("ทีวี")) {
-    return "TV";
+    return "TV / PC";
   }
   if (lower.includes("มือถือ") || lower.includes("แท็บเล็ต") || lower.includes("ipad") || lower.includes("mobile") || lower.includes("pc")) {
     return "มือถือ/แท็บเล็ต/PC/iPad";

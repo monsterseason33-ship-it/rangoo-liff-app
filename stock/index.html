@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=1.7">
+  <link rel="stylesheet" href="styles.css?v=1.8">
 </head>
 
 <body>
@@ -603,17 +603,47 @@
         <button type="button" class="btn-quick-day-chip" data-days="365">365 วัน (1 ปี)</button>
       </div>
 
-      <!-- Device selection -->
-      <div class="form-group" style="margin-bottom: 16px;">
-        <label style="font-size: 11.5px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; display: block;">
-          📱 อุปกรณ์ที่อนุญาต
-        </label>
-        <select id="send-bind-device" class="prem-input" style="font-size: 12px;">
-          <option value="มือถือ / PC">📱 มือถือ / PC (ทั่วไป)</option>
-          <option value="สมาร์ททีวี">📺 สมาร์ททีวี (Smart TV)</option>
-          <option value="iPad / แท็บเล็ต">📲 iPad / แท็บเล็ต</option>
-          <option value="ทุกอุปกรณ์">🌐 ทุกอุปกรณ์</option>
-        </select>
+      <!-- Device selection (Customized for all mobile screen sizes) -->
+      <div class="form-group send-bind-device-container">
+        <div class="send-bind-device-header">
+          <label class="send-bind-device-label">
+            <span>📱</span>
+            <span>อุปกรณ์ที่อนุญาต:</span>
+          </label>
+          <span id="send-bind-device-badge" class="send-bind-device-badge">
+            มือถือ/แท็บเล็ต/PC/iPad
+          </span>
+        </div>
+
+        <!-- Touch-Friendly Interactive Device Chips -->
+        <div class="send-bind-device-chips" id="send-bind-device-chips">
+          <button type="button" class="btn-device-chip full-width active" data-device="มือถือ/แท็บเล็ต/PC/iPad">
+            <span class="chip-icon">📱</span>
+            <span class="chip-label">มือถือ/แท็บเล็ต/PC/iPad</span>
+            <span class="chip-check">✓</span>
+          </button>
+          <button type="button" class="btn-device-chip" data-device="TV / PC">
+            <span class="chip-icon">📺</span>
+            <span class="chip-label">TV / PC</span>
+            <span class="chip-check">✓</span>
+          </button>
+          <button type="button" class="btn-device-chip" data-device="ทุกอุปกรณ์">
+            <span class="chip-icon">🌐</span>
+            <span class="chip-label">ทุกอุปกรณ์</span>
+            <span class="chip-check">✓</span>
+          </button>
+        </div>
+
+        <!-- Custom Styled Native Select -->
+        <div class="send-bind-select-wrapper">
+          <span class="send-bind-select-icon-left">🎮</span>
+          <select id="send-bind-device" class="prem-input">
+            <option value="มือถือ/แท็บเล็ต/PC/iPad">📱 มือถือ/แท็บเล็ต/PC/iPad (ทั่วไป)</option>
+            <option value="TV / PC">📺 TV / PC (สมาร์ททีวี &amp; คอมพิวเตอร์)</option>
+            <option value="ทุกอุปกรณ์">🌐 ทุกอุปกรณ์ (All Devices)</option>
+          </select>
+          <span class="send-bind-select-icon-right">▼</span>
+        </div>
       </div>
 
       <!-- Action Buttons -->
@@ -969,7 +999,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.14"></script>
+  <script src="app.js?v=2.15"></script>
 </body>
 
 </html>
