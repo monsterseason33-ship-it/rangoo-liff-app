@@ -3310,15 +3310,15 @@ function renderBindingsFeed() {
         if (diffMs <= 0) {
           statusClass = "expired";
           statusLabel = "🔴 หมดอายุแล้ว";
-          countdownHtml = `<span class="binding-countdown danger">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว)</span>`;
+          countdownHtml = `<span class="binding-countdown danger btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว) ✏️</span>`;
         } else if (diffHours <= 72) {
           statusClass = "expired";
           statusLabel = `⏰ เหลืออีก ${diffHours} ชม.`;
-          countdownHtml = `<span class="binding-countdown warning">⚠️ ใกล้หมดอายุ (เหลือ ${diffHours} ชม.)</span>`;
+          countdownHtml = `<span class="binding-countdown warning btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⚠️ ใกล้หมดอายุ (เหลือ ${diffHours} ชม.) ✏️</span>`;
         } else {
           statusClass = "active";
           statusLabel = `🟢 เหลือ ${diffDays} วัน`;
-          countdownHtml = `<span class="binding-countdown safe">⏳ เหลืออีก ${diffDays} วัน</span>`;
+          countdownHtml = `<span class="binding-countdown safe btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⏳ เหลืออีก ${diffDays} วัน ✏️</span>`;
         }
       }
     }
@@ -3415,11 +3415,16 @@ function renderBindingsFeed() {
         ` : ''}
       </div>
 
-      <!-- Timeline & Expiry Box -->
+      <!-- Timeline & Expiry Box (Click to edit expiry date with Thai Datepicker) -->
       <div class="binding-timeline-box">
-        <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="display: flex; flex-direction: column; gap: 3px;">
           <span>📅 เริ่ม: ${createdDisplay}</span>
-          <span>⏰ หมดอายุ: ${expiryDisplay}</span>
+          <span class="binding-timeline-expiry-row btn-edit-binding-expiry" data-binding-id="${b.id}" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">
+            <span>⏰ หมดอายุ: <strong class="binding-expiry-text">${expiryDisplay}</strong></span>
+            <span class="binding-edit-expiry-icon" title="คลิกเพื่อเลือกวันเวลาหมดอายุ">
+              <span>✏️</span><span>แก้ไข</span>
+            </span>
+          </span>
         </div>
         <div>
           ${countdownHtml}
@@ -3526,6 +3531,15 @@ function initTroubleshootingModalListeners() {
             copySingleValue(text, label, copyBtn);
           }
         }
+        return;
+      }
+
+      // 1.5. Edit Customer Expiry Date directly via Thai Datepicker (div.binding-timeline-box)
+      const editExpBtn = e.target.closest(".btn-edit-binding-expiry");
+      if (editExpBtn) {
+        e.stopPropagation();
+        const bId = editExpBtn.dataset.bindingId;
+        if (bId) handleEditBindingExpiry(bId);
         return;
       }
 
@@ -3887,6 +3901,70 @@ async function executeRevertBinding(bindingId) {
     console.error("Revert binding error:", err);
     showToast("❌ ปลดสิทธิ์ไม่สำเร็จ: " + err.message);
   }
+}
+
+// 2.5. Direct Edit Customer Expiry Date via Thai Datepicker (div.thai-datepicker-content)
+async function handleEditBindingExpiry(bindingId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  const currentExp = b.expiry_date ? new Date(b.expiry_date) : new Date();
+
+  openThaiDatePicker({
+    initialDate: currentExp,
+    title: `📆 แก้ไขวันหมดอายุ: คุณ ${b.customer_name || 'ลูกค้า'}`,
+    onConfirm: async (valStr, finalDate) => {
+      try {
+        if (!finalDate) {
+          // Case: Clear date
+          showToast("⏳ กำลังล้างวันหมดอายุ...");
+          await patchDatabase("customer_bindings", b.id, {
+            expiry_date: null,
+            days: 0
+          });
+          b.expiry_date = null;
+          b.days = 0;
+          if (b.account_id) {
+            await patchDatabase("accounts", b.account_id, {
+              expiry_date: null
+            });
+          }
+          showToast(`🟢 ล้างวันหมดอายุของคุณ ${b.customer_name || 'ลูกค้า'} เรียบร้อยแล้ว`);
+        } else {
+          // Case: Valid finalDate chosen
+          const isoStr = finalDate.toISOString();
+          const baseDate = b.created_at ? new Date(b.created_at) : new Date();
+          const diffMs = finalDate.getTime() - baseDate.getTime();
+          const calculatedDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+          showToast("⏳ กำลังบันทึกวันหมดอายุ...");
+
+          await patchDatabase("customer_bindings", b.id, {
+            expiry_date: isoStr,
+            days: calculatedDays
+          });
+
+          if (b.account_id) {
+            await patchDatabase("accounts", b.account_id, {
+              expiry_date: isoStr
+            });
+          }
+
+          b.expiry_date = isoStr;
+          b.days = calculatedDays;
+
+          showToast(`📅 อัปเดตวันหมดอายุของคุณ ${b.customer_name || 'ลูกค้า'} เป็น ${formatDateThai(finalDate)} สำเร็จ!`);
+        }
+
+        renderBindingsFeed();
+        updateBindingMetrics();
+      } catch (err) {
+        console.error("Update binding expiry error:", err);
+        showToast("❌ อัปเดตวันหมดอายุไม่สำเร็จ: " + err.message);
+      }
+    }
+  });
 }
 
 // 3. Extend Days Modal
