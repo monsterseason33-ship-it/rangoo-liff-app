@@ -3462,10 +3462,10 @@ body {
   transition: all 0.2s ease;
 }
 
-/* Device Chip Grid */
+/* Device Chip Grid - 3 Columns in 1 Row */
 .send-bind-device-chips {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin-bottom: 0;
 }
@@ -3475,24 +3475,33 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: #94a3b8;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 11.5px;
-  font-weight: 600;
+  border-radius: 9px;
+  padding: 7px 4px;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 3px;
+  text-align: center;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  min-height: 40px;
+  min-height: 54px;
   user-select: none;
   position: relative;
   overflow: hidden;
 }
 
-.btn-device-chip.full-width {
-  grid-column: span 2;
+.btn-device-chip .chip-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.btn-device-chip .chip-label {
+  font-size: 10px;
+  line-height: 1.25;
+  font-weight: 600;
+  word-break: break-word;
+  color: inherit;
 }
 
 .btn-device-chip:hover {
@@ -3502,30 +3511,32 @@ body {
 }
 
 .btn-device-chip:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-device-chip.active {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.35) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.38) 100%);
   border-color: #38bdf8;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25), inset 0 0 10px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.28), inset 0 0 10px rgba(56, 189, 248, 0.2);
   font-weight: 700;
 }
 
 .btn-device-chip .chip-check {
-  font-size: 11px;
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 10px;
+  font-weight: 800;
   color: #38bdf8;
   opacity: 0;
-  transform: scale(0.5);
+  transform: scale(0.4);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  margin-left: auto;
 }
 
 .btn-device-chip.active .chip-check {
   opacity: 1;
   transform: scale(1);
-  color: #38bdf8;
 }
 
 /* Custom-styled select dropdown */
