@@ -3810,3 +3810,147 @@ select#send-bind-device.prem-input:focus ~ .send-bind-select-icon-right {
   border-color: rgba(56, 189, 248, 0.4);
   color: #38bdf8;
 }
+
+/* ==========================================================================
+   ⚡ Mode Switcher: Batch (แบบรวม) vs Individual (แบบแยก)
+   ========================================================================== */
+.multi-acc-mode-switcher {
+  display: flex;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.multi-mode-pill-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.multi-mode-pill-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.multi-mode-pill-btn.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.32) 100%);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+}
+
+.multi-mode-pill-btn .mode-icon {
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   ⚡ Master Batch Control Panel
+   ========================================================================== */
+.multi-batch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(13, 148, 136, 0.05) 50%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  transition: all 0.25s ease;
+}
+
+.multi-batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.batch-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  display: inline-block;
+  animation: liveDotPulse 1.8s infinite;
+}
+
+.batch-master-quick-date.active {
+  border-color: #34d399 !important;
+  color: #34d399 !important;
+  background: rgba(52, 211, 153, 0.15) !important;
+}
+
+/* Synced Summary inside each Card when in Batch Mode */
+.multi-acc-sync-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px dashed rgba(16, 185, 129, 0.3);
+  font-size: 10px;
+  color: #a7f3d0;
+  margin-top: 4px;
+}
+
+.btn-card-copy-all {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  height: 22px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 5px;
+  color: #38bdf8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.18s ease;
+}
+
+.btn-card-copy-all:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #ffffff;
+}
+
+.btn-card-unlock {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #cbd5e1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.btn-card-unlock:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+

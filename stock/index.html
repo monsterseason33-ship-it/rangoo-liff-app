@@ -166,6 +166,74 @@
             <span>➕</span> <span>เพิ่มบัญชี</span>
           </button>
         </div>
+
+        <!-- Mode Switcher: Batch (รวม) vs Individual (แยก) -->
+        <div class="multi-acc-mode-switcher">
+          <button type="button" id="btn-multi-mode-batch" class="multi-mode-pill-btn active" data-mode="batch">
+            <span class="mode-icon">⚡</span>
+            <span>ปรับพร้อมกันทุกบัญชี (แบบรวม)</span>
+          </button>
+          <button type="button" id="btn-multi-mode-indiv" class="multi-mode-pill-btn" data-mode="individual">
+            <span class="mode-icon">🎛️</span>
+            <span>แยกปรับทีละบัญชี (แบบแยก)</span>
+          </button>
+        </div>
+
+        <!-- Master Batch Control Panel (Visible in 'batch' mode) -->
+        <div id="multi-acc-batch-panel" class="multi-batch-panel">
+          <div class="multi-batch-header">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="batch-pulse-dot"></span>
+              <span style="font-weight: 700; font-size: 11.5px; color: #34d399;">⚡ แผงตั้งค่าส่วนกลาง (ซิงค์ทุกบัญชีอัตโนมัติ)</span>
+            </div>
+            <span id="batch-accounts-sync-count" style="font-size: 10px; color: #38bdf8; font-weight: 700; background: rgba(56, 189, 248, 0.12); padding: 1px 7px; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.3);">3 บัญชี</span>
+          </div>
+
+          <!-- Master Package & Status -->
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px;">
+            <div>
+              <div class="multi-acc-field-label"><span>📦 ประเภทแพ็กเกจ</span></div>
+              <select id="batch-master-package" class="prem-select" style="margin-bottom:0; width:100%; font-size:11px;">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div>
+              <div class="multi-acc-field-label"><span>🟢 สถานะบัญชี</span></div>
+              <select id="batch-master-status" class="prem-select" style="margin-bottom:0; width:100%; font-size:11px;">
+                <option value="available" selected>🟢 ว่าง (Available)</option>
+                <option value="used">🟡 ใช้แล้ว (Used)</option>
+                <option value="broken">🔴 มีปัญหา (Broken)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Master Expiry Date -->
+          <div>
+            <div class="multi-acc-field-label">
+              <span>📅 วันหมดอายุ (มีผลทุกบัญชี)</span>
+              <span id="batch-master-expiry-hint" style="font-size: 9.5px; color: #38bdf8; font-weight: 600;"></span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 4px;">
+              <button type="button" class="multi-quick-date-btn batch-master-quick-date" data-days="7">7ว</button>
+              <button type="button" class="multi-quick-date-btn batch-master-quick-date active" data-days="30" style="border-color: #34d399; color: #34d399;">30ว</button>
+              <button type="button" class="multi-quick-date-btn batch-master-quick-date" data-days="90">90ว</button>
+              <button type="button" class="multi-quick-date-btn batch-master-quick-date" data-days="365">1ปี</button>
+            </div>
+            <input type="datetime-local" id="batch-master-expiry" class="prem-input" style="margin-bottom:0; width:100%; font-size:11px; padding: 4px 8px;">
+          </div>
+
+          <!-- Master Screens & Profiles -->
+          <div style="border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; margin-top: 2px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 11px; font-weight: 700; color: #e2e8f0;">👥 ข้อมูลแต่ละจอ (ซิงค์ทุกบัญชี)</span>
+              <button type="button" id="btn-batch-random-pins" class="btn-random-pw-multi" title="🎲 สุ่มรหัส PIN 4 หลักให้ทุกจอทุกบัญชี">🎲 สุ่ม PIN ทุกจอ</button>
+            </div>
+            <div id="batch-master-profiles-container" style="display: flex; flex-direction: column; gap: 4px;">
+              <!-- Dynamic Master Profiles -->
+            </div>
+          </div>
+        </div>
+
         <div id="multi-acc-rows-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; overflow-x: hidden; padding-right: 4px;">
           <!-- Dynamically generated multi-account cards -->
         </div>
@@ -1015,7 +1083,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.20"></script>
+  <script src="app.js?v=2.21"></script>
 </body>
 
 </html>

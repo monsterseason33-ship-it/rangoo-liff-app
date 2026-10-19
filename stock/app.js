@@ -2377,6 +2377,17 @@ function handleQuickPaste() {
     const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
     const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
 
+    multiAccountEditMode = 'batch';
+    batchMasterConfig.package_id = defaultPkgId;
+    batchMasterConfig.expiry_date = defaultExpiryVal;
+    batchMasterConfig.status = "available";
+    batchMasterConfig.screens_count = defaultScreensCount;
+    batchMasterConfig.profiles = [];
+    for (let i = 1; i <= defaultScreensCount; i++) {
+      const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+      batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+    }
+
     parsedBatchAccounts = multi.map(acc => {
       const profiles = [];
       for (let i = 1; i <= defaultScreensCount; i++) {
@@ -2449,6 +2460,201 @@ function flashParserSuccess(el) {
   el.classList.add("parser-success-flash");
 }
 
+// ----------------------------------------------------------------------------
+// 🎛️ Multi-Account Mode State & Batch Master Config
+// ----------------------------------------------------------------------------
+let multiAccountEditMode = 'batch'; // 'batch' (แบบรวม) | 'individual' (แบบแยก)
+let batchMasterConfig = {
+  package_id: '',
+  expiry_date: '',
+  status: 'available',
+  screens_count: 1,
+  profiles: []
+};
+
+function formatExpiryShort(dateStr) {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear() + 543}`;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+function syncBatchMasterToAllAccounts() {
+  if (!parsedBatchAccounts || parsedBatchAccounts.length === 0) return;
+  parsedBatchAccounts.forEach(acc => {
+    if (!acc._individualUnlocked) {
+      acc.package_id = batchMasterConfig.package_id;
+      acc.expiry_date = batchMasterConfig.expiry_date;
+      acc.status = batchMasterConfig.status;
+      acc.profiles = JSON.parse(JSON.stringify(batchMasterConfig.profiles));
+    }
+  });
+}
+
+function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
+  const panel = document.getElementById("multi-acc-batch-panel");
+  if (!panel) return;
+
+  const syncCountEl = document.getElementById("batch-accounts-sync-count");
+  if (syncCountEl) {
+    const syncCount = parsedBatchAccounts.filter(a => !a._individualUnlocked).length;
+    syncCountEl.textContent = `${syncCount} จาก ${parsedBatchAccounts.length} บัญชี`;
+  }
+
+  // 1. Package Select
+  const pkgSelect = document.getElementById("batch-master-package");
+  if (pkgSelect) {
+    let pkgOptions = `<option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>`;
+    activeAppPackages.forEach(pkg => {
+      pkgOptions += `<option value="${pkg.id}" ${batchMasterConfig.package_id === pkg.id ? 'selected' : ''}>${escapeHtml(pkg.name)} (${pkg.price} บาท • ${pkg.screens || 1} จอ)</option>`;
+    });
+    pkgSelect.innerHTML = pkgOptions;
+
+    pkgSelect.onchange = (e) => {
+      const newPkgId = e.target.value;
+      batchMasterConfig.package_id = newPkgId;
+      const foundPkg = rawPackages.find(p => p.id === newPkgId);
+      const newScreensCount = foundPkg ? (foundPkg.screens || 1) : 1;
+      batchMasterConfig.screens_count = newScreensCount;
+
+      const newProfiles = [];
+      for (let i = 1; i <= newScreensCount; i++) {
+        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+        const oldProf = batchMasterConfig.profiles[i - 1];
+        newProfiles.push({
+          name: oldProf?.name || `จอ ${i}`,
+          pin: oldProf?.pin || "",
+          device_type: oldProf?.device_type || defaultDevice
+        });
+      }
+      batchMasterConfig.profiles = newProfiles;
+
+      syncBatchMasterToAllAccounts();
+      renderMasterBatchProfilesUI(isNetflix);
+      renderMultiAccountCardsOnly();
+      showToast("📦 ซิงค์แพ็กเกจไปยังทุกบัญชีเรียบร้อย!");
+    };
+  }
+
+  // 2. Status Select
+  const statusSelect = document.getElementById("batch-master-status");
+  if (statusSelect) {
+    statusSelect.value = batchMasterConfig.status || "available";
+    statusSelect.onchange = (e) => {
+      batchMasterConfig.status = e.target.value;
+      syncBatchMasterToAllAccounts();
+      renderMultiAccountCardsOnly();
+      showToast("🟢 ซิงค์สถานะไปยังทุกบัญชีเรียบร้อย!");
+    };
+  }
+
+  // 3. Expiry Date & Quick Buttons
+  const expiryInput = document.getElementById("batch-master-expiry");
+  const expiryHint = document.getElementById("batch-master-expiry-hint");
+  if (expiryInput) {
+    expiryInput.value = batchMasterConfig.expiry_date || "";
+    if (expiryHint && batchMasterConfig.expiry_date) {
+      expiryHint.textContent = `(${formatExpiryShort(batchMasterConfig.expiry_date)})`;
+    }
+
+    expiryInput.oninput = (e) => {
+      batchMasterConfig.expiry_date = e.target.value;
+      if (expiryHint) expiryHint.textContent = `(${formatExpiryShort(e.target.value)})`;
+      syncBatchMasterToAllAccounts();
+      renderMultiAccountCardsOnly();
+    };
+
+    panel.querySelectorAll(".batch-master-quick-date").forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        panel.querySelectorAll(".batch-master-quick-date").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const days = parseInt(btn.getAttribute("data-days"), 10) || 30;
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + days - 1);
+        targetDate.setHours(23, 59, 0, 0);
+        const pad = (n) => String(n).padStart(2, '0');
+        const localString = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
+        batchMasterConfig.expiry_date = localString;
+        expiryInput.value = localString;
+        if (expiryHint) expiryHint.textContent = `(${formatExpiryShort(localString)})`;
+        syncBatchMasterToAllAccounts();
+        renderMultiAccountCardsOnly();
+        showToast(`📅 ซิงค์วันหมดอายุ +${days} วัน ไปยังทุกบัญชี!`);
+      };
+    });
+  }
+
+  // 4. Profiles
+  renderMasterBatchProfilesUI(isNetflix);
+
+  // 5. Random PINs button
+  const randomPinBtn = document.getElementById("btn-batch-random-pins");
+  if (randomPinBtn) {
+    randomPinBtn.onclick = (e) => {
+      e.preventDefault();
+      batchMasterConfig.profiles.forEach(p => {
+        p.pin = generateRandomPin();
+      });
+      syncBatchMasterToAllAccounts();
+      renderMasterBatchProfilesUI(isNetflix);
+      renderMultiAccountCardsOnly();
+      showToast("🎲 สุ่มรหัส PIN 4 หลักให้ทุกจอทุกบัญชีเรียบร้อย!");
+    };
+  }
+}
+
+function renderMasterBatchProfilesUI(isNetflix) {
+  const container = document.getElementById("batch-master-profiles-container");
+  if (!container || !batchMasterConfig.profiles) return;
+
+  container.innerHTML = batchMasterConfig.profiles.map((prof, pIdx) => {
+    const defaultDevice = prof.device_type || (pIdx >= 4 ? 'tv' : 'mobile');
+    return `
+      <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; align-items: center; background: rgba(0, 0, 0, 0.28); padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2);">
+        <input type="text" class="prem-input master-prof-name" data-prof-idx="${pIdx}" placeholder="ชื่อจอ (เช่น จอ ${pIdx + 1})" value="${escapeHtml(prof.name || '')}" style="margin-bottom:0; font-size: 10px; padding: 3px 6px; height: 24px; border-radius: 5px;">
+        <input type="text" class="prem-input master-prof-pin" data-prof-idx="${pIdx}" placeholder="PIN" value="${escapeHtml(prof.pin || '')}" style="margin-bottom:0; font-size: 10px; padding: 3px 6px; height: 24px; border-radius: 5px;">
+        <select class="prem-select master-prof-device" data-prof-idx="${pIdx}" style="margin-bottom:0; font-size: 10px; padding: 2px 4px; height: 24px; border-radius: 5px;">
+          <option value="mobile" ${defaultDevice === 'mobile' ? 'selected' : ''}>📱 มือถือ/PC</option>
+          <option value="tv" ${defaultDevice === 'tv' ? 'selected' : ''}>📺 ทีวี</option>
+        </select>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll(".master-prof-name").forEach(input => {
+    input.oninput = (e) => {
+      const pIdx = parseInt(input.getAttribute("data-prof-idx"), 10);
+      batchMasterConfig.profiles[pIdx].name = e.target.value.trim();
+      syncBatchMasterToAllAccounts();
+      renderMultiAccountCardsOnly();
+    };
+  });
+
+  container.querySelectorAll(".master-prof-pin").forEach(input => {
+    input.oninput = (e) => {
+      const pIdx = parseInt(input.getAttribute("data-prof-idx"), 10);
+      batchMasterConfig.profiles[pIdx].pin = e.target.value.trim();
+      syncBatchMasterToAllAccounts();
+      renderMultiAccountCardsOnly();
+    };
+  });
+
+  container.querySelectorAll(".master-prof-device").forEach(select => {
+    select.onchange = (e) => {
+      const pIdx = parseInt(select.getAttribute("data-prof-idx"), 10);
+      batchMasterConfig.profiles[pIdx].device_type = e.target.value;
+      syncBatchMasterToAllAccounts();
+      renderMultiAccountCardsOnly();
+    };
+  });
+}
+
 function renderMultiAccountEditor() {
   const multiWrapper = document.getElementById("acc-multi-inputs-wrapper");
   const singleWrapper = document.getElementById("acc-single-inputs-wrapper");
@@ -2490,6 +2696,85 @@ function renderMultiAccountEditor() {
     submitBtn.innerText = `💾 บันทึกทุกบัญชีเข้าคลัง (${parsedBatchAccounts.length} บัญชี)`;
   }
 
+  const currentAppId = document.getElementById("acc-app-select")?.value;
+  const activeAppPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
+  const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
+  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+
+  // Mode Switcher Controls
+  const btnBatch = document.getElementById("btn-multi-mode-batch");
+  const btnIndiv = document.getElementById("btn-multi-mode-indiv");
+  const batchPanel = document.getElementById("multi-acc-batch-panel");
+
+  if (btnBatch && btnIndiv) {
+    if (multiAccountEditMode === "batch") {
+      btnBatch.classList.add("active");
+      btnIndiv.classList.remove("active");
+      if (batchPanel) batchPanel.style.display = "flex";
+    } else {
+      btnIndiv.classList.add("active");
+      btnBatch.classList.remove("active");
+      if (batchPanel) batchPanel.style.display = "none";
+    }
+
+    btnBatch.onclick = (e) => {
+      e.preventDefault();
+      multiAccountEditMode = "batch";
+      btnBatch.classList.add("active");
+      btnIndiv.classList.remove("active");
+      if (batchPanel) batchPanel.style.display = "flex";
+      syncBatchMasterToAllAccounts();
+      renderMultiAccountCardsOnly();
+      showToast("⚡ เปิดโหมดปรับพร้อมกันทุกบัญชี (แบบรวม)");
+    };
+
+    btnIndiv.onclick = (e) => {
+      e.preventDefault();
+      multiAccountEditMode = "individual";
+      btnIndiv.classList.add("active");
+      btnBatch.classList.remove("active");
+      if (batchPanel) batchPanel.style.display = "none";
+      renderMultiAccountCardsOnly();
+      showToast("🎛️ เปิดโหมดแยกปรับทีละบัญชี (แบบแยก)");
+    };
+  }
+
+  // Initialize batchMasterConfig if empty
+  if (!batchMasterConfig.package_id && activeAppPackages.length > 0) {
+    batchMasterConfig.package_id = activeAppPackages[0].id;
+  }
+  if (!batchMasterConfig.expiry_date) {
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 30);
+    defaultDate.setHours(23, 59, 0, 0);
+    const pad = (n) => String(n).padStart(2, '0');
+    batchMasterConfig.expiry_date = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+  }
+  if (!batchMasterConfig.status) {
+    batchMasterConfig.status = "available";
+  }
+  if (!batchMasterConfig.profiles || batchMasterConfig.profiles.length === 0) {
+    const currentPkg = batchMasterConfig.package_id ? rawPackages.find(p => p.id === batchMasterConfig.package_id) : null;
+    const screensCount = currentPkg ? (currentPkg.screens || 1) : 1;
+    batchMasterConfig.screens_count = screensCount;
+    batchMasterConfig.profiles = [];
+    for (let i = 1; i <= screensCount; i++) {
+      const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+      batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+    }
+  }
+
+  if (multiAccountEditMode === "batch") {
+    renderMasterBatchPanelUI(activeAppPackages, isNetflix);
+    syncBatchMasterToAllAccounts();
+  }
+
+  renderMultiAccountCardsOnly();
+}
+
+function renderMultiAccountCardsOnly() {
+  const container = document.getElementById("multi-acc-rows-container");
+  if (!container) return;
   container.innerHTML = "";
 
   const currentAppId = document.getElementById("acc-app-select")?.value;
@@ -2499,39 +2784,35 @@ function renderMultiAccountEditor() {
 
   parsedBatchAccounts.forEach((acc, idx) => {
     if (acc.package_id === undefined || acc.package_id === null) {
-      acc.package_id = activeAppPackages[0]?.id || "";
+      acc.package_id = batchMasterConfig.package_id || activeAppPackages[0]?.id || "";
     }
     if (!acc.expiry_date) {
-      const defaultDate = new Date();
-      defaultDate.setDate(defaultDate.getDate() + 30);
-      defaultDate.setHours(23, 59, 0, 0);
-      const pad = (n) => String(n).padStart(2, '0');
-      acc.expiry_date = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+      acc.expiry_date = batchMasterConfig.expiry_date;
     }
     if (!acc.status) {
-      acc.status = "available";
+      acc.status = batchMasterConfig.status || "available";
     }
     if (!acc.profiles) {
-      const currentPkg = acc.package_id ? rawPackages.find(p => p.id === acc.package_id) : null;
-      const screensCount = currentPkg ? (currentPkg.screens || 1) : 1;
-      acc.profiles = [];
-      for (let i = 1; i <= screensCount; i++) {
-        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-        acc.profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
-      }
+      acc.profiles = JSON.parse(JSON.stringify(batchMasterConfig.profiles || []));
     }
 
-    // Check if account already exists in inventory (rawAccounts)
     const accEmailTrimmed = (acc.email || "").trim().toLowerCase();
     const existingDbAcc = accEmailTrimmed && rawAccounts && Array.isArray(rawAccounts)
       ? rawAccounts.find(a => (a.email || "").trim().toLowerCase() === accEmailTrimmed)
       : null;
     const isAlreadyInDb = !!existingDbAcc;
 
+    const currentPkg = acc.package_id ? rawPackages.find(p => p.id === acc.package_id) : null;
+    const pkgName = currentPkg ? currentPkg.name : "-- ยังไม่กำหนดแพ็กเกจ --";
+    const statusMap = { available: "🟢 ว่าง", used: "🟡 ใช้แล้ว", broken: "🔴 มีปัญหา" };
+    const statusText = statusMap[acc.status] || acc.status;
+
     let currentPkgOptions = `<option value="" ${!acc.package_id ? 'selected' : ''}>-- ยังไม่กำหนดแพ็คเกจ --</option>`;
     activeAppPackages.forEach(pkg => {
       currentPkgOptions += `<option value="${pkg.id}" ${acc.package_id === pkg.id ? 'selected' : ''}>${escapeHtml(pkg.name)} (${pkg.price} บาท)</option>`;
     });
+
+    const isBatchMode = multiAccountEditMode === "batch" && !acc._individualUnlocked;
 
     const row = document.createElement("div");
     row.className = "multi-acc-row";
@@ -2547,6 +2828,11 @@ function renderMultiAccountEditor() {
           <span class="multi-acc-inventory-badge ${isAlreadyInDb ? 'in-db' : 'new'}">
             ${isAlreadyInDb ? `🔒 มีในคลังแล้ว${existingDbAcc.id ? ' (#' + String(existingDbAcc.id).slice(-4) + ')' : ''}` : '✨ บัญชีใหม่'}
           </span>
+          ${multiAccountEditMode === 'individual' ? `
+            <button type="button" class="btn-card-copy-all" data-idx="${idx}" title="⚡ นำค่าแพ็กเกจ, วันหมดอายุ และจอของบัญชีนี้ไปใช้กับทุกบัญชี">
+              <span>⚡ คัดลอกไปทุกบัญชี</span>
+            </button>
+          ` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
           <button type="button" class="multi-acc-save-db-btn" title="💾 บันทึกเฉพาะบัญชีนี้ลงคลัง" style="display: ${isAlreadyInDb ? 'none' : 'inline-flex'};">
@@ -2571,55 +2857,81 @@ function renderMultiAccountEditor() {
         </div>
       </div>
 
-      <!-- Package & Expiry Date Inputs -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
-        <div>
-          <div class="multi-acc-field-label"><span>📦 แพ็กเกจ</span></div>
-          <select class="prem-select multi-acc-package" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
-            ${currentPkgOptions}
-          </select>
-        </div>
-        <div>
-          <div class="multi-acc-field-label"><span>📅 วันหมดอายุ</span></div>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
-            <button type="button" class="multi-quick-date-btn" data-days="7" ${isAlreadyInDb ? 'disabled' : ''}>7ว</button>
-            <button type="button" class="multi-quick-date-btn" data-days="30" ${isAlreadyInDb ? 'disabled' : ''}>30ว</button>
-            <button type="button" class="multi-quick-date-btn" data-days="90" ${isAlreadyInDb ? 'disabled' : ''}>90ว</button>
-            <button type="button" class="multi-quick-date-btn" data-days="365" ${isAlreadyInDb ? 'disabled' : ''}>1ปี</button>
+      ${isBatchMode ? `
+        <!-- Synced Summary Banner for Batch Mode -->
+        <div class="multi-acc-sync-summary">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 11px;">🔗</span>
+            <span style="font-weight: 700; color: #38bdf8;">${escapeHtml(pkgName)}</span>
+            <span>•</span>
+            <span style="color: #cbd5e1;">${acc.profiles?.length || 1} จอ</span>
+            <span>•</span>
+            <span style="color: #fcd34d;">📅 ${formatExpiryShort(acc.expiry_date)}</span>
+            <span>•</span>
+            <span style="color: #4ade80;">${statusText}</span>
           </div>
-          <input type="datetime-local" class="prem-input multi-acc-expiry" value="${acc.expiry_date || ''}" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 10.5px; padding: 4px 6px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+          <button type="button" class="btn-card-unlock" data-idx="${idx}" title="ปรับแต่งแพ็กเกจ/วันหมดอายุ/จอเฉพาะบัญชีนี้แยก">
+            <span>✏️ ปรับแยก</span>
+          </button>
         </div>
-      </div>
+      ` : `
+        <!-- Individual Controls (Expanded) -->
+        ${multiAccountEditMode === 'batch' && acc._individualUnlocked ? `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); padding: 3px 8px; border-radius: 6px; margin-top: 4px; font-size: 10px;">
+            <span style="color: #38bdf8; font-weight: 700;">🎛️ ปรับแต่งเฉพาะบัญชีนี้แยกต่างหาก</span>
+            <button type="button" class="btn-card-relock" data-idx="${idx}" style="background:none; border:none; color:#34d399; font-weight:700; cursor:pointer; font-size:10px;">🔗 กลับไปซิงค์รวม</button>
+          </div>
+        ` : ''}
 
-      <!-- Status selection -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
-        <div>
-          <div class="multi-acc-field-label"><span>🟢 สถานะบัญชี</span></div>
-          <select class="prem-select multi-acc-status" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
-            <option value="available" ${acc.status === 'available' ? 'selected' : ''}>🟢 ว่าง (Available)</option>
-            <option value="used" ${acc.status === 'used' ? 'selected' : ''}>🟡 ใช้แล้ว (Used)</option>
-            <option value="broken" ${acc.status === 'broken' ? 'selected' : ''}>🔴 มีปัญหา (Broken)</option>
-          </select>
+        <!-- Package & Expiry Date Inputs -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+          <div>
+            <div class="multi-acc-field-label"><span>📦 แพ็กเกจ</span></div>
+            <select class="prem-select multi-acc-package" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+              ${currentPkgOptions}
+            </select>
+          </div>
+          <div>
+            <div class="multi-acc-field-label"><span>📅 วันหมดอายุ</span></div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+              <button type="button" class="multi-quick-date-btn" data-days="7" ${isAlreadyInDb ? 'disabled' : ''}>7ว</button>
+              <button type="button" class="multi-quick-date-btn" data-days="30" ${isAlreadyInDb ? 'disabled' : ''}>30ว</button>
+              <button type="button" class="multi-quick-date-btn" data-days="90" ${isAlreadyInDb ? 'disabled' : ''}>90ว</button>
+              <button type="button" class="multi-quick-date-btn" data-days="365" ${isAlreadyInDb ? 'disabled' : ''}>1ปี</button>
+            </div>
+            <input type="datetime-local" class="prem-input multi-acc-expiry" value="${acc.expiry_date || ''}" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 10.5px; padding: 4px 6px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+          </div>
         </div>
-        <div></div>
-      </div>
 
-      <!-- Profiles / Screens list -->
-      <div class="multi-acc-profiles-container" style="border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; margin-top: 4px;">
-        <!-- Dynamically rendered profiles -->
-      </div>
+        <!-- Status selection -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+          <div>
+            <div class="multi-acc-field-label"><span>🟢 สถานะบัญชี</span></div>
+            <select class="prem-select multi-acc-status" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+              <option value="available" ${acc.status === 'available' ? 'selected' : ''}>🟢 ว่าง (Available)</option>
+              <option value="used" ${acc.status === 'used' ? 'selected' : ''}>🟡 ใช้แล้ว (Used)</option>
+              <option value="broken" ${acc.status === 'broken' ? 'selected' : ''}>🔴 มีปัญหา (Broken)</option>
+            </select>
+          </div>
+          <div></div>
+        </div>
+
+        <!-- Profiles / Screens list -->
+        <div class="multi-acc-profiles-container" style="border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; margin-top: 4px;">
+          <!-- Dynamically rendered profiles -->
+        </div>
+      `}
     `;
 
     // Event Listeners for row elements
     const emailInput = row.querySelector(".multi-acc-email");
     const passwordInput = row.querySelector(".multi-acc-password");
     const randomPwBtn = row.querySelector(".btn-random-pw-multi");
-    const packageSelect = row.querySelector(".multi-acc-package");
-    const expiryInput = row.querySelector(".multi-acc-expiry");
-    const statusSelect = row.querySelector(".multi-acc-status");
     const removeBtn = row.querySelector(".multi-acc-remove-btn");
     const saveDbBtn = row.querySelector(".multi-acc-save-db-btn");
-    const profilesSubContainer = row.querySelector(".multi-acc-profiles-container");
+    const unlockBtn = row.querySelector(".btn-card-unlock");
+    const relockBtn = row.querySelector(".btn-card-relock");
+    const copyAllBtn = row.querySelector(".btn-card-copy-all");
 
     if (randomPwBtn) {
       randomPwBtn.addEventListener("click", (e) => {
@@ -2639,42 +2951,6 @@ function renderMultiAccountEditor() {
       parsedBatchAccounts[idx].password = e.target.value.trim();
     });
 
-    packageSelect.addEventListener("change", (e) => {
-      const pkgId = e.target.value;
-      parsedBatchAccounts[idx].package_id = pkgId;
-      const selectedPkg = rawPackages.find(p => p.id === pkgId);
-      const screensCount = selectedPkg ? (selectedPkg.screens || 1) : 1;
-      const newProfiles = [];
-      for (let i = 1; i <= screensCount; i++) {
-        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-        newProfiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
-      }
-      parsedBatchAccounts[idx].profiles = newProfiles;
-      renderCardProfilesWebapp(profilesSubContainer, parsedBatchAccounts[idx], idx, isNetflix);
-    });
-
-    expiryInput.addEventListener("input", (e) => {
-      parsedBatchAccounts[idx].expiry_date = e.target.value;
-    });
-
-    row.querySelectorAll(".multi-quick-date-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        const days = parseInt(btn.getAttribute("data-days"), 10) || 30;
-        const targetDate = new Date();
-        targetDate.setDate(targetDate.getDate() + days - 1);
-        targetDate.setHours(23, 59, 0, 0);
-        const pad = (n) => String(n).padStart(2, '0');
-        const localString = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
-        expiryInput.value = localString;
-        parsedBatchAccounts[idx].expiry_date = localString;
-      });
-    });
-
-    statusSelect.addEventListener("change", (e) => {
-      parsedBatchAccounts[idx].status = e.target.value;
-    });
-
     removeBtn.addEventListener("click", () => {
       parsedBatchAccounts.splice(idx, 1);
       renderMultiAccountEditor();
@@ -2687,8 +2963,101 @@ function renderMultiAccountEditor() {
       });
     }
 
-    // Render profiles for this card
-    renderCardProfilesWebapp(profilesSubContainer, parsedBatchAccounts[idx], idx, isNetflix);
+    if (unlockBtn) {
+      unlockBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        parsedBatchAccounts[idx]._individualUnlocked = true;
+        renderMultiAccountCardsOnly();
+        showToast(`🎛️ ปลดล็อกให้แก้ไขบัญชีที่ ${idx + 1} แยกอิสระ`);
+      });
+    }
+
+    if (relockBtn) {
+      relockBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        delete parsedBatchAccounts[idx]._individualUnlocked;
+        syncBatchMasterToAllAccounts();
+        renderMultiAccountCardsOnly();
+        showToast(`🔗 บัญชีที่ ${idx + 1} กลับไปซิงค์กับส่วนกลางแล้ว`);
+      });
+    }
+
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        batchMasterConfig.package_id = acc.package_id;
+        batchMasterConfig.expiry_date = acc.expiry_date;
+        batchMasterConfig.status = acc.status;
+        batchMasterConfig.screens_count = acc.profiles ? acc.profiles.length : 1;
+        batchMasterConfig.profiles = JSON.parse(JSON.stringify(acc.profiles || []));
+
+        parsedBatchAccounts.forEach((otherAcc, oIdx) => {
+          if (oIdx !== idx) {
+            otherAcc.package_id = acc.package_id;
+            otherAcc.expiry_date = acc.expiry_date;
+            otherAcc.status = acc.status;
+            otherAcc.profiles = JSON.parse(JSON.stringify(acc.profiles || []));
+          }
+        });
+
+        renderMultiAccountCardsOnly();
+        showToast(`⚡ นำค่าจากบัญชีที่ ${idx + 1} ไปใช้กับทุกบัญชีเรียบร้อย!`);
+      });
+    }
+
+    // Individual mode specific listeners
+    if (!isBatchMode) {
+      const packageSelect = row.querySelector(".multi-acc-package");
+      const expiryInput = row.querySelector(".multi-acc-expiry");
+      const statusSelect = row.querySelector(".multi-acc-status");
+      const profilesSubContainer = row.querySelector(".multi-acc-profiles-container");
+
+      if (packageSelect) {
+        packageSelect.addEventListener("change", (e) => {
+          const pkgId = e.target.value;
+          parsedBatchAccounts[idx].package_id = pkgId;
+          const selectedPkg = rawPackages.find(p => p.id === pkgId);
+          const screensCount = selectedPkg ? (selectedPkg.screens || 1) : 1;
+          const newProfiles = [];
+          for (let i = 1; i <= screensCount; i++) {
+            const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+            newProfiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+          }
+          parsedBatchAccounts[idx].profiles = newProfiles;
+          renderCardProfilesWebapp(profilesSubContainer, parsedBatchAccounts[idx], idx, isNetflix);
+        });
+      }
+
+      if (expiryInput) {
+        expiryInput.addEventListener("input", (e) => {
+          parsedBatchAccounts[idx].expiry_date = e.target.value;
+        });
+      }
+
+      row.querySelectorAll(".multi-quick-date-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const days = parseInt(btn.getAttribute("data-days"), 10) || 30;
+          const targetDate = new Date();
+          targetDate.setDate(targetDate.getDate() + days - 1);
+          targetDate.setHours(23, 59, 0, 0);
+          const pad = (n) => String(n).padStart(2, '0');
+          const localString = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
+          if (expiryInput) expiryInput.value = localString;
+          parsedBatchAccounts[idx].expiry_date = localString;
+        });
+      });
+
+      if (statusSelect) {
+        statusSelect.addEventListener("change", (e) => {
+          parsedBatchAccounts[idx].status = e.target.value;
+        });
+      }
+
+      if (profilesSubContainer) {
+        renderCardProfilesWebapp(profilesSubContainer, parsedBatchAccounts[idx], idx, isNetflix);
+      }
+    }
 
     container.appendChild(row);
   });
@@ -2742,23 +3111,29 @@ function renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix) {
 function addNewMultiAccountRow() {
   const currentAppId = document.getElementById("acc-app-select")?.value;
   const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
-  const defaultPkg = appPackages[0] || null;
-  const defaultPkgId = defaultPkg ? defaultPkg.id : "";
-  const defaultScreensCount = defaultPkg ? (defaultPkg.screens || 1) : 1;
+  const defaultPkgId = batchMasterConfig.package_id || (appPackages[0] ? appPackages[0].id : "");
+  const defaultPkg = defaultPkgId ? rawPackages.find(p => p.id === defaultPkgId) : (appPackages[0] || null);
+  const defaultScreensCount = defaultPkg ? (defaultPkg.screens || 1) : (batchMasterConfig.screens_count || 1);
 
-  const defaultDate = new Date();
-  defaultDate.setDate(defaultDate.getDate() + 30);
-  defaultDate.setHours(23, 59, 0, 0);
-  const pad = (n) => String(n).padStart(2, '0');
-  const defaultExpiryVal = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+  const defaultExpiryVal = batchMasterConfig.expiry_date || (() => {
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 30);
+    defaultDate.setHours(23, 59, 0, 0);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+  })();
 
   const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
   const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
 
   const profiles = [];
-  for (let i = 1; i <= defaultScreensCount; i++) {
-    const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-    profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+  if (batchMasterConfig.profiles && batchMasterConfig.profiles.length > 0) {
+    profiles.push(...JSON.parse(JSON.stringify(batchMasterConfig.profiles)));
+  } else {
+    for (let i = 1; i <= defaultScreensCount; i++) {
+      const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+      profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+    }
   }
 
   parsedBatchAccounts.push({
@@ -2766,7 +3141,7 @@ function addNewMultiAccountRow() {
     password: generateRandomPassword(),
     package_id: defaultPkgId,
     expiry_date: defaultExpiryVal,
-    status: "available",
+    status: batchMasterConfig.status || "available",
     profiles: profiles,
     otp_url: null
   });
