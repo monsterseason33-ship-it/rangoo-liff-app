@@ -237,7 +237,7 @@ function initUIEventListeners() {
   document.body.addEventListener("click", (e) => {
     const calBtn = e.target.closest(".expiry-cal-btn");
     if (calBtn) {
-      const trigger = calBtn.closest("#acc-expiry-trigger, #edit-creds-expiry-trigger");
+      const trigger = calBtn.closest("#acc-expiry-trigger, #edit-creds-expiry-trigger, #batch-master-expiry-trigger, .multi-acc-expiry-trigger");
       if (trigger) return; // Managed by specific trigger listener
       const wrapper = calBtn.closest(".acc-expiry-input-wrapper");
       if (wrapper) {
@@ -2555,15 +2555,41 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
 
   // 3. Expiry Date & Quick Buttons
   const expiryInput = document.getElementById("batch-master-expiry");
+  const expiryTrigger = document.getElementById("batch-master-expiry-trigger");
+  const expiryText = document.getElementById("batch-master-expiry-text");
   const expiryHint = document.getElementById("batch-master-expiry-hint");
   if (expiryInput) {
     expiryInput.value = batchMasterConfig.expiry_date || "";
+    if (expiryText) {
+      expiryText.textContent = batchMasterConfig.expiry_date ? formatThaiDateTime(batchMasterConfig.expiry_date) : "📅 วันหมดอายุจะแสดงที่นี่...";
+    }
     if (expiryHint && batchMasterConfig.expiry_date) {
       expiryHint.textContent = `(${formatExpiryShort(batchMasterConfig.expiry_date)})`;
     }
 
+    if (expiryTrigger) {
+      expiryTrigger.onclick = (e) => {
+        e.preventDefault();
+        openThaiDatePicker({
+          inputEl: expiryInput,
+          textEl: expiryText,
+          initialDate: batchMasterConfig.expiry_date || new Date(),
+          title: "📆 เลือกวันหมดอายุรวมทุกบัญชี (พ.ศ.)",
+          onConfirm: (valStr, finalDate) => {
+            batchMasterConfig.expiry_date = valStr;
+            if (expiryText) expiryText.textContent = formatThaiDateTime(finalDate);
+            if (expiryHint) expiryHint.textContent = `(${formatExpiryShort(valStr)})`;
+            syncBatchMasterToAllAccounts();
+            renderMultiAccountCardsOnly();
+            showToast("📅 ซิงค์วันหมดอายุไปยังทุกบัญชีแล้ว!");
+          }
+        });
+      };
+    }
+
     expiryInput.oninput = (e) => {
       batchMasterConfig.expiry_date = e.target.value;
+      if (expiryText) expiryText.textContent = formatThaiDateTime(e.target.value);
       if (expiryHint) expiryHint.textContent = `(${formatExpiryShort(e.target.value)})`;
       syncBatchMasterToAllAccounts();
       renderMultiAccountCardsOnly();
@@ -2582,6 +2608,7 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
         const localString = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
         batchMasterConfig.expiry_date = localString;
         expiryInput.value = localString;
+        if (expiryText) expiryText.textContent = formatThaiDateTime(targetDate);
         if (expiryHint) expiryHint.textContent = `(${formatExpiryShort(localString)})`;
         syncBatchMasterToAllAccounts();
         renderMultiAccountCardsOnly();
@@ -2899,7 +2926,16 @@ function renderMultiAccountCardsOnly() {
               <button type="button" class="multi-quick-date-btn" data-days="90" ${isAlreadyInDb ? 'disabled' : ''}>90ว</button>
               <button type="button" class="multi-quick-date-btn" data-days="365" ${isAlreadyInDb ? 'disabled' : ''}>1ปี</button>
             </div>
-            <input type="datetime-local" class="prem-input multi-acc-expiry" value="${acc.expiry_date || ''}" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 10.5px; padding: 4px 6px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+            <div style="position: relative;" class="acc-expiry-input-wrapper">
+              <div class="prem-input multi-acc-expiry-trigger" data-idx="${idx}" style="display: flex; align-items: center; justify-content: space-between; cursor: ${isAlreadyInDb ? 'not-allowed' : 'pointer'}; margin-bottom: 0; min-height: 32px; padding: 3px 8px; ${isAlreadyInDb ? 'opacity: 0.6;' : ''}">
+                <span class="multi-acc-expiry-text" style="color: #38bdf8; font-weight: 600; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatThaiDateTime(acc.expiry_date)}</span>
+                <span class="expiry-cal-btn" style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 2px 6px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 6px; color: #38bdf8; flex-shrink: 0; margin-left: 4px;">
+                  <span>📅</span>
+                  <span>เลือกวัน</span>
+                </span>
+              </div>
+              <input type="datetime-local" class="prem-input multi-acc-expiry" value="${acc.expiry_date || ''}" ${isAlreadyInDb ? 'disabled' : ''} style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; z-index: -1;">
+            </div>
           </div>
         </div>
 
@@ -3000,6 +3036,14 @@ function renderMultiAccountCardsOnly() {
           }
         });
 
+        // Also update master expiry inputs if present
+        const masterExpInput = document.getElementById("batch-master-expiry");
+        const masterExpText = document.getElementById("batch-master-expiry-text");
+        const masterExpHint = document.getElementById("batch-master-expiry-hint");
+        if (masterExpInput) masterExpInput.value = acc.expiry_date || "";
+        if (masterExpText) masterExpText.textContent = formatThaiDateTime(acc.expiry_date);
+        if (masterExpHint) masterExpHint.textContent = `(${formatExpiryShort(acc.expiry_date)})`;
+
         renderMultiAccountCardsOnly();
         showToast(`⚡ นำค่าจากบัญชีที่ ${idx + 1} ไปใช้กับทุกบัญชีเรียบร้อย!`);
       });
@@ -3008,7 +3052,9 @@ function renderMultiAccountCardsOnly() {
     // Individual mode specific listeners
     if (!isBatchMode) {
       const packageSelect = row.querySelector(".multi-acc-package");
+      const expiryTrigger = row.querySelector(".multi-acc-expiry-trigger");
       const expiryInput = row.querySelector(".multi-acc-expiry");
+      const expiryText = row.querySelector(".multi-acc-expiry-text");
       const statusSelect = row.querySelector(".multi-acc-status");
       const profilesSubContainer = row.querySelector(".multi-acc-profiles-container");
 
@@ -3028,15 +3074,37 @@ function renderMultiAccountCardsOnly() {
         });
       }
 
+      if (expiryTrigger && !isAlreadyInDb) {
+        expiryTrigger.addEventListener("click", (e) => {
+          e.preventDefault();
+          openThaiDatePicker({
+            inputEl: expiryInput,
+            textEl: expiryText,
+            initialDate: parsedBatchAccounts[idx].expiry_date || new Date(),
+            title: `📆 เลือกวันหมดอายุบัญชีที่ ${idx + 1} (พ.ศ.)`,
+            onConfirm: (valStr, finalDate) => {
+              parsedBatchAccounts[idx].expiry_date = valStr;
+              if (expiryText) expiryText.textContent = formatThaiDateTime(finalDate);
+            }
+          });
+        });
+      }
+
       if (expiryInput) {
         expiryInput.addEventListener("input", (e) => {
           parsedBatchAccounts[idx].expiry_date = e.target.value;
+          if (expiryText) expiryText.textContent = formatThaiDateTime(e.target.value);
+        });
+        expiryInput.addEventListener("change", (e) => {
+          parsedBatchAccounts[idx].expiry_date = e.target.value;
+          if (expiryText) expiryText.textContent = formatThaiDateTime(e.target.value);
         });
       }
 
       row.querySelectorAll(".multi-quick-date-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
           e.preventDefault();
+          if (isAlreadyInDb) return;
           const days = parseInt(btn.getAttribute("data-days"), 10) || 30;
           const targetDate = new Date();
           targetDate.setDate(targetDate.getDate() + days - 1);
@@ -3044,6 +3112,7 @@ function renderMultiAccountCardsOnly() {
           const pad = (n) => String(n).padStart(2, '0');
           const localString = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
           if (expiryInput) expiryInput.value = localString;
+          if (expiryText) expiryText.textContent = formatThaiDateTime(targetDate);
           parsedBatchAccounts[idx].expiry_date = localString;
         });
       });
