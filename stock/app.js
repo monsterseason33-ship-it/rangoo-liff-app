@@ -39,6 +39,7 @@ let targetBindingForSwap = null;
 let targetBindingForExtend = null;
 let targetBindingForEditCreds = null;
 let bindingsRenderLimit = 50;
+let parsedBatchAccounts = [];
 
 // Register Service Worker for PWA (Only on web http / https protocols)
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
@@ -2361,21 +2362,45 @@ function handleQuickPaste() {
   // 3. Multi-account detection
   const multi = parseMultiAccountText(text);
   if (multi.length > 1) {
-    if (batchInfo) {
-      batchInfo.style.display = "block";
-      batchInfo.innerHTML = `✨ ตรวจพบ <b>${multi.length} บัญชี</b> ในชุดข้อความ! (พร้อมสร้างสต็อกแบบกลุ่ม)`;
-    }
-    // Populate the first account into inputs
-    document.getElementById("acc-email").value = multi[0].email;
-    document.getElementById("acc-password").value = multi[0].password;
-    if (multi[0].otp_url) {
-      const otpInput = document.getElementById("acc-otp-link");
-      if (otpInput) otpInput.value = multi[0].otp_url;
-    }
+    const currentAppId = document.getElementById("acc-app-select")?.value;
+    const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
+    const defaultPkg = appPackages[0] || null;
+    const defaultPkgId = defaultPkg ? defaultPkg.id : "";
+    const defaultScreensCount = defaultPkg ? (defaultPkg.screens || 1) : 1;
+
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 30);
+    defaultDate.setHours(23, 59, 0, 0);
+    const pad = (n) => String(n).padStart(2, '0');
+    const defaultExpiryVal = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+
+    const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
+    const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+
+    parsedBatchAccounts = multi.map(acc => {
+      const profiles = [];
+      for (let i = 1; i <= defaultScreensCount; i++) {
+        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+        profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+      }
+      return {
+        email: acc.email,
+        password: acc.password,
+        package_id: defaultPkgId,
+        expiry_date: acc.expiry_date || defaultExpiryVal,
+        status: "available",
+        profiles: profiles,
+        otp_url: acc.otp_url || null,
+        raw_line: acc.raw_line || null
+      };
+    });
+
+    renderMultiAccountEditor();
     flashParserSuccess(input);
     return;
-  } else if (batchInfo) {
-    batchInfo.style.display = "none";
+  } else {
+    parsedBatchAccounts = [];
+    renderMultiAccountEditor();
   }
 
   // 4. Single-account parsing
@@ -2421,6 +2446,428 @@ function flashParserSuccess(el) {
   el.classList.remove("parser-success-flash");
   void el.offsetWidth;
   el.classList.add("parser-success-flash");
+}
+
+function renderMultiAccountEditor() {
+  const multiWrapper = document.getElementById("acc-multi-inputs-wrapper");
+  const singleWrapper = document.getElementById("acc-single-inputs-wrapper");
+  const container = document.getElementById("multi-acc-rows-container");
+  const batchInfo = document.getElementById("acc-quick-paste-batch-info");
+  const countText = document.getElementById("multi-acc-count-text");
+  const submitBtn = document.getElementById("btn-submit-account");
+
+  if (!multiWrapper || !singleWrapper || !container) return;
+
+  if (!parsedBatchAccounts || parsedBatchAccounts.length <= 1) {
+    multiWrapper.style.display = "none";
+    singleWrapper.style.display = "block";
+    if (batchInfo) {
+      batchInfo.style.display = "none";
+      batchInfo.textContent = "";
+    }
+    if (submitBtn) {
+      submitBtn.innerText = "💾 บันทึกสต็อกเข้าคลัง";
+    }
+    if (parsedBatchAccounts && parsedBatchAccounts.length === 1) {
+      if (document.getElementById("acc-email")) document.getElementById("acc-email").value = parsedBatchAccounts[0].email || "";
+      if (document.getElementById("acc-password")) document.getElementById("acc-password").value = parsedBatchAccounts[0].password || "";
+    }
+    return;
+  }
+
+  multiWrapper.style.display = "flex";
+  singleWrapper.style.display = "none";
+
+  if (batchInfo) {
+    batchInfo.style.display = "block";
+    batchInfo.innerHTML = `✨ ตรวจพบ <b>${parsedBatchAccounts.length} บัญชี</b> ในชุดข้อความ! (พร้อมสกัดข้อมูลและตรวจสอบคลัง)`;
+  }
+  if (countText) {
+    countText.textContent = `(ตรวจพบ ${parsedBatchAccounts.length} บัญชี)`;
+  }
+  if (submitBtn) {
+    submitBtn.innerText = `💾 บันทึกทุกบัญชีเข้าคลัง (${parsedBatchAccounts.length} บัญชี)`;
+  }
+
+  container.innerHTML = "";
+
+  const currentAppId = document.getElementById("acc-app-select")?.value;
+  const activeAppPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
+  const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
+  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+
+  parsedBatchAccounts.forEach((acc, idx) => {
+    if (acc.package_id === undefined || acc.package_id === null) {
+      acc.package_id = activeAppPackages[0]?.id || "";
+    }
+    if (!acc.expiry_date) {
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() + 30);
+      defaultDate.setHours(23, 59, 0, 0);
+      const pad = (n) => String(n).padStart(2, '0');
+      acc.expiry_date = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+    }
+    if (!acc.status) {
+      acc.status = "available";
+    }
+    if (!acc.profiles) {
+      const currentPkg = acc.package_id ? rawPackages.find(p => p.id === acc.package_id) : null;
+      const screensCount = currentPkg ? (currentPkg.screens || 1) : 1;
+      acc.profiles = [];
+      for (let i = 1; i <= screensCount; i++) {
+        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+        acc.profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+      }
+    }
+
+    // Check if account already exists in inventory (rawAccounts)
+    const accEmailTrimmed = (acc.email || "").trim().toLowerCase();
+    const existingDbAcc = accEmailTrimmed && rawAccounts && Array.isArray(rawAccounts)
+      ? rawAccounts.find(a => (a.email || "").trim().toLowerCase() === accEmailTrimmed)
+      : null;
+    const isAlreadyInDb = !!existingDbAcc;
+
+    let currentPkgOptions = `<option value="" ${!acc.package_id ? 'selected' : ''}>-- ยังไม่กำหนดแพ็คเกจ --</option>`;
+    activeAppPackages.forEach(pkg => {
+      currentPkgOptions += `<option value="${pkg.id}" ${acc.package_id === pkg.id ? 'selected' : ''}>${escapeHtml(pkg.name)} (${pkg.price} บาท)</option>`;
+    });
+
+    const row = document.createElement("div");
+    row.className = "multi-acc-row";
+    if (isAlreadyInDb) {
+      row.style.background = "rgba(245, 158, 11, 0.04)";
+      row.style.borderColor = "rgba(245, 158, 11, 0.35)";
+    }
+
+    row.innerHTML = `
+      <div class="multi-acc-row-header">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="multi-acc-index-label">📦 บัญชีที่ ${idx + 1}</span>
+          <span class="multi-acc-inventory-badge ${isAlreadyInDb ? 'in-db' : 'new'}">
+            ${isAlreadyInDb ? `🔒 มีในคลังแล้ว${existingDbAcc.id ? ' (#' + String(existingDbAcc.id).slice(-4) + ')' : ''}` : '✨ บัญชีใหม่'}
+          </span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button type="button" class="multi-acc-save-db-btn" title="💾 บันทึกเฉพาะบัญชีนี้ลงคลัง" style="display: ${isAlreadyInDb ? 'none' : 'inline-flex'};">
+            <span>💾 บันทึกลงคลัง</span>
+          </button>
+          <button type="button" class="multi-acc-remove-btn" title="ลบรายการนี้">✕</button>
+        </div>
+      </div>
+
+      <!-- Email & Password Inputs -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+        <div>
+          <div class="multi-acc-field-label"><span>✉️ อีเมล / เบอร์โทร</span></div>
+          <input type="text" class="prem-input multi-acc-email" placeholder="อีเมล / บัญชีผู้ใช้" value="${escapeHtml(acc.email || '')}" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'background: rgba(245, 158, 11, 0.08); color: #fbbf24; cursor: not-allowed;' : ''}">
+        </div>
+        <div>
+          <div class="multi-acc-field-label">
+            <span>🔑 รหัสผ่าน</span>
+            ${!isAlreadyInDb ? `<button type="button" class="btn-random-pw-multi" title="🎲 สุ่มรหัสผ่าน 6 ตัว">🎲 สุ่ม PW</button>` : ''}
+          </div>
+          <input type="text" class="prem-input multi-acc-password" placeholder="รหัสผ่าน" value="${escapeHtml(acc.password || '')}" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'background: rgba(255, 255, 255, 0.03); color: #94a3b8; cursor: not-allowed;' : ''}">
+        </div>
+      </div>
+
+      <!-- Package & Expiry Date Inputs -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+        <div>
+          <div class="multi-acc-field-label"><span>📦 แพ็กเกจ</span></div>
+          <select class="prem-select multi-acc-package" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+            ${currentPkgOptions}
+          </select>
+        </div>
+        <div>
+          <div class="multi-acc-field-label"><span>📅 วันหมดอายุ</span></div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-bottom: 4px;">
+            <button type="button" class="multi-quick-date-btn" data-days="7" ${isAlreadyInDb ? 'disabled' : ''}>7ว</button>
+            <button type="button" class="multi-quick-date-btn" data-days="30" ${isAlreadyInDb ? 'disabled' : ''}>30ว</button>
+            <button type="button" class="multi-quick-date-btn" data-days="90" ${isAlreadyInDb ? 'disabled' : ''}>90ว</button>
+            <button type="button" class="multi-quick-date-btn" data-days="365" ${isAlreadyInDb ? 'disabled' : ''}>1ปี</button>
+          </div>
+          <input type="datetime-local" class="prem-input multi-acc-expiry" value="${acc.expiry_date || ''}" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 10.5px; padding: 4px 6px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+        </div>
+      </div>
+
+      <!-- Status selection -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+        <div>
+          <div class="multi-acc-field-label"><span>🟢 สถานะบัญชี</span></div>
+          <select class="prem-select multi-acc-status" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+            <option value="available" ${acc.status === 'available' ? 'selected' : ''}>🟢 ว่าง (Available)</option>
+            <option value="used" ${acc.status === 'used' ? 'selected' : ''}>🟡 ใช้แล้ว (Used)</option>
+            <option value="broken" ${acc.status === 'broken' ? 'selected' : ''}>🔴 มีปัญหา (Broken)</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+
+      <!-- Profiles / Screens list -->
+      <div class="multi-acc-profiles-container" style="border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; margin-top: 4px;">
+        <!-- Dynamically rendered profiles -->
+      </div>
+    `;
+
+    // Event Listeners for row elements
+    const emailInput = row.querySelector(".multi-acc-email");
+    const passwordInput = row.querySelector(".multi-acc-password");
+    const randomPwBtn = row.querySelector(".btn-random-pw-multi");
+    const packageSelect = row.querySelector(".multi-acc-package");
+    const expiryInput = row.querySelector(".multi-acc-expiry");
+    const statusSelect = row.querySelector(".multi-acc-status");
+    const removeBtn = row.querySelector(".multi-acc-remove-btn");
+    const saveDbBtn = row.querySelector(".multi-acc-save-db-btn");
+    const profilesSubContainer = row.querySelector(".multi-acc-profiles-container");
+
+    if (randomPwBtn) {
+      randomPwBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const newPw = generateRandomPassword();
+        passwordInput.value = newPw;
+        parsedBatchAccounts[idx].password = newPw;
+        showToast(`🎲 สุ่มรหัสผ่าน: ${newPw}`);
+      });
+    }
+
+    emailInput.addEventListener("input", (e) => {
+      parsedBatchAccounts[idx].email = e.target.value.trim();
+    });
+
+    passwordInput.addEventListener("input", (e) => {
+      parsedBatchAccounts[idx].password = e.target.value.trim();
+    });
+
+    packageSelect.addEventListener("change", (e) => {
+      const pkgId = e.target.value;
+      parsedBatchAccounts[idx].package_id = pkgId;
+      const selectedPkg = rawPackages.find(p => p.id === pkgId);
+      const screensCount = selectedPkg ? (selectedPkg.screens || 1) : 1;
+      const newProfiles = [];
+      for (let i = 1; i <= screensCount; i++) {
+        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+        newProfiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+      }
+      parsedBatchAccounts[idx].profiles = newProfiles;
+      renderCardProfilesWebapp(profilesSubContainer, parsedBatchAccounts[idx], idx, isNetflix);
+    });
+
+    expiryInput.addEventListener("input", (e) => {
+      parsedBatchAccounts[idx].expiry_date = e.target.value;
+    });
+
+    row.querySelectorAll(".multi-quick-date-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const days = parseInt(btn.getAttribute("data-days"), 10) || 30;
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + days - 1);
+        targetDate.setHours(23, 59, 0, 0);
+        const pad = (n) => String(n).padStart(2, '0');
+        const localString = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T23:59`;
+        expiryInput.value = localString;
+        parsedBatchAccounts[idx].expiry_date = localString;
+      });
+    });
+
+    statusSelect.addEventListener("change", (e) => {
+      parsedBatchAccounts[idx].status = e.target.value;
+    });
+
+    removeBtn.addEventListener("click", () => {
+      parsedBatchAccounts.splice(idx, 1);
+      renderMultiAccountEditor();
+      showToast("🗑️ ลบรายการออกแล้ว");
+    });
+
+    if (saveDbBtn) {
+      saveDbBtn.addEventListener("click", async () => {
+        await saveSingleBatchAccount(idx, saveDbBtn);
+      });
+    }
+
+    // Render profiles for this card
+    renderCardProfilesWebapp(profilesSubContainer, parsedBatchAccounts[idx], idx, isNetflix);
+
+    container.appendChild(row);
+  });
+}
+
+function renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix) {
+  if (!containerEl || !acc.profiles) return;
+  containerEl.innerHTML = `
+    <div style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; display: flex; justify-content: space-between;">
+      <span>👥 โปรไฟล์ / จอ (${acc.profiles.length} จอ)</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      ${acc.profiles.map((prof, profIdx) => {
+        const defaultDevice = prof.device_type || (profIdx >= 4 ? 'tv' : 'mobile');
+        return `
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; align-items: center; background: rgba(0, 0, 0, 0.25); padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <input type="text" class="prem-input card-profile-name" data-card-idx="${cardIdx}" data-prof-idx="${profIdx}" placeholder="ชื่อจอ (เช่น จอ ${profIdx + 1})" value="${escapeHtml(prof.name || '')}" style="margin-bottom:0; font-size: 10px; padding: 3px 6px; height: 24px; border-radius: 5px;">
+            <input type="text" class="prem-input card-profile-pin" data-card-idx="${cardIdx}" data-prof-idx="${profIdx}" placeholder="PIN" value="${escapeHtml(prof.pin || '')}" style="margin-bottom:0; font-size: 10px; padding: 3px 6px; height: 24px; border-radius: 5px;">
+            <select class="prem-select card-profile-device" data-card-idx="${cardIdx}" data-prof-idx="${profIdx}" style="margin-bottom:0; font-size: 10px; padding: 2px 4px; height: 24px; border-radius: 5px;">
+              <option value="mobile" ${defaultDevice === 'mobile' ? 'selected' : ''}>📱 มือถือ/PC</option>
+              <option value="tv" ${defaultDevice === 'tv' ? 'selected' : ''}>📺 ทีวี</option>
+            </select>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  containerEl.querySelectorAll(".card-profile-name").forEach(input => {
+    input.addEventListener("input", (e) => {
+      const pIdx = parseInt(input.getAttribute("data-prof-idx"), 10);
+      acc.profiles[pIdx].name = e.target.value.trim();
+    });
+  });
+
+  containerEl.querySelectorAll(".card-profile-pin").forEach(input => {
+    input.addEventListener("input", (e) => {
+      const pIdx = parseInt(input.getAttribute("data-prof-idx"), 10);
+      acc.profiles[pIdx].pin = e.target.value.trim();
+    });
+  });
+
+  containerEl.querySelectorAll(".card-profile-device").forEach(select => {
+    select.addEventListener("change", (e) => {
+      const pIdx = parseInt(select.getAttribute("data-prof-idx"), 10);
+      acc.profiles[pIdx].device_type = e.target.value;
+    });
+  });
+}
+
+function addNewMultiAccountRow() {
+  const currentAppId = document.getElementById("acc-app-select")?.value;
+  const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
+  const defaultPkg = appPackages[0] || null;
+  const defaultPkgId = defaultPkg ? defaultPkg.id : "";
+  const defaultScreensCount = defaultPkg ? (defaultPkg.screens || 1) : 1;
+
+  const defaultDate = new Date();
+  defaultDate.setDate(defaultDate.getDate() + 30);
+  defaultDate.setHours(23, 59, 0, 0);
+  const pad = (n) => String(n).padStart(2, '0');
+  const defaultExpiryVal = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
+
+  const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
+  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+
+  const profiles = [];
+  for (let i = 1; i <= defaultScreensCount; i++) {
+    const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+    profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+  }
+
+  parsedBatchAccounts.push({
+    email: "",
+    password: generateRandomPassword(),
+    package_id: defaultPkgId,
+    expiry_date: defaultExpiryVal,
+    status: "available",
+    profiles: profiles,
+    otp_url: null
+  });
+
+  renderMultiAccountEditor();
+  showToast("➕ เพิ่มบัญชีใหม่ในตารางเรียบร้อย");
+}
+
+async function saveSingleBatchAccount(idx, btnEl) {
+  const acc = parsedBatchAccounts[idx];
+  if (!acc) return;
+  if (!acc.email || !acc.password) {
+    showToast("❌ กรุณากรอกอีเมลและรหัสผ่านของบัญชีนี้ก่อน!", "error");
+    return;
+  }
+
+  const currentAppId = document.getElementById("acc-app-select")?.value;
+  if (!currentAppId) {
+    showToast("❌ กรุณาเลือกแอปพลิเคชันก่อน!", "error");
+    return;
+  }
+
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerText = "⏳ บันทึก...";
+  }
+
+  const records = [];
+  const expiryISO = acc.expiry_date ? new Date(acc.expiry_date).toISOString() : null;
+
+  if (acc.profiles && acc.profiles.length > 0) {
+    acc.profiles.forEach((prof, profIdx) => {
+      records.push({
+        app_id: currentAppId,
+        package_id: acc.package_id || null,
+        email: acc.email.trim(),
+        password: acc.password.trim(),
+        profile_name: prof.name.trim() || `จอ ${profIdx + 1}`,
+        pin_code: prof.pin ? prof.pin.trim() : null,
+        device_type: prof.device_type || "mobile",
+        expiry_date: expiryISO,
+        status: acc.status || "available",
+        supplier_url: acc.otp_url || null,
+        cookie_data: acc.otp_url || null
+      });
+    });
+  } else {
+    records.push({
+      app_id: currentAppId,
+      package_id: acc.package_id || null,
+      email: acc.email.trim(),
+      password: acc.password.trim(),
+      profile_name: "จอ 1",
+      pin_code: null,
+      device_type: "mobile",
+      expiry_date: expiryISO,
+      status: acc.status || "available",
+      supplier_url: acc.otp_url || null,
+      cookie_data: acc.otp_url || null
+    });
+  }
+
+  try {
+    let saveRes;
+    if (currentShop.type === "supabase") {
+      saveRes = await fetch(`${currentShop.url}/rest/v1/accounts`, {
+        method: "POST",
+        headers: {
+          "apikey": currentShop.key,
+          "Authorization": `Bearer ${currentShop.key}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(records)
+      });
+    } else {
+      saveRes = await fetch(`${currentShop.url}/api/accounts`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${currentShop.key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(records)
+      });
+    }
+
+    if (!saveRes.ok) {
+      const err = await saveRes.text();
+      throw new Error(err || `HTTP Error ${saveRes.status}`);
+    }
+
+    showToast(`✅ บันทึกบัญชี ${acc.email} (${records.length} จอ) เรียบร้อย!`);
+    await loadData(true);
+    renderMultiAccountEditor();
+  } catch (e) {
+    console.error("Save single batch acc failed:", e);
+    showToast(`❌ บันทึกล้มเหลว: ${e.message}`, "error");
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.innerText = "💾 บันทึกลงคลัง";
+    }
+  }
 }
 
 function parseRawAccountText(cleanText) {
@@ -2709,11 +3156,21 @@ async function submitAccountForm() {
     return;
   }
 
-  const quickPasteText = (document.getElementById("acc-quick-paste")?.value || "").trim();
-  const multiAccounts = parseMultiAccountText(quickPasteText);
-  const isMultiBatch = multiAccounts.length > 1;
+  const isMultiBatch = parsedBatchAccounts && parsedBatchAccounts.length > 1;
 
-  if (!isMultiBatch) {
+  if (isMultiBatch) {
+    let allFilled = true;
+    for (const acc of parsedBatchAccounts) {
+      if (!acc.email || !acc.password) {
+        allFilled = false;
+        break;
+      }
+    }
+    if (!allFilled || parsedBatchAccounts.length === 0) {
+      showToast("❌ กรุณากรอกอีเมลและรหัสผ่านให้ครบทุกบัญชีก่อนบันทึก!", "error");
+      return;
+    }
+  } else {
     if (!email) {
       showToast("❌ กรุณากรอกอีเมลหรือบัญชีผู้ใช้!");
       emailInput?.focus();
@@ -2741,20 +3198,36 @@ async function submitAccountForm() {
   const records = [];
 
   if (isMultiBatch) {
-    // Save multiple accounts at once with specified screens
-    const screensCount = Math.max(1, parseInt(document.getElementById("pkg-screens")?.value, 10) || 1);
-    multiAccounts.forEach(acc => {
-      for (let i = 1; i <= screensCount; i++) {
+    // Save multiple accounts from parsedBatchAccounts
+    parsedBatchAccounts.forEach(acc => {
+      const accExpiryISO = acc.expiry_date ? new Date(acc.expiry_date).toISOString() : expiryISO;
+      if (acc.profiles && acc.profiles.length > 0) {
+        acc.profiles.forEach((prof, profIdx) => {
+          records.push({
+            app_id: appId,
+            package_id: acc.package_id || packageId,
+            email: acc.email.trim(),
+            password: acc.password.trim(),
+            profile_name: prof.name.trim() || `จอ ${profIdx + 1}`,
+            pin_code: prof.pin ? prof.pin.trim() : null,
+            device_type: prof.device_type || "mobile",
+            expiry_date: accExpiryISO,
+            status: acc.status || status,
+            supplier_url: acc.otp_url || otpUrl,
+            cookie_data: acc.otp_url || otpUrl || null
+          });
+        });
+      } else {
         records.push({
           app_id: appId,
-          package_id: packageId,
-          email: acc.email,
-          password: acc.password,
-          profile_name: `จอ ${i}`,
+          package_id: acc.package_id || packageId,
+          email: acc.email.trim(),
+          password: acc.password.trim(),
+          profile_name: "จอ 1",
           pin_code: null,
-          device_type: i > 4 ? "tv" : "mobile",
-          expiry_date: expiryISO,
-          status: status,
+          device_type: "mobile",
+          expiry_date: accExpiryISO,
+          status: acc.status || status,
           supplier_url: acc.otp_url || otpUrl,
           cookie_data: acc.otp_url || otpUrl || null
         });
@@ -2829,7 +3302,7 @@ async function submitAccountForm() {
       throw new Error(errTxt || `HTTP Error ${saveRes.status}`);
     }
 
-    showToast(`🟢 เพิ่มสต็อกสำเร็จ (สร้าง ${records.length} หน้าจอ)! ✨`);
+    showToast(`🟢 เพิ่มสต็อกสำเร็จ ${isMultiBatch ? `(${parsedBatchAccounts.length} บัญชี, รวม ${records.length} จอ)` : `(สร้าง ${records.length} หน้าจอ)`}! ✨`);
     resetStockForm();
     await loadData(true);
     selectChip(appId);
@@ -2852,6 +3325,8 @@ function resetStockForm() {
     batchInfo.style.display = "none";
     batchInfo.textContent = "";
   }
+  parsedBatchAccounts = [];
+  renderMultiAccountEditor();
   const emailInput = document.getElementById("acc-email");
   if (emailInput) emailInput.value = "";
   const passwordInput = document.getElementById("acc-password");
@@ -2882,6 +3357,18 @@ function initStockFormEventListeners() {
   if (appSelect) {
     appSelect.addEventListener("change", () => {
       updateStockFormPackages();
+      if (parsedBatchAccounts && parsedBatchAccounts.length > 0) {
+        renderMultiAccountEditor();
+      }
+    });
+  }
+
+  // Button to add multi-account row manually
+  const btnAddMulti = document.getElementById("btn-add-multi-row");
+  if (btnAddMulti) {
+    btnAddMulti.addEventListener("click", () => {
+      haptic();
+      addNewMultiAccountRow();
     });
   }
 

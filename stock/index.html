@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=2.0">
+  <link rel="stylesheet" href="styles.css?v=2.1">
 </head>
 
 <body>
@@ -146,21 +146,40 @@
         <div id="acc-quick-paste-batch-info" style="display: none; margin-bottom: 8px; font-size: 11px; padding: 6px 10px; border-radius: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-weight: bold; line-height: 1.4;"></div>
       </div>
 
-      <!-- App and Package Selection -->
-      <div class="prem-form-grid" style="grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-        <div>
-          <label class="prem-label">🎬 แอปพลิเคชัน</label>
-          <select id="acc-app-select" class="prem-select">
-            <option value="">-- เลือกแอป --</option>
-          </select>
+      <!-- App Selection -->
+      <div class="prem-form-group" style="margin-bottom: 8px;">
+        <label class="prem-label">🎬 แอปพลิเคชัน</label>
+        <select id="acc-app-select" class="prem-select">
+          <option value="">-- เลือกแอป --</option>
+        </select>
+      </div>
+
+      <!-- Multiple Accounts Editor Container (Visible when multi-accounts detected or added) -->
+      <div id="acc-multi-inputs-wrapper" style="display: none; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+        <div class="multi-acc-editor-header">
+          <div class="multi-acc-title-group">
+            <span class="multi-acc-title-icon">✏️</span>
+            <span style="font-weight: 700; color: #38bdf8;">บัญชีที่ตรวจพบ</span>
+            <span class="multi-acc-subtext" id="multi-acc-count-text">(ตรวจพบ 0 บัญชี)</span>
+          </div>
+          <button id="btn-add-multi-row" type="button" class="multi-acc-add-btn">
+            <span>➕</span> <span>เพิ่มบัญชี</span>
+          </button>
         </div>
-        <div>
+        <div id="multi-acc-rows-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; overflow-x: hidden; padding-right: 4px;">
+          <!-- Dynamically generated multi-account cards -->
+        </div>
+      </div>
+
+      <!-- Single Account Inputs Container (Visible in single mode) -->
+      <div id="acc-single-inputs-wrapper">
+        <!-- Package Selection -->
+        <div class="prem-form-group" style="margin-bottom: 8px;">
           <label id="lbl-acc-package-select" class="prem-label">📦 ประเภทแพ็คเกจ</label>
           <select id="acc-package-select" class="prem-select">
             <option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>
           </select>
         </div>
-      </div>
 
       <!-- Screens count & Status -->
       <div class="prem-form-grid" style="grid-template-columns: 1.2fr 1fr; gap: 8px; margin-bottom: 8px;">
@@ -245,6 +264,7 @@
           </div>
           <input type="datetime-local" id="acc-expiry" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; z-index: -1;">
         </div>
+      </div>
       </div>
 
       <!-- Form Submit Buttons -->
@@ -995,7 +1015,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.17"></script>
+  <script src="app.js?v=2.18"></script>
 </body>
 
 </html>
