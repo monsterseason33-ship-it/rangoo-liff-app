@@ -2513,18 +2513,18 @@ function parseRawAccountText(cleanText) {
 
   // 4. Extract Email or Phone or Username
   // 4.1 Explicit labels first (e.g. อีเมล: ... หรือ เบอร์: ...)
-  const emailLabelMatch = rawText.match(/(?:อีเมล|เมล|email|mail|user|username|บัญชี|ไอดี|id)[:\s\t\-=]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+  const emailLabelMatch = rawText.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:อีเมล|เมล|email|mail|user|username|บัญชี|ไอดี|id)(?:[:=]\s*|\s*-\s+|\s+)([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
   if (emailLabelMatch) {
     emailOrPhone = emailLabelMatch[1].trim();
   }
 
-  const phoneLabelMatch = rawText.match(/(?:เบอร์|โทร|tel|phone|mobile)[:\s\t\-=]+\s*([0-9\-]{9,12})/i);
+  const phoneLabelMatch = rawText.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:เบอร์|โทร|tel|phone|mobile)(?:[:=]\s*|\s*-\s+|\s+)([0-9\-]{9,12})/i);
   if (phoneLabelMatch) {
     emailOrPhone = phoneLabelMatch[1].replace(/[^0-9]/g, '').trim();
   }
 
   // 4.2 Explicit Password label
-  const pwLabelMatch = rawText.match(/(?:พาสเวิร์ด|พาส|Password|pass(?:word)?|รหัสผ่าน|รหัส|pw|pinmail|พินเมล)[:\s\t\-=]+\s*([^\s\n\r|/]+)/i);
+  const pwLabelMatch = rawText.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:พาสเวิร์ด|พาส|Password|pass(?:word)?|รหัสผ่าน|รหัส|pw|pinmail|พินเมล)(?:[:=]\s*|\s*-\s+|\s+)([^\s\n\r|/]+)/i);
   if (pwLabelMatch) {
     password = pwLabelMatch[1].trim();
   }
@@ -2631,18 +2631,18 @@ function parseMultiAccountText(cleanText) {
 function parseDisneyMasterAccountText(rawText) {
   const text = rawText.replace(/\u00A0/g, ' ');
   let email = "";
-  const emailMatch = text.match(/(?:Mail|เมล|email)[:\s\t\-]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i) ||
+  const emailMatch = text.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:Mail|เมล|email)(?:[:=]\s*|\s*-\s+|\s+)([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i) ||
     text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   if (emailMatch) email = (emailMatch[1] || emailMatch[0]).trim();
 
   let phone = "";
-  const phoneMatch = text.match(/(?:เบอร์|tel|phone)[:\s\t\-]*(\d{9,10})/i) ||
+  const phoneMatch = text.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:เบอร์|tel|phone)(?:[:=]\s*|\s*-\s+|\s+)*(\d{9,10})/i) ||
     text.match(/\b(0[689]\d{8})\b/);
   if (phoneMatch) phone = (phoneMatch[1] || phoneMatch[0]).trim();
 
   let password = "";
-  const pinMailMatch = text.match(/(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)[:\s\t\-]+([^\s\n\r]+)/i) ||
-    text.match(/(?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass)[:\s\t\-]+([^\s\n\r]+)/i);
+  const pinMailMatch = text.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:พินเมล|พินเมลล์|pin\s*mail|pinmail)(?:[:=]\s*|\s*-\s+|\s+)([^\s\n\r]+)/i) ||
+    text.match(/(?:^|[\s\r\n\(\[\{>]|(?<![-a-zA-Z0-9_]))(?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass)(?:[:=]\s*|\s*-\s+|\s+)([^\s\n\r]+)/i);
   if (pinMailMatch) password = (pinMailMatch[1] || pinMailMatch[0]).trim();
 
   const profiles = [];
