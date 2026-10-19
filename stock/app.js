@@ -3231,37 +3231,6 @@ function parseRawAccountText(cleanText) {
   return { emailOrPhone, password, expiryDateStr, otpUrl, netflixProfile };
 }
 
-function parseMultiAccountText(cleanText) {
-  const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const accounts = [];
-
-  for (const line of lines) {
-    // Ignore pure expiry or URL lines
-    if (/^(?:exp|หมดอายุ|หมด|date|http)/i.test(line)) continue;
-
-    const emailMatch = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    const phoneMatch = line.match(/\b(0[689]\d{8})\b/) || line.match(/\b(0\d{8,9})\b/);
-    const userIdentifier = emailMatch ? emailMatch[0].trim() : (phoneMatch ? phoneMatch[0].trim() : "");
-    if (!userIdentifier) continue;
-
-    let remaining = line.replace(userIdentifier, "").trim();
-    remaining = remaining.replace(/^[:|\s\-/,]+/, "").trim();
-
-    const parts = remaining.split(/[\s|:]+/).filter(Boolean);
-    const password = parts[0] || "";
-
-    if (password && password.length >= 4 && !password.includes("@") && !/^(?:exp|date|หมด)$/i.test(password)) {
-      const otpMatch = line.match(/(https?:\/\/[^\s\n\r]+)/i);
-      accounts.push({
-        email: userIdentifier,
-        password,
-        otp_url: otpMatch ? otpMatch[1].trim() : null
-      });
-    }
-  }
-
-  return accounts;
-}
 
 function parseDisneyMasterAccountText(rawText) {
   const text = rawText.replace(/\u00A0/g, ' ');
