@@ -4315,6 +4315,297 @@ function pickRandomCustomer() {
 }
 
 // ----------------------------------------------------------------------------
+// 👥 Co-Sharing Profile Detection & Helpers
+// ----------------------------------------------------------------------------
+
+function getBindingProfileGroupKey(b) {
+  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+  const app = (b.app_name || "").trim().toLowerCase();
+  const accId = b.account_id || "";
+  const displayId = details.displayId ? String(details.displayId).trim().toLowerCase() : "";
+  const profileName = details.profileName ? String(details.profileName).trim().toLowerCase() : "";
+  const email = details.email ? String(details.email).trim().toLowerCase() : "";
+
+  if (accId) {
+    return `${app}:::acc_${accId}:::${profileName || displayId || 'single'}`;
+  }
+  if (displayId) {
+    return `${app}:::disp_${displayId}:::${profileName || 'single'}`;
+  }
+  if (email && email !== '-') {
+    return `${app}:::email_${email}:::${profileName || 'single'}`;
+  }
+  return `single_${b.id}`;
+}
+
+function getBindingCoSharersInDb(b) {
+  if (!b || b.reverted || !rawBindings) return [];
+  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+  const bEmail = (details.email || "").toLowerCase().trim();
+  const bDisplayId = details.displayId ? String(details.displayId).toLowerCase().trim() : "";
+  const bProfile = (details.profileName || "").toLowerCase().trim();
+
+  return rawBindings.filter(other => {
+    if (other.id === b.id || other.reverted) return false;
+
+    // 1. Same account ID
+    if (b.account_id && other.account_id && b.account_id === other.account_id) {
+      const oAcc = allAccountsList.find(a => a.id === other.account_id);
+      const oDetails = extractBindingDetails(other, oAcc);
+      const oProfile = (oDetails.profileName || "").toLowerCase().trim();
+      const oDisplayId = oDetails.displayId ? String(oDetails.displayId).toLowerCase().trim() : "";
+      if (bDisplayId && oDisplayId && bDisplayId === oDisplayId) return true;
+      if (bProfile && oProfile && bProfile === oProfile) return true;
+      if (!bProfile && !oProfile) return true;
+    }
+
+    // 2. Same displayId (e.g. #4533)
+    if (bDisplayId) {
+      const oAcc = other.account_id ? allAccountsList.find(a => a.id === other.account_id) : null;
+      const oDetails = extractBindingDetails(other, oAcc);
+      const oDisplayId = oDetails.displayId ? String(oDetails.displayId).toLowerCase().trim() : "";
+      if (oDisplayId && oDisplayId === bDisplayId) return true;
+    }
+
+    // 3. Same email and profile
+    if (bEmail && bEmail !== "-") {
+      const oAcc = other.account_id ? allAccountsList.find(a => a.id === other.account_id) : null;
+      const oDetails = extractBindingDetails(other, oAcc);
+      const oEmail = (oDetails.email || "").toLowerCase().trim();
+      if (oEmail && oEmail === bEmail) {
+        const oProfile = (oDetails.profileName || "").toLowerCase().trim();
+        if (bProfile && oProfile && bProfile === oProfile) return true;
+      }
+    }
+
+    return false;
+  });
+}
+
+function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, coSharersInDb = []) {
+  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+  const appTheme = getAppTheme(b.app_name || "");
+
+  // Expiry calculation
+  let expiryDisplay = "ไม่ระบุวันหมดอายุ";
+  let countdownHtml = "";
+  let statusClass = "active";
+  let statusLabel = "🟢 กำลังใช้งาน";
+  let statusColor = "#3ecf8e";
+
+  if (b.reverted) {
+    statusClass = "reverted";
+    statusLabel = "⚪ ดีดคืนสต็อกแล้ว";
+    statusColor = "#94a3b8";
+  } else if (b.expiry_date) {
+    const expDate = new Date(b.expiry_date);
+    if (!isNaN(expDate.getTime())) {
+      const diffMs = expDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+      expiryDisplay = formatDateThai(expDate);
+
+      if (diffMs <= 0) {
+        statusClass = "expired";
+        statusLabel = "🔴 หมดอายุแล้ว";
+        statusColor = "#f87171";
+        countdownHtml = `<span class="binding-countdown danger btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว) ✏️</span>`;
+      } else if (diffHours <= 72) {
+        statusClass = "expired";
+        statusLabel = `⏰ เหลืออีก ${diffHours} ชม.`;
+        statusColor = "#fb923c";
+        countdownHtml = `<span class="binding-countdown warning btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⚠️ ใกล้หมดอายุ (เหลือ ${diffHours} ชม.) ✏️</span>`;
+      } else {
+        statusClass = "active";
+        statusLabel = `🟢 เหลือ ${diffDays} วัน`;
+        statusColor = "#3ecf8e";
+        countdownHtml = `<span class="binding-countdown safe btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⏳ เหลืออีก ${diffDays} วัน ✏️</span>`;
+      }
+    }
+  }
+
+  const createdDisplay = b.created_at ? formatDateThai(new Date(b.created_at)) : "-";
+  const customerInitial = (b.customer_name || "C").trim().charAt(0).toUpperCase();
+  const customerWebappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
+
+  const isClusterMember = memberIndex >= 0 && totalMembers > 1;
+
+  const card = document.createElement("div");
+  card.className = `binding-card ${b.reverted ? 'reverted-card' : ''} ${isClusterMember ? 'binding-shared-member-card' : ''}`;
+  card.dataset.bindingId = b.id;
+  if (isClusterMember) {
+    card.style.borderLeft = `4px solid ${statusColor}`;
+  }
+
+  let topNoticeHtml = "";
+  if (isClusterMember) {
+    topNoticeHtml = `
+      <div class="binding-member-header-strip">
+        <span class="binding-member-seq">
+          👤 ลูกค้าท่านที่ <b>${memberIndex + 1}</b> จากทั้งหมด <b>${totalMembers}</b> ท่าน (ใช้จอนี้ร่วมกัน)
+        </span>
+        <span class="binding-member-share-tag">👥 จอร่วม</span>
+      </div>
+    `;
+  } else if (coSharersInDb && coSharersInDb.length > 0) {
+    topNoticeHtml = `
+      <div class="binding-co-sharers-notice-banner" data-screen-id="${details.displayId || ''}" title="คลิกเพื่อดูเพื่อนร่วมจอนี้ทั้งหมด">
+        <span style="font-size: 14px;">👥</span>
+        <span style="flex: 1;">โปรไฟล์นี้มีลูกค้าแชร์ร่วมอีก <b>${coSharersInDb.length} ท่าน</b> (${coSharersInDb.map(c => escapeHtml(c.customer_name || 'ลูกค้า')).join(', ')})</span>
+        ${details.displayId ? `<span class="btn-search-this-screen" style="margin-left: auto; background: rgba(168, 85, 247, 0.25); border: 1px solid rgba(168, 85, 247, 0.5); color: #e9d5ff; padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer; font-weight: 700;">🔍 ดูทุกคน (#${details.displayId})</span>` : ''}
+      </div>
+    `;
+  }
+
+  card.innerHTML = `
+    ${topNoticeHtml}
+
+    <!-- Header: Customer Info & Status -->
+    <div class="binding-card-header">
+      <div class="binding-customer-title">
+        <div class="binding-avatar btn-copy-cred" data-copy="${escapeHtml(b.customer_name || '')}" data-label="ชื่อลูกค้า" title="คลิกหรือแตะเพื่อคัดลอกชื่อลูกค้า: ${escapeHtml(b.customer_name || '')}" style="cursor: pointer;">${escapeHtml(customerInitial)}</div>
+        <div class="binding-cust-names">
+          <span class="binding-name-text">
+            <span class="binding-customer-name-click btn-copy-cred" data-copy="${escapeHtml(b.customer_name || '')}" data-label="ชื่อลูกค้า" title="คลิกหรือกดเพื่อคัดลอกชื่อลูกค้า: ${escapeHtml(b.customer_name || '')}" style="cursor: pointer;">👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
+            ${b.customer_name ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(b.customer_name)}" data-label="ชื่อลูกค้า" title="คัดลอกชื่อลูกค้า">📋</button>` : ''}
+          </span>
+          <span class="binding-sub-id btn-copy-cred" data-copy="${escapeHtml(b.id || '')}" data-label="ID สิทธิ์" title="แตะเพื่อคัดลอก ID สิทธิ์เต็ม" style="cursor: pointer;">ID: ${escapeHtml((b.id || '').substring(0, 8))}... 📋</span>
+        </div>
+      </div>
+      <div class="binding-header-right-badges">
+        <span class="binding-screen-tag">
+          <span>📺</span>
+          <span>${details.displayId ? '#' + escapeHtml(details.displayId) : 'จอสต็อก'}</span>
+        </span>
+        <span class="binding-status-pill ${statusClass}">${statusLabel}</span>
+      </div>
+    </div>
+
+    <!-- App & Package Banner -->
+    <div class="binding-app-banner">
+      <div class="binding-app-left">
+        <span class="binding-app-badge" style="background:${appTheme.gradient}; border-color:${appTheme.border};">
+          ${appTheme.icon} ${escapeHtml(b.app_name || 'แอปพรีเมียม')}
+        </span>
+        <span class="binding-pkg-title">${escapeHtml(b.package_name || 'แพ็กเกจ')}</span>
+      </div>
+      <div>
+        <span class="binding-price-badge">${b.price_paid ? b.price_paid + '฿' : 'ฟรี'} • ${b.days || 30} วัน</span>
+      </div>
+    </div>
+
+    <!-- Credentials Box -->
+    <div class="binding-creds-box">
+      <div class="binding-cred-row">
+        <span class="binding-cred-label">✉️ อีเมล / บัญชี:</span>
+        <div class="binding-cred-val-group">
+          <span class="binding-email-text" style="color: #38bdf8;">${escapeHtml(details.email || '-')}</span>
+          ${details.email ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.email)}" data-label="อีเมล" title="คัดลอกอีเมล">📋</button>` : ''}
+        </div>
+      </div>
+
+      <div class="binding-cred-row">
+        <span class="binding-cred-label">🔑 รหัสผ่าน:</span>
+        <div class="binding-cred-val-group">
+          <span class="binding-pwd-text" data-password="${escapeHtml(details.password || '')}">${isPasswordHidden ? '••••••••' : escapeHtml(details.password || '-')}</span>
+          ${details.password ? `
+            <button type="button" class="binding-mini-btn btn-toggle-card-pwd" title="ซ่อน/แสดงรหัส">👁️</button>
+            <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.password)}" data-label="รหัสผ่าน" title="คัดลอกรหัสผ่าน">📋</button>
+          ` : ''}
+          <button type="button" class="binding-mini-btn btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขรหัสผ่าน / สุ่มใหม่">✏️</button>
+        </div>
+      </div>
+
+      <div class="binding-cred-row">
+        <span class="binding-cred-label">👤 จอ / โปรไฟล์:</span>
+        <div class="binding-cred-val-group">
+          <span>${escapeHtml(details.profileName || 'จอ 1')}</span>
+          ${details.pinCode ? `
+            <span style="color: #a855f7; margin-left: 4px;">[PIN: ${escapeHtml(details.pinCode)}]</span>
+            <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.pinCode)}" data-label="PIN" title="คัดลอก PIN">📋</button>
+          ` : '<span style="color: var(--text-dim); font-size:10px;">(ไม่มี PIN)</span>'}
+          <button type="button" class="binding-mini-btn btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขข้อมูล / เปลี่ยน / สุ่ม PIN">✏️</button>
+        </div>
+      </div>
+
+      <div class="binding-cred-row">
+        <span class="binding-cred-label">📱 อุปกรณ์:</span>
+        <span style="color: var(--text-muted); font-size: 11px;">${escapeHtml(details.deviceType || 'มือถือ / PC')}</span>
+      </div>
+
+      ${details.otpUrl ? `
+        <div class="binding-cred-row" style="margin-top: 2px;">
+          <span class="binding-cred-label">🌐 เว็บรับ OTP:</span>
+          <a href="${escapeHtml(details.otpUrl)}" target="_blank" class="binding-mini-btn" style="color: #34d399; border-color: rgba(52, 211, 153, 0.4); text-decoration: none;">
+            เปิดเว็บ OTP ↗
+          </a>
+        </div>
+      ` : ''}
+    </div>
+
+    <!-- Timeline & Expiry Box (Click to edit expiry date with Thai Datepicker) -->
+    <div class="binding-timeline-box">
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <span>📅 เริ่ม: ${createdDisplay}</span>
+        <span class="binding-timeline-expiry-row btn-edit-binding-expiry" data-binding-id="${b.id}" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">
+          <span>⏰ หมดอายุ: <strong class="binding-expiry-text">${expiryDisplay}</strong></span>
+          <span class="binding-edit-expiry-icon" title="คลิกเพื่อเลือกวันเวลาหมดอายุ">
+            <span>✏️</span><span>แก้ไข</span>
+          </span>
+        </span>
+      </div>
+      <div>
+        ${countdownHtml}
+      </div>
+    </div>
+
+    <!-- Customer Communication Links -->
+    <div class="binding-links-row">
+      ${b.chat_url ? `
+        <a href="${escapeHtml(b.chat_url)}" target="_blank" class="binding-link-btn chat" title="เปิดห้องแชท LINE OA ของลูกค้านี้">
+          <span>💬</span><span>แชท LINE</span>
+        </a>
+      ` : `
+        <button type="button" class="binding-link-btn chat" style="opacity: 0.5; cursor: not-allowed;" title="ไม่มีลิงก์แชท">
+          <span>💬</span><span>ไม่มีแชท</span>
+        </button>
+      `}
+      <a href="${customerWebappUrl}" target="_blank" class="binding-link-btn webapp" title="เปิดดูหน้าเว็บแอปลูกค้า">
+        <span>📱</span><span>WebApp</span>
+      </a>
+      <button type="button" class="binding-link-btn copy-script btn-copy-handover" data-binding-id="${b.id}" title="คัดลอกสคริปต์ส่งมอบข้อมูลสิทธิ์ให้ลูกค้า">
+        <span>📋</span><span>1-Tap ส่งมอบ</span>
+      </button>
+    </div>
+
+    <!-- Troubleshooting & Management Action Bar -->
+    <div class="binding-troubleshoot-bar">
+      <button type="button" class="binding-action-btn swap btn-action-swap" data-binding-id="${b.id}" title="เคลมจอ หรือย้ายไปใช้บัญชีอื่นจากคลัง">
+        <span>🔄</span><span>เคลมจอ</span>
+      </button>
+      <button type="button" class="binding-action-btn edit btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขข้อมูล: สุ่ม PIN, เปลี่ยนรหัสผ่าน, จอ, อุปกรณ์">
+        <span>✏️</span><span>แก้ไข</span>
+      </button>
+      <button type="button" class="binding-action-btn revert btn-action-revert" data-binding-id="${b.id}" title="ดีดคืนสต็อก / ปลดสิทธิ์ออกจากลูกค้า">
+        <span>↩️</span><span>ดีดคืนคลัง</span>
+      </button>
+      <button type="button" class="binding-action-btn extend btn-action-extend" data-binding-id="${b.id}" title="ต่ออายุสิทธิ์ +วัน">
+        <span>➕</span><span>ต่ออายุ</span>
+      </button>
+      <button type="button" class="binding-action-btn broken btn-action-broken" data-binding-id="${b.id}" title="ทำเครื่องหมายว่าจอมีปัญหา">
+        <span>⚠️</span><span>แจ้งเสีย</span>
+      </button>
+    </div>
+  `;
+
+  return card;
+}
+
+// ----------------------------------------------------------------------------
 // 🖥️ Render Bindings Feed
 // ----------------------------------------------------------------------------
 function renderBindingsFeed() {
@@ -4372,193 +4663,71 @@ function renderBindingsFeed() {
 
   const displayedItems = filtered.slice(0, bindingsRenderLimit);
 
+  // Group displayed items by shared profile key
+  const groups = [];
+  const groupMap = new Map();
+
   displayedItems.forEach(b => {
-    const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
-    const details = extractBindingDetails(b, linkedAcc);
-    const appTheme = getAppTheme(b.app_name || "");
-
-    // Expiry calculation
-    let expiryDisplay = "ไม่ระบุวันหมดอายุ";
-    let countdownHtml = "";
-    let statusClass = "active";
-    let statusLabel = "🟢 กำลังใช้งาน";
-
-    if (b.reverted) {
-      statusClass = "reverted";
-      statusLabel = "⚪ ดีดคืนสต็อกแล้ว";
-    } else if (b.expiry_date) {
-      const expDate = new Date(b.expiry_date);
-      if (!isNaN(expDate.getTime())) {
-        const diffMs = expDate.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-
-        expiryDisplay = formatDateThai(expDate);
-
-        if (diffMs <= 0) {
-          statusClass = "expired";
-          statusLabel = "🔴 หมดอายุแล้ว";
-          countdownHtml = `<span class="binding-countdown danger btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว) ✏️</span>`;
-        } else if (diffHours <= 72) {
-          statusClass = "expired";
-          statusLabel = `⏰ เหลืออีก ${diffHours} ชม.`;
-          countdownHtml = `<span class="binding-countdown warning btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⚠️ ใกล้หมดอายุ (เหลือ ${diffHours} ชม.) ✏️</span>`;
-        } else {
-          statusClass = "active";
-          statusLabel = `🟢 เหลือ ${diffDays} วัน`;
-          countdownHtml = `<span class="binding-countdown safe btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⏳ เหลืออีก ${diffDays} วัน ✏️</span>`;
-        }
-      }
+    const key = getBindingProfileGroupKey(b);
+    if (!groupMap.has(key)) {
+      const g = { key, items: [] };
+      groupMap.set(key, g);
+      groups.push(g);
     }
+    groupMap.get(key).items.push(b);
+  });
 
-    const createdDisplay = b.created_at ? formatDateThai(new Date(b.created_at)) : "-";
-    const customerInitial = (b.customer_name || "C").trim().charAt(0).toUpperCase();
-    const customerWebappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
+  groups.forEach(g => {
+    if (g.items.length > 1) {
+      // 👥 Multiple customers sharing the exact same profile in this feed view
+      const firstB = g.items[0];
+      const linkedAcc = firstB.account_id ? allAccountsList.find(a => a.id === firstB.account_id) : null;
+      const details = extractBindingDetails(firstB, linkedAcc);
 
-    const card = document.createElement("div");
-    card.className = `binding-card ${b.reverted ? 'reverted-card' : ''}`;
-    card.dataset.bindingId = b.id;
+      const cluster = document.createElement("div");
+      cluster.className = "binding-shared-group-container";
 
-    card.innerHTML = `
-      <!-- Header: Customer Info & Status -->
-      <div class="binding-card-header">
-        <div class="binding-customer-title">
-          <div class="binding-avatar btn-copy-cred" data-copy="${escapeHtml(b.customer_name || '')}" data-label="ชื่อลูกค้า" title="คลิกหรือแตะเพื่อคัดลอกชื่อลูกค้า: ${escapeHtml(b.customer_name || '')}" style="cursor: pointer;">${escapeHtml(customerInitial)}</div>
-          <div class="binding-cust-names">
-            <span class="binding-name-text">
-              <span class="binding-customer-name-click btn-copy-cred" data-copy="${escapeHtml(b.customer_name || '')}" data-label="ชื่อลูกค้า" title="คลิกหรือกดเพื่อคัดลอกชื่อลูกค้า: ${escapeHtml(b.customer_name || '')}" style="cursor: pointer;">👤 คุณ ${escapeHtml(b.customer_name || 'ลูกค้า')}</span>
-              ${b.customer_name ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(b.customer_name)}" data-label="ชื่อลูกค้า" title="คัดลอกชื่อลูกค้า">📋</button>` : ''}
-            </span>
-            <span class="binding-sub-id btn-copy-cred" data-copy="${escapeHtml(b.id || '')}" data-label="ID สิทธิ์" title="แตะเพื่อคัดลอก ID สิทธิ์เต็ม" style="cursor: pointer;">ID: ${escapeHtml((b.id || '').substring(0, 8))}... 📋</span>
+      cluster.innerHTML = `
+        <div class="binding-shared-group-header">
+          <div class="binding-shared-header-left">
+            <div class="binding-shared-icon-pulse">
+              <span>👥</span>
+            </div>
+            <div class="binding-shared-title-wrap">
+              <div class="binding-shared-main-title">
+                <span>ลูกค้าแชร์โปรไฟล์เดียวกัน</span>
+                <span class="binding-shared-count-pill">${g.items.length} ท่าน</span>
+                <span class="binding-shared-warning-pill">⚠️ โปรไฟล์เดียว มีหลายลูกค้า</span>
+              </div>
+              <div class="binding-shared-sub-info">
+                <span class="binding-shared-info-chip">📺 จอ ${details.displayId ? '#' + escapeHtml(details.displayId) : 'สต็อก'}</span>
+                ${details.profileName ? `<span class="binding-shared-info-chip">👤 ${escapeHtml(details.profileName)}</span>` : ''}
+                ${details.email ? `<span class="binding-shared-info-chip" style="color: #38bdf8;">✉️ ${escapeHtml(details.email)}</span>` : ''}
+                ${details.pinCode ? `<span class="binding-shared-info-chip" style="color: #c084fc;">🔑 PIN: ${escapeHtml(details.pinCode)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="binding-shared-header-right">
+            <span class="binding-shared-pill">แชร์จอร่วมกัน (${g.items.length} คน)</span>
           </div>
         </div>
-        <div class="binding-header-right-badges">
-          <span class="binding-screen-tag">
-            <span>📺</span>
-            <span>${details.displayId ? '#' + escapeHtml(details.displayId) : 'จอสต็อก'}</span>
-          </span>
-          <span class="binding-status-pill ${statusClass}">${statusLabel}</span>
-        </div>
-      </div>
+        <div class="binding-shared-members-list"></div>
+      `;
 
-      <!-- App & Package Banner -->
-      <div class="binding-app-banner">
-        <div class="binding-app-left">
-          <span class="binding-app-badge" style="background:${appTheme.gradient}; border-color:${appTheme.border};">
-            ${appTheme.icon} ${escapeHtml(b.app_name || 'แอปพรีเมียม')}
-          </span>
-          <span class="binding-pkg-title">${escapeHtml(b.package_name || 'แพ็กเกจ')}</span>
-        </div>
-        <div>
-          <span class="binding-price-badge">${b.price_paid ? b.price_paid + '฿' : 'ฟรี'} • ${b.days || 30} วัน</span>
-        </div>
-      </div>
+      const membersList = cluster.querySelector(".binding-shared-members-list");
+      g.items.forEach((item, idx) => {
+        const card = createBindingCardElement(item, now, idx, g.items.length, []);
+        membersList.appendChild(card);
+      });
 
-      <!-- Credentials Box -->
-      <div class="binding-creds-box">
-        <div class="binding-cred-row">
-          <span class="binding-cred-label">✉️ อีเมล / บัญชี:</span>
-          <div class="binding-cred-val-group">
-            <span class="binding-email-text" style="color: #38bdf8;">${escapeHtml(details.email || '-')}</span>
-            ${details.email ? `<button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.email)}" data-label="อีเมล" title="คัดลอกอีเมล">📋</button>` : ''}
-          </div>
-        </div>
-
-        <div class="binding-cred-row">
-          <span class="binding-cred-label">🔑 รหัสผ่าน:</span>
-          <div class="binding-cred-val-group">
-            <span class="binding-pwd-text" data-password="${escapeHtml(details.password || '')}">${isPasswordHidden ? '••••••••' : escapeHtml(details.password || '-')}</span>
-            ${details.password ? `
-              <button type="button" class="binding-mini-btn btn-toggle-card-pwd" title="ซ่อน/แสดงรหัส">👁️</button>
-              <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.password)}" data-label="รหัสผ่าน" title="คัดลอกรหัสผ่าน">📋</button>
-            ` : ''}
-            <button type="button" class="binding-mini-btn btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขรหัสผ่าน / สุ่มใหม่">✏️</button>
-          </div>
-        </div>
-
-        <div class="binding-cred-row">
-          <span class="binding-cred-label">👤 จอ / โปรไฟล์:</span>
-          <div class="binding-cred-val-group">
-            <span>${escapeHtml(details.profileName || 'จอ 1')}</span>
-            ${details.pinCode ? `
-              <span style="color: #a855f7; margin-left: 4px;">[PIN: ${escapeHtml(details.pinCode)}]</span>
-              <button type="button" class="binding-mini-btn btn-copy-cred" data-copy="${escapeHtml(details.pinCode)}" data-label="PIN" title="คัดลอก PIN">📋</button>
-            ` : '<span style="color: var(--text-dim); font-size:10px;">(ไม่มี PIN)</span>'}
-            <button type="button" class="binding-mini-btn btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขข้อมูล / เปลี่ยน / สุ่ม PIN">✏️</button>
-          </div>
-        </div>
-
-        <div class="binding-cred-row">
-          <span class="binding-cred-label">📱 อุปกรณ์:</span>
-          <span style="color: var(--text-muted); font-size: 11px;">${escapeHtml(details.deviceType || 'มือถือ / PC')}</span>
-        </div>
-
-        ${details.otpUrl ? `
-          <div class="binding-cred-row" style="margin-top: 2px;">
-            <span class="binding-cred-label">🌐 เว็บรับ OTP:</span>
-            <a href="${escapeHtml(details.otpUrl)}" target="_blank" class="binding-mini-btn" style="color: #34d399; border-color: rgba(52, 211, 153, 0.4); text-decoration: none;">
-              เปิดเว็บ OTP ↗
-            </a>
-          </div>
-        ` : ''}
-      </div>
-
-      <!-- Timeline & Expiry Box (Click to edit expiry date with Thai Datepicker) -->
-      <div class="binding-timeline-box">
-        <div style="display: flex; flex-direction: column; gap: 3px;">
-          <span>📅 เริ่ม: ${createdDisplay}</span>
-          <span class="binding-timeline-expiry-row btn-edit-binding-expiry" data-binding-id="${b.id}" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">
-            <span>⏰ หมดอายุ: <strong class="binding-expiry-text">${expiryDisplay}</strong></span>
-            <span class="binding-edit-expiry-icon" title="คลิกเพื่อเลือกวันเวลาหมดอายุ">
-              <span>✏️</span><span>แก้ไข</span>
-            </span>
-          </span>
-        </div>
-        <div>
-          ${countdownHtml}
-        </div>
-      </div>
-
-      <!-- Customer Communication Links -->
-      <div class="binding-links-row">
-        ${b.chat_url ? `
-          <a href="${escapeHtml(b.chat_url)}" target="_blank" class="binding-link-btn chat" title="เปิดห้องแชท LINE OA ของลูกค้านี้">
-            <span>💬</span><span>แชท LINE</span>
-          </a>
-        ` : `
-          <button type="button" class="binding-link-btn chat" style="opacity: 0.5; cursor: not-allowed;" title="ไม่มีลิงก์แชท">
-            <span>💬</span><span>ไม่มีแชท</span>
-          </button>
-        `}
-        <a href="${customerWebappUrl}" target="_blank" class="binding-link-btn webapp" title="เปิดดูหน้าเว็บแอปลูกค้า">
-          <span>📱</span><span>WebApp</span>
-        </a>
-        <button type="button" class="binding-link-btn copy-script btn-copy-handover" data-binding-id="${b.id}" title="คัดลอกสคริปต์ส่งมอบข้อมูลสิทธิ์ให้ลูกค้า">
-          <span>📋</span><span>1-Tap ส่งมอบ</span>
-        </button>
-      </div>
-
-      <!-- Troubleshooting & Management Action Bar -->
-      <div class="binding-troubleshoot-bar">
-        <button type="button" class="binding-action-btn swap btn-action-swap" data-binding-id="${b.id}" title="เคลมจอ หรือย้ายไปใช้บัญชีอื่นจากคลัง">
-          <span>🔄</span><span>เคลมจอ</span>
-        </button>
-        <button type="button" class="binding-action-btn edit btn-action-edit-creds" data-binding-id="${b.id}" title="แก้ไขข้อมูล: สุ่ม PIN, เปลี่ยนรหัสผ่าน, จอ, อุปกรณ์">
-          <span>✏️</span><span>แก้ไข</span>
-        </button>
-        <button type="button" class="binding-action-btn revert btn-action-revert" data-binding-id="${b.id}" title="ดีดคืนสต็อก / ปลดสิทธิ์ออกจากลูกค้า">
-          <span>↩️</span><span>ดีดคืนคลัง</span>
-        </button>
-        <button type="button" class="binding-action-btn extend btn-action-extend" data-binding-id="${b.id}" title="ต่ออายุสิทธิ์ +วัน">
-          <span>➕</span><span>ต่ออายุ</span>
-        </button>
-        <button type="button" class="binding-action-btn broken btn-action-broken" data-binding-id="${b.id}" title="ทำเครื่องหมายว่าจอมีปัญหา">
-          <span>⚠️</span><span>แจ้งเสีย</span>
-        </button>
-      </div>
-    `;
-
-    feed.appendChild(card);
+      feed.appendChild(cluster);
+    } else {
+      // Single customer card
+      const b = g.items[0];
+      const coSharersInDb = getBindingCoSharersInDb(b);
+      const card = createBindingCardElement(b, now, -1, 1, coSharersInDb);
+      feed.appendChild(card);
+    }
   });
 
   // Load More Button if more items exist
@@ -4628,6 +4797,25 @@ function initTroubleshootingModalListeners() {
         e.stopPropagation();
         const bId = editExpBtn.dataset.bindingId;
         if (bId) handleEditBindingExpiry(bId);
+        return;
+      }
+
+      // 1.6. Search Screen Shortcut from Co-Sharers Notice
+      const noticeBanner = e.target.closest(".binding-co-sharers-notice-banner, .btn-search-this-screen");
+      if (noticeBanner) {
+        e.stopPropagation();
+        const targetScreenId = noticeBanner.closest("[data-screen-id]")?.dataset.screenId || noticeBanner.dataset.screenId;
+        if (targetScreenId) {
+          const topSearch = document.getElementById("search-input");
+          const topClear = document.getElementById("search-clear");
+          if (topSearch) {
+            topSearch.value = "#" + targetScreenId;
+            bindingSearchQuery = "#" + targetScreenId;
+            if (topClear) topClear.style.display = "block";
+            renderBindingsFeed();
+            showToast(`🔍 ค้นหาจอ #${targetScreenId} เพื่อแสดงลูกค้าที่แชร์ร่วมกันทั้งหมด`);
+          }
+        }
         return;
       }
 
