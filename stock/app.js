@@ -4540,7 +4540,7 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
       ${details.otpUrl ? `
         <div class="binding-cred-row" style="margin-top: 2px;">
           <span class="binding-cred-label">🌐 เว็บรับ OTP:</span>
-          <a href="${escapeHtml(details.otpUrl)}" target="_blank" class="binding-mini-btn" style="color: #34d399; border-color: rgba(52, 211, 153, 0.4); text-decoration: none;">
+          <a href="${escapeHtml(details.otpUrl)}" target="_blank" class="binding-mini-btn" style="color: #34d399; border-color: rgba(52, 211, 153, 0.4); text-decoration: none;" title="คลิกเพื่อคัดลอกลิงก์และเปิดเว็บรับ OTP">
             เปิดเว็บ OTP ↗
           </a>
         </div>
@@ -4789,6 +4789,17 @@ function initTroubleshootingModalListeners() {
           }
         }
         return;
+      }
+
+      // 1.2. Copy OTP Portal URL on a.binding-mini-btn click
+      const otpLink = e.target.closest("a.binding-mini-btn");
+      if (otpLink) {
+        const linkUrl = otpLink.getAttribute("href");
+        if (linkUrl && linkUrl !== "#" && !linkUrl.startsWith("javascript:")) {
+          haptic();
+          copyToClipboard(linkUrl);
+          showToast(`📋 คัดลอกลิงก์เว็บรับ OTP เรียบร้อยแล้ว!`);
+        }
       }
 
       // 1.5. Edit Customer Expiry Date directly via Thai Datepicker (div.binding-timeline-box)
