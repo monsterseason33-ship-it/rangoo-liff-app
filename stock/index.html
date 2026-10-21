@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=2.2">
+  <link rel="stylesheet" href="styles.css?v=2.3">
 </head>
 
 <body>
@@ -821,22 +821,42 @@
 
       <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
         
-        <!-- Captured Package & Device Selection Card -->
-        <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">🛍️ แพ็กเกจที่เลือกจับคู่:</span>
-            <select id="disney-wizard-pkg-select" class="prem-select" style="width: 175px; margin-bottom: 0; padding: 3px 8px; font-size: 11px; height: 26px; border-radius: 6px; background: rgba(0,0,0,0.4); border-color: rgba(56, 189, 248, 0.3); color: #34d399; font-weight: 700;">
-              <option value="">-- ออโต้ / ตามสต็อก --</option>
-            </select>
+        <!-- Captured Package & Device Selection Card (Modern & Mobile Responsive) -->
+        <div class="disney-wizard-config-card">
+          <div class="disney-pkg-config-row">
+            <div class="disney-pkg-config-header">
+              <span class="disney-pkg-label">
+                <span class="disney-pkg-icon">🛍️</span>
+                <span class="disney-pkg-title">แพ็กเกจที่เลือกจับคู่:</span>
+              </span>
+              <span class="disney-pkg-badge">Auto Stock</span>
+            </div>
+            <div class="disney-custom-select-wrap">
+              <select id="disney-wizard-pkg-select" class="prem-select disney-wizard-pkg-custom-select" title="เลือกแพ็กเกจ Disney+ ที่ต้องการจับคู่">
+                <option value="">-- ออโต้ / ตามสต็อก --</option>
+              </select>
+              <span class="disney-select-arrow" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+              </span>
+            </div>
           </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.25); padding: 5px 8px; border-radius: 6px;">
-            <span style="font-size: 11px; color: var(--text-dim);">เลือกอุปกรณ์ที่ลูกค้าใช้:</span>
-            <select id="wizard-bind-device-select" class="prem-select" style="width: 140px; margin-bottom: 0; padding: 3px 8px; font-size: 11px; height: 26px; border-radius: 6px; background: rgba(0,0,0,0.4); border-color: rgba(56, 189, 248, 0.3); color: #f1f5f9; font-weight: 600;">
-              <option value="มือถือ">📱 มือถือ</option>
-              <option value="สมาร์ททีวี" selected>📺 สมาร์ททีวี</option>
-              <option value="ไอแพด">🍎 ไอแพด</option>
-              <option value="คอมพิวเตอร์">💻 คอมพิวเตอร์</option>
-            </select>
+          <div class="disney-device-config-row">
+            <span class="disney-device-label">เลือกอุปกรณ์ที่ลูกค้าใช้:</span>
+            <div class="disney-device-select-wrap">
+              <select id="wizard-bind-device-select" class="prem-select disney-wizard-device-custom-select" title="เลือกอุปกรณ์ที่ลูกค้าใช้งาน">
+                <option value="มือถือ">📱 มือถือ</option>
+                <option value="สมาร์ททีวี" selected>📺 สมาร์ททีวี</option>
+                <option value="ไอแพด">🍎 ไอแพด</option>
+                <option value="คอมพิวเตอร์">💻 คอมพิวเตอร์</option>
+              </select>
+              <span class="disney-select-arrow" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+              </span>
+            </div>
           </div>
         </div>
 
