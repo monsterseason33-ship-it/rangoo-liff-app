@@ -7334,6 +7334,197 @@ async function syncDisneyScriptsToSupabase(callback) {
   }
 }
 
+// ----------------------------------------------------------------------------
+// Disney Wizard: Package Purchase Link & Sync Helpers
+// ----------------------------------------------------------------------------
+
+function findDisneyPackageByName(pkgName) {
+  if (!pkgName || !rawPackages || !rawPackages.length) return null;
+  const targetName = String(pkgName).trim().toLowerCase();
+  if (!targetName) return null;
+
+  // 1. Try matching within current Disney app if known
+  if (disneyWizardState.appId) {
+    const pkg = rawPackages.find(p => p.app_id === disneyWizardState.appId && (p.name || "").trim().toLowerCase() === targetName);
+    if (pkg) return pkg;
+  }
+
+  // 2. Fallback to any package matching this name
+  const fallback = rawPackages.find(p => (p.name || "").trim().toLowerCase() === targetName);
+  if (fallback) return fallback;
+
+  return null;
+}
+
+function getDisneyPackagePurchaseLink(pkg) {
+  if (!pkg) return null;
+  const rawLink = (pkg.profile_purchase_link || pkg.account_purchase_link || "").trim();
+  if (!rawLink) return null;
+  if (/^https?:\/\//i.test(rawLink)) return rawLink;
+  return `https://${rawLink}`;
+}
+
+function updateDisneyWizardPackagePurchaseUI() {
+  const pkgSelect = document.getElementById("disney-wizard-pkg-select");
+  const purchaseBar = document.getElementById("disney-pkg-purchase-bar");
+  const emptyBar = document.getElementById("disney-pkg-purchase-empty-bar");
+  const btnBuy = document.getElementById("btn-disney-wizard-buy-pkg");
+  const titleEl = document.getElementById("disney-pkg-purchase-main-title");
+  const previewEl = document.getElementById("disney-pkg-purchase-url-preview");
+
+  if (!pkgSelect || !purchaseBar || !emptyBar) return;
+
+  const selectedName = (pkgSelect.value || "").trim();
+
+  // If user selected "-- ออโต้ / ตามสต็อก --" (empty string)
+  if (!selectedName) {
+    purchaseBar.style.display = "none";
+    emptyBar.style.display = "none";
+    if (btnBuy) btnBuy.removeAttribute("data-href");
+    return;
+  }
+
+  const pkg = findDisneyPackageByName(selectedName);
+  const link = getDisneyPackagePurchaseLink(pkg);
+
+  if (link) {
+    // Show purchase button bar with smooth animation, hide empty state notice
+    emptyBar.style.display = "none";
+    purchaseBar.style.display = "flex";
+
+    let domain = "เว็บสั่งซื้อ";
+    try {
+      const urlObj = new URL(link);
+      domain = urlObj.hostname.replace(/^www\./i, "");
+    } catch (e) {
+      domain = link.replace(/^https?:\/\//i, "").split("/")[0] || "เว็บสั่งซื้อ";
+    }
+
+    if (titleEl) {
+      titleEl.textContent = `สั่งซื้อแพ็กเกจ ${selectedName}`;
+    }
+    if (previewEl) {
+      previewEl.textContent = `เปิดหน้าเว็บสั่งซื้อ (${domain}) ↗`;
+    }
+    if (btnBuy) {
+      btnBuy.setAttribute("data-href", link);
+      btnBuy.title = `คลิกเพื่อเปิดหน้าสั่งซื้อ: ${link}`;
+    }
+  } else {
+    // Show empty notice that this package doesn't have a purchase link yet
+    purchaseBar.style.display = "none";
+    emptyBar.style.display = "flex";
+    if (btnBuy) btnBuy.removeAttribute("data-href");
+  }
+}
+
+function handleOpenDisneyPackagePurchaseLink(e) {
+  if (e) e.preventDefault();
+  haptic();
+
+  const btnBuy = document.getElementById("btn-disney-wizard-buy-pkg");
+  const link = btnBuy?.getAttribute("data-href");
+
+  if (!link) {
+    showToast("⚠️ ไม่พบลิงก์สั่งซื้อสำหรับแพ็กเกจนี้ กรุณาตั้งค่าในส่วนขยาย", "warning");
+    return;
+  }
+
+  showToast("🛒 กำลังเปิดหน้าเว็บสั่งซื้อ...", "info");
+
+  // Open smoothly in external window/tab
+  try {
+    const win = window.open(link, "_blank", "noopener,noreferrer");
+    if (!win) {
+      window.location.href = link;
+    }
+  } catch (err) {
+    window.location.href = link;
+  }
+}
+
+async function fetchFreshPackagesFromDb() {
+  if (!currentShop || !currentShop.url) return rawPackages;
+  const t = Date.now();
+  if (currentShop.type === "supabase") {
+    const headers = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache"
+    };
+    const res = await fetch(`${currentShop.url}/rest/v1/packages?select=*&_t=${t}`, { headers });
+    if (!res.ok) throw new Error("Supabase Packages API error: " + res.status);
+    return await res.json();
+  } else {
+    const headers = {
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache"
+    };
+    const res = await fetch(`${currentShop.url}/api/packages?cache=false&_t=${t}`, { headers });
+    if (!res.ok) throw new Error("Worker Packages API error: " + res.status);
+    return await res.json();
+  }
+}
+
+async function syncDisneyPackagePurchaseLinks() {
+  haptic();
+  const syncBtn = document.getElementById("btn-sync-disney-pkg-links");
+  const inlineSyncBtn = document.getElementById("btn-sync-disney-pkg-links-inline");
+
+  if (syncBtn) syncBtn.classList.add("spinning");
+  if (inlineSyncBtn) inlineSyncBtn.classList.add("spinning");
+
+  showToast("🔄 กำลังซิงค์ข้อมูลลิงก์ซื้อจากส่วนขยาย/ระบบ...", "info");
+
+  try {
+    const freshPkgs = await fetchFreshPackagesFromDb();
+    if (freshPkgs && Array.isArray(freshPkgs)) {
+      rawPackages = freshPkgs;
+
+      const pkgSelect = document.getElementById("disney-wizard-pkg-select");
+      const currentVal = pkgSelect ? pkgSelect.value : "";
+
+      // Re-populate package selector options
+      if (pkgSelect) {
+        pkgSelect.innerHTML = `<option value="">-- ออโต้ / ตามสต็อก --</option>`;
+        const matchingPkgs = rawPackages.filter(p => !disneyWizardState.appId || p.app_id === disneyWizardState.appId);
+        matchingPkgs.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p.name;
+          opt.textContent = p.name + (p.price ? ` (${p.price}฿)` : "");
+          pkgSelect.appendChild(opt);
+        });
+        if (currentVal) pkgSelect.value = currentVal;
+      }
+
+      // Re-evaluate purchase button UI
+      updateDisneyWizardPackagePurchaseUI();
+
+      const selPkg = currentVal ? findDisneyPackageByName(currentVal) : null;
+      const link = selPkg ? getDisneyPackagePurchaseLink(selPkg) : null;
+      if (link) {
+        showToast("✅ ซิงค์สำเร็จ! อัปเดตลิงก์สั่งซื้อพร้อมใช้งาน", "success");
+      } else if (currentVal) {
+        showToast("ℹ️ ซิงค์สำเร็จ แต่แพ็กเกจนี้ยังไม่มีลิงก์ซื้อ (ตั้งค่าในส่วนขยาย)", "info");
+      } else {
+        showToast("✅ ซิงค์ข้อมูลแพ็กเกจล่าสุดเรียบร้อยแล้ว", "success");
+      }
+    }
+  } catch (err) {
+    console.error("Sync Disney packages error:", err);
+    showToast("⚠️ ซิงค์ข้อมูลไม่สำเร็จ: " + err.message, "error");
+  } finally {
+    setTimeout(() => {
+      if (syncBtn) syncBtn.classList.remove("spinning");
+      if (inlineSyncBtn) inlineSyncBtn.classList.remove("spinning");
+    }, 600);
+  }
+}
+
 function initDisneyOverlayEventListeners() {
   // Top toolbar button to open wizard
   const btnOpenWizard = document.getElementById("btn-open-disney-wizard");
@@ -7365,6 +7556,28 @@ function initDisneyOverlayEventListeners() {
   const deviceSelect = document.getElementById("wizard-bind-device-select");
   if (deviceSelect) {
     deviceSelect.addEventListener("change", updateDisneyTvQuickScriptsVisibility);
+  }
+
+  // Package select change (shows purchase link button or empty notice)
+  const pkgSelect = document.getElementById("disney-wizard-pkg-select");
+  if (pkgSelect) {
+    pkgSelect.addEventListener("change", updateDisneyWizardPackagePurchaseUI);
+  }
+
+  // Button to open external purchase link
+  const btnBuyPkg = document.getElementById("btn-disney-wizard-buy-pkg");
+  if (btnBuyPkg) {
+    btnBuyPkg.addEventListener("click", handleOpenDisneyPackagePurchaseLink);
+  }
+
+  // Buttons to sync package purchase links
+  const btnSyncPkgLinks = document.getElementById("btn-sync-disney-pkg-links");
+  if (btnSyncPkgLinks) {
+    btnSyncPkgLinks.addEventListener("click", syncDisneyPackagePurchaseLinks);
+  }
+  const btnSyncPkgLinksInline = document.getElementById("btn-sync-disney-pkg-links-inline");
+  if (btnSyncPkgLinksInline) {
+    btnSyncPkgLinksInline.addEventListener("click", syncDisneyPackagePurchaseLinks);
   }
 
   // Login Channel Selector (Phone vs Email)
@@ -7567,6 +7780,9 @@ function openDisneyOverlayWizard(appId = null) {
       pkgSelect.appendChild(opt);
     });
   }
+
+  // Initialize Package Purchase UI based on current selection
+  updateDisneyWizardPackagePurchaseUI();
 
   // Set Login Channel Selector
   const loginTypeSelect = document.getElementById("wizard-disney-login-type-select");
@@ -7871,6 +8087,7 @@ function handleDisneyQuickStockFetch() {
   if (pkgSelect && acc.package_name) {
     pkgSelect.value = acc.package_name;
   }
+  updateDisneyWizardPackagePurchaseUI();
 
   updateDisneyWizardBadgesUI();
   showToast(`⚡ ดึงสต็อกว่างสำเร็จ: ${acc.email} (${acc.profile_name || 'จอว่าง'})`);
@@ -7938,6 +8155,12 @@ function handleDisneySelectStockScreen() {
     try { localStorage.setItem("disney_login_type", disneyLoginType); } catch (e) {}
     updateDisneyGuideEditPanelUI();
   }
+
+  const pkgSelect = document.getElementById("disney-wizard-pkg-select");
+  if (pkgSelect && acc.package_name) {
+    pkgSelect.value = acc.package_name;
+  }
+  updateDisneyWizardPackagePurchaseUI();
 
   updateDisneyWizardBadgesUI();
   showToast(`✅ เลือกจอสำเร็จ: ${acc.email} [${acc.profile_name || 'จอว่าง'}]`);

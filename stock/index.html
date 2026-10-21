@@ -829,7 +829,13 @@
                 <span class="disney-pkg-icon">🛍️</span>
                 <span class="disney-pkg-title">แพ็กเกจที่เลือกจับคู่:</span>
               </span>
-              <span class="disney-pkg-badge">Auto Stock</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" id="btn-sync-disney-pkg-links" class="disney-sync-pkg-btn" title="ซิงค์ข้อมูลลิงก์ซื้อแพ็กเกจล่าสุดจากส่วนขยาย/ระบบ">
+                  <span>🔄</span>
+                  <span>ซิงค์ลิงก์</span>
+                </button>
+                <span class="disney-pkg-badge">Auto Stock</span>
+              </div>
             </div>
             <div class="disney-custom-select-wrap">
               <select id="disney-wizard-pkg-select" class="prem-select disney-wizard-pkg-custom-select" title="เลือกแพ็กเกจ Disney+ ที่ต้องการจับคู่">
@@ -840,6 +846,29 @@
                   <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                 </svg>
               </span>
+            </div>
+
+            <!-- Dynamic Purchase Link Button Bar (Visible when selected package has purchase link) -->
+            <div id="disney-pkg-purchase-bar" class="disney-pkg-purchase-bar" style="display: none;">
+              <button type="button" id="btn-disney-wizard-buy-pkg" class="disney-btn-purchase-external">
+                <div class="disney-btn-purchase-content">
+                  <span class="disney-btn-purchase-icon">🛒</span>
+                  <div class="disney-btn-purchase-texts">
+                    <span id="disney-pkg-purchase-main-title" class="disney-btn-purchase-main">สั่งซื้อบัญชี/โปรไฟล์แพ็กเกจนี้</span>
+                    <span id="disney-pkg-purchase-url-preview" class="disney-btn-purchase-sub">เปิดหน้าเว็บสั่งซื้อภายนอก ↗</span>
+                  </div>
+                </div>
+                <span class="disney-btn-purchase-chevron" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" /></svg>
+                </span>
+              </button>
+            </div>
+
+            <!-- Notice when package has no purchase link yet -->
+            <div id="disney-pkg-purchase-empty-bar" class="disney-pkg-purchase-empty-bar" style="display: none;">
+              <span class="disney-purchase-empty-icon">ℹ️</span>
+              <span class="disney-purchase-empty-text">แพ็กเกจนี้ยังไม่มีลิงก์ซื้อ (ตั้งค่าได้ที่ input#pkg-profile-purchase-link ในส่วนขยาย)</span>
+              <button type="button" id="btn-sync-disney-pkg-links-inline" class="disney-inline-sync-btn" title="กดซิงค์ข้อมูลใหม่หลังจากตั้งค่าในส่วนขยายแล้ว">🔄 ซิงค์ใหม่</button>
             </div>
           </div>
           <div class="disney-device-config-row">
@@ -1112,7 +1141,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.25"></script>
+  <script src="app.js?v=2.26"></script>
 </body>
 
 </html>

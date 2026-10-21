@@ -4394,3 +4394,220 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
   }
 }
 
+/* Sync Button in Header */
+.disney-sync-pkg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.disney-sync-pkg-btn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.disney-sync-pkg-btn.spinning span:first-child,
+.disney-inline-sync-btn.spinning {
+  display: inline-block;
+  animation: disneySpin 0.7s linear infinite;
+}
+
+@keyframes disneySpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Purchase Action Bar */
+.disney-pkg-purchase-bar {
+  width: 100%;
+  margin-top: 6px;
+  animation: disneyFadeSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes disneyFadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Purchase Button: Vibrant Amber/Orange Gradient */
+.disney-btn-purchase-external {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  min-height: 44px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  text-align: left;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.disney-btn-purchase-external::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transition: 0.5s;
+}
+
+.disney-btn-purchase-external:hover::before {
+  left: 100%;
+}
+
+.disney-btn-purchase-external:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
+  border-color: #fde047;
+  box-shadow: 0 6px 18px rgba(234, 88, 12, 0.45), 0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+.disney-btn-purchase-external:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+}
+
+.disney-btn-purchase-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.disney-btn-purchase-icon {
+  font-size: 18px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  flex-shrink: 0;
+}
+
+.disney-btn-purchase-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.disney-btn-purchase-main {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.disney-btn-purchase-sub {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.disney-btn-purchase-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+  opacity: 0.85;
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: transform 0.2s ease;
+}
+
+.disney-btn-purchase-external:hover .disney-btn-purchase-chevron {
+  transform: translateX(3px);
+  opacity: 1;
+}
+
+.disney-btn-purchase-chevron svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Empty Link Notice Bar */
+.disney-pkg-purchase-empty-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  animation: disneyFadeSlideDown 0.25s ease;
+}
+
+.disney-purchase-empty-icon {
+  font-size: 13px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.disney-purchase-empty-text {
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.disney-inline-sync-btn {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.disney-inline-sync-btn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  color: #ffffff;
+}
+
