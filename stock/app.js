@@ -6372,9 +6372,11 @@ function openSendBindModal(screenDataset, btnEl = null) {
   // Populate datalist with existing customer names for autocomplete
   populateCustomerDatalist();
 
-  // Reset to empty for existing customer input, ready for user typing
-  nameInput.value = "";
-  updateCustomerNameStatusDisplay("");
+  // Pre-fill from URL params if launched from LINE OA extension, or reset to empty
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramCustName = urlParams.get("customer_name") || urlParams.get("name") || "";
+  nameInput.value = paramCustName;
+  updateCustomerNameStatusDisplay(paramCustName);
 
   // Auto-focus input so user can start typing immediately
   setTimeout(() => {
@@ -6608,9 +6610,12 @@ async function executeConfirmSendBind() {
       `${currentSendBindContext.screenName ? `\n👤 โปรไฟล์: ${currentSendBindContext.screenName}` : ''}` +
       `${currentSendBindContext.pinCode ? `\n🔒 รหัส PIN: ${currentSendBindContext.pinCode}` : ''}`;
 
+    const sendBindUrlParams = new URLSearchParams(window.location.search);
+    const resolvedChatUrl = sendBindUrlParams.get("chat_url") || "https://chat.line.biz/";
+
     const bindingPayload = {
       customer_name: customerName,
-      chat_url: "https://chat.line.biz/",
+      chat_url: resolvedChatUrl,
       app_name: currentSendBindContext.appName || "App",
       package_name: currentSendBindContext.pkgName || `แพ็กเกจ ${days} วัน`,
       days: days,
