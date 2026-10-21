@@ -8269,23 +8269,53 @@ async function handleCopyMailyPin() {
 
 function extractDisneyOtpFromText(rawText) {
   if (!rawText) return null;
-  const clean = rawText
+
+  // 1. Clean the text thoroughly:
+  // - Strip all URLs (http/https) so tracking links, Amazon SES IDs (-000000), and query params are never matched
+  // - Strip HTML tags & entities
+  // - Strip email addresses and message IDs (<...>)
+  // - Strip UUIDs / long hex IDs
+  let clean = rawText
+    .replace(/https?:\/\/[^\s"'<>\)]+/gi, " ")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ");
+    .replace(/&nbsp;/gi, " ")
+    .replace(/[\w.-]+@[\w.-]+/g, " ")
+    .replace(/[a-f0-9]{8,}(?:-[a-f0-9]{4,})+/gi, " ");
 
-  // 1. MyDisney 6-digit near OTP keywords
-  const myDisney6 = clean.match(/(?:รหัสผ่านแบบใช้ครั้งเดียว|one-time passcode|passcode|รหัสยืนยัน)[\s\S]{0,350}?(?<![0-9a-zA-Z])([0-9]{6})(?![0-9a-zA-Z])/i);
-  if (myDisney6) return myDisney6[1];
-
-  // 2. Standalone 6-digit number if context exists
-  if (/disney|hotstar|ดิสนีย์/i.test(clean)) {
-    const all6 = clean.match(/(?<![0-9a-zA-Z])([0-9]{6})(?![0-9a-zA-Z])/g);
-    if (all6 && all6.length > 0) return all6[0];
+  // 2. MyDisney 6-digit near OTP keywords:
+  // English: "Here’s your one-time passcode for Disney+ ... 122650"
+  // Thai: "รหัสผ่านแบบใช้ครั้งเดียวของคุณสำหรับ Disney+ ... 122650"
+  const myDisney6 = clean.match(/(?:รหัสผ่านแบบใช้ครั้งเดียว|one-time passcode|your passcode|passcode|รหัสยืนยัน)[\s\S]{0,350}?(?<![0-9a-zA-Z])([0-9]{6})(?![0-9a-zA-Z])/i);
+  if (myDisney6) {
+    const candidate = myDisney6[1];
+    if (candidate !== "000000" && !/^(\d)\1{5}$/.test(candidate)) {
+      return candidate;
+    }
   }
 
-  // 3. 4-digit explicit
+  // 3. Explicit 4-digit (legacy Disney / Hotstar)
   const explicit4 = clean.match(/(?:รหัสผ่านแบบใช้ครั้งเดียว|one-time passcode|your passcode|passcode|รหัสยืนยัน|otp)[\s:]*([0-9]{4})\b/i);
-  if (explicit4) return explicit4[1];
+  if (explicit4) {
+    const candidate = explicit4[1];
+    if (candidate !== "0000" && !/^(\d)\1{3}$/.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  // 4. Standalone 6-digit number IF passcode context exists in the text (and not pure login notification)
+  const hasPasscodeContext = /(?:รหัสผ่าน|ยืนยัน|passcode|code|otp|verify|one-time)/i.test(clean);
+  const isPureNotification = /(?:เราพบการเข้าสู่ระบบใหม่|พบการเข้าสู่ระบบ|new sign-in|new login|sign-in alert|ยินดีต้อนรับ|welcome to)/i.test(clean) && !hasPasscodeContext;
+
+  if (hasPasscodeContext && !isPureNotification) {
+    const all6 = clean.match(/(?<![0-9a-zA-Z])([0-9]{6})(?![0-9a-zA-Z])/g);
+    if (all6 && all6.length > 0) {
+      for (const num of all6) {
+        if (num !== "000000" && !/^(\d)\1{5}$/.test(num)) {
+          return num;
+        }
+      }
+    }
+  }
 
   return null;
 }
@@ -8342,18 +8372,39 @@ async function handleFetchMailyOtp() {
       const from = (mail.from || "").toLowerCase();
       const subject = (mail.subject || "").toLowerCase();
       const snippet = (mail.snippet || "").toLowerCase();
+
       const isDisney = from.includes("disney") || subject.includes("disney") || subject.includes("mydisney") || snippet.includes("disney") || snippet.includes("mydisney");
       if (!isDisney) continue;
 
+      // Filter out login alert notifications (e.g. "เราพบการเข้าสู่ระบบใหม่", "New sign-in to Disney+") which never have OTP codes
+      const isLoginNotification = subject.includes("เราพบการเข้าสู่ระบบใหม่") || 
+                                  subject.includes("พบการเข้าสู่ระบบ") || 
+                                  subject.includes("new sign-in") || 
+                                  subject.includes("new login") || 
+                                  subject.includes("sign-in alert") || 
+                                  subject.includes("ยินดีต้อนรับ") || 
+                                  subject.includes("welcome to");
+      if (isLoginNotification) continue;
+
+      // Disqualify if older than 180 minutes (3 hours)
+      if (mail.createdAt) {
+        const mailTime = new Date(mail.createdAt).getTime();
+        const diffMinutes = (Date.now() - mailTime) / (1000 * 60);
+        if (diffMinutes > 180) continue;
+      }
+
+      // Check subject + snippet
       foundOtp = extractDisneyOtpFromText((mail.subject || "") + " " + (mail.snippet || ""));
 
+      // Fetch detail if needed
       if (!foundOtp && mail.id) {
         try {
           const detailUrl = `https://api.maily.space/mail/public/mails/${mail.id}?accountName=${encodeURIComponent(accountName)}&domainId=${encodeURIComponent(domainId)}&size=1`;
           const detailRes = await fetch(detailUrl, { headers });
           if (detailRes.ok) {
             const detailJson = await detailRes.json();
-            const fullText = (detailJson?.data?.text || "") + " " + (detailJson?.data?.html || "");
+            const detailData = detailJson?.data;
+            const fullText = (detailData?.text || "") + " " + (detailData?.html || "");
             foundOtp = extractDisneyOtpFromText(fullText);
           }
         } catch (e) {}
