@@ -41,6 +41,25 @@ let targetBindingForEditCreds = null;
 let bindingsRenderLimit = 50;
 let parsedBatchAccounts = [];
 
+// Performance & Caching Indexes
+let accountsByIdMap = new Map();
+let brokenEmailsSet = new Set();
+let bindingCoSharersMap = new Map();
+let cachedBindingMetrics = { total: 0, active: 0, expiring: 0, reverted: 0 };
+let hasRenderedStockFeed = false;
+let hasRenderedBindingsFeed = false;
+let stockFeedDirty = true;
+let bindingsFeedDirty = true;
+
+function updateAccountsMap() {
+  accountsByIdMap.clear();
+  if (Array.isArray(allAccountsList)) {
+    allAccountsList.forEach(a => {
+      if (a && a.id) accountsByIdMap.set(a.id, a);
+    });
+  }
+}
+
 // Register Service Worker for PWA (Only on web http / https protocols)
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
   window.addEventListener('load', () => {
@@ -91,24 +110,29 @@ function initUIEventListeners() {
   // Top Search Input (Controls current active view)
   const searchInput = document.getElementById("search-input");
   const searchClear = document.getElementById("search-clear");
+  let searchDebounceTimer = null;
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
       const val = e.target.value.trim();
       if (searchClear) searchClear.style.display = val ? "block" : "none";
 
-      if (currentView === "bindings") {
-        bindingSearchQuery = val.toLowerCase();
-        renderBindingsFeed();
-      } else {
-        searchQuery = val.toLowerCase();
-        renderStockFeed();
-      }
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        if (currentView === "bindings") {
+          bindingSearchQuery = val.toLowerCase();
+          renderBindingsFeed();
+        } else {
+          searchQuery = val.toLowerCase();
+          renderStockFeed();
+        }
+      }, 100);
     });
   }
   if (searchClear) {
     searchClear.addEventListener("click", () => {
       if (searchInput) searchInput.value = "";
       searchClear.style.display = "none";
+      clearTimeout(searchDebounceTimer);
       if (currentView === "bindings") {
         bindingSearchQuery = "";
         renderBindingsFeed();
@@ -561,12 +585,18 @@ async function loadData(force = false) {
       await loadFromCloudflare();
     }
 
+    updateAccountsMap();
     processData();
+    preprocessBindings();
     renderChips();
     renderStockFeed();
+    hasRenderedStockFeed = true;
+    stockFeedDirty = false;
     updateMetrics();
     populateStockFormApps();
     renderBindingsFeed();
+    hasRenderedBindingsFeed = true;
+    bindingsFeedDirty = false;
     updateBindingMetrics();
     updateTabBadges();
 
@@ -645,6 +675,12 @@ async function loadFromCloudflare() {
 function processData() {
   const now = new Date();
   const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
+
+  brokenEmailsSet = new Set(
+    (allAccountsList || [])
+      .filter(a => a && a.status === "broken" && a.email)
+      .map(a => a.email.trim().toLowerCase())
+  );
 
   // 1. Filter accounts: available (exclude <24h) and broken accounts for recovery
   const validAccounts = allAccountsList.filter(a => {
@@ -963,6 +999,9 @@ function renderStockFeed() {
   const feed = document.getElementById("stock-feed");
   if (!feed) return;
 
+  hasRenderedStockFeed = true;
+  stockFeedDirty = false;
+
   const now = new Date();
   const filteredGroups = Object.entries(appGroups).filter(([key, group]) => {
     // 1. App filter
@@ -1106,10 +1145,7 @@ function renderStockFeed() {
         return nameA.localeCompare(nameB, "th", { numeric: true, sensitivity: "base" });
       });
 
-      const isAccountBroken = acc.hasBroken || allAccountsList.some(a => 
-        (a.email || '').trim().toLowerCase() === emailKey.toLowerCase() && 
-        a.status === "broken"
-      );
+      const isAccountBroken = acc.hasBroken || brokenEmailsSet.has(emailKey.toLowerCase());
 
       html += `
         <div class="account-card ${isAccountBroken ? 'broken-account' : ''}">
@@ -4127,7 +4163,12 @@ function switchView(viewName) {
       if (searchClear) searchClear.style.display = bindingSearchQuery ? "block" : "none";
     }
 
-    renderBindingsFeed();
+    // Only render if not already rendered or if data was changed (dirty)
+    if (!hasRenderedBindingsFeed || bindingsFeedDirty) {
+      renderBindingsFeed();
+      hasRenderedBindingsFeed = true;
+      bindingsFeedDirty = false;
+    }
     updateBindingMetrics();
   } else {
     if (tabStock) tabStock.classList.add("active");
@@ -4141,7 +4182,12 @@ function switchView(viewName) {
       if (searchClear) searchClear.style.display = searchQuery ? "block" : "none";
     }
 
-    renderStockFeed();
+    // Only render if not already rendered or if data was changed (dirty)
+    if (!hasRenderedStockFeed || stockFeedDirty) {
+      renderStockFeed();
+      hasRenderedStockFeed = true;
+      stockFeedDirty = false;
+    }
     updateMetrics();
   }
 
@@ -4182,68 +4228,54 @@ function setBindingFilter(filterKey) {
 }
 
 function updateBindingMetrics() {
-  const now = new Date();
-  let activeCount = 0;
-  let expiringCount = 0;
-  let revertedCount = 0;
-
-  rawBindings.forEach(b => {
-    if (b.reverted) {
-      revertedCount++;
-      return;
-    }
-    const isExpired = b.expiry_date ? (new Date(b.expiry_date) <= now) : false;
-    if (isExpired) {
-      return;
-    }
-    activeCount++;
-    if (b.expiry_date) {
-      const diffMs = new Date(b.expiry_date).getTime() - now.getTime();
-      if (diffMs > 0 && diffMs <= 3 * 24 * 3600 * 1000) {
-        expiringCount++;
-      }
-    }
-  });
-
   const totalEl = document.getElementById("stat-bind-total");
   const activeEl = document.getElementById("stat-bind-active");
   const expEl = document.getElementById("stat-bind-expiring");
   const revEl = document.getElementById("stat-bind-reverted");
 
-  if (totalEl) totalEl.textContent = rawBindings.length.toLocaleString();
-  if (activeEl) activeEl.textContent = activeCount.toLocaleString();
-  if (expEl) expEl.textContent = expiringCount.toLocaleString();
-  if (revEl) revEl.textContent = revertedCount.toLocaleString();
+  const total = cachedBindingMetrics.total || (rawBindings ? rawBindings.length : 0);
+  if (totalEl) totalEl.textContent = total.toLocaleString();
+  if (activeEl) activeEl.textContent = (cachedBindingMetrics.active || 0).toLocaleString();
+  if (expEl) expEl.textContent = (cachedBindingMetrics.expiring || 0).toLocaleString();
+  if (revEl) revEl.textContent = (cachedBindingMetrics.reverted || 0).toLocaleString();
 
   const searchBadge = document.getElementById("binding-search-badge");
-  if (searchBadge) searchBadge.textContent = `⚡ สด • ${rawBindings.length.toLocaleString()} สิทธิ์`;
+  if (searchBadge) searchBadge.textContent = `⚡ สด • ${total.toLocaleString()} สิทธิ์`;
 }
 
 // ----------------------------------------------------------------------------
-// 📋 Data Extractor: Combines Linked Account & Raw Account Data
+// 📋 Data Extractor: Combines Linked Account & Raw Account Data (Memoized)
 // ----------------------------------------------------------------------------
 function extractBindingDetails(b, linkedAccount) {
+  if (!linkedAccount && b && b.account_id) {
+    linkedAccount = accountsByIdMap.get(b.account_id) || null;
+  }
+
+  if (b && b._details && (!linkedAccount || b._linkedAccRef === linkedAccount)) {
+    return b._details;
+  }
+
   let email = linkedAccount ? (linkedAccount.email || "") : "";
   let password = linkedAccount ? (linkedAccount.password || "") : "";
   let profileName = linkedAccount ? (linkedAccount.profile_name || "") : "";
   let pinCode = linkedAccount ? (linkedAccount.pin_code || "") : "";
   let displayId = linkedAccount ? (linkedAccount.display_id || "") : "";
-  let deviceType = b.device_type || (linkedAccount ? linkedAccount.device_type : "สมาร์ททีวี / มือถือ");
+  let deviceType = (b && b.device_type) ? b.device_type : (linkedAccount ? linkedAccount.device_type : "สมาร์ททีวี / มือถือ");
 
-  const raw = b.raw_account_data || "";
+  const raw = (b && b.raw_account_data) ? b.raw_account_data : "";
 
-  if (!email) {
+  if (!email && raw) {
     const m = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i) ||
       raw.match(/(?:Mail|เมล|email|เบอร์)[:\s\t\-]+([^\s\n\r]+)/i);
     if (m) email = (m[1] || m[0]).trim();
   }
 
-  if (!password) {
+  if (!password && raw) {
     const m = raw.match(/(?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass|พินเมล)[:\s\t\-]+([^\s\n\r]+)/i);
     if (m) password = m[1].trim();
   }
 
-  if (!profileName) {
+  if (!profileName && raw) {
     const m = raw.match(/(?:โปรไฟล์|เข้า\s*จอ|จอหมายเลข|จอ)[:\s\t\-]*([^\s\n\r]+)/i);
     if (m) {
       const val = m[1].trim();
@@ -4251,24 +4283,187 @@ function extractBindingDetails(b, linkedAccount) {
     }
   }
 
-  if (!pinCode) {
+  if (!pinCode && raw) {
     const m = raw.match(/(?:PIN|พิน|รหัส PIN)[:\s\t\-]+(\d{4,6})/i);
     if (m) pinCode = m[1].trim();
   }
 
-  if (!displayId) {
+  if (!displayId && raw) {
     const m = raw.match(/(?:ID\s*(?:จอ|ฌอ)|ID)[:\s\t\-]*#?(\d+)/i);
     if (m) displayId = m[1].trim();
   }
 
   // OTP Link
-  let otpUrl = b.supplier_url || (linkedAccount ? linkedAccount.supplier_url : null);
-  if (!otpUrl) {
+  let otpUrl = (b && b.supplier_url) ? b.supplier_url : (linkedAccount ? linkedAccount.supplier_url : null);
+  if (!otpUrl && raw) {
     const m = raw.match(/(https?:\/\/(?:code\.varinzxify\.com|abeslife\.com|[\w.-]+\.[\w.-]+)\/[^\s\n\r]*)/i);
     if (m) otpUrl = m[1].trim();
   }
 
-  return { email, password, profileName, pinCode, displayId, deviceType, otpUrl };
+  const details = { email, password, profileName, pinCode, displayId, deviceType, otpUrl };
+  if (b) {
+    b._details = details;
+    b._linkedAccRef = linkedAccount;
+  }
+  return details;
+}
+
+// ----------------------------------------------------------------------------
+// ⚡ High-Performance Preprocessor for Bindings (Pre-index + Cache)
+// ----------------------------------------------------------------------------
+function preprocessBindings() {
+  if (!Array.isArray(rawBindings)) return;
+
+  const now = new Date();
+  const nowMs = now.getTime();
+  let activeCount = 0;
+  let expiringCount = 0;
+  let revertedCount = 0;
+
+  // 1. Process each binding
+  rawBindings.forEach(b => {
+    const linkedAcc = b.account_id ? accountsByIdMap.get(b.account_id) : null;
+    const details = extractBindingDetails(b, linkedAcc);
+    b._details = details;
+
+    const isReverted = !!b.reverted;
+    const expMs = b.expiry_date ? new Date(b.expiry_date).getTime() : 0;
+    const isExpired = expMs ? (expMs <= nowMs) : false;
+    const isExpiringSoon = !isReverted && !isExpired && expMs && ((expMs - nowMs) <= 3 * 24 * 3600 * 1000);
+    const isActive = !isReverted && !isExpired;
+
+    b._isReverted = isReverted;
+    b._isExpired = isExpired;
+    b._isExpiringSoon = isExpiringSoon;
+    b._isActive = isActive;
+
+    if (isReverted) {
+      revertedCount++;
+    } else if (isExpired) {
+      // expired
+    } else {
+      activeCount++;
+      if (isExpiringSoon) {
+        expiringCount++;
+      }
+    }
+
+    // Fast search string (precomputed lowercase)
+    b._searchStr = [
+      b.customer_name || "",
+      b.app_name || "",
+      b.package_name || "",
+      b.raw_account_data || "",
+      details.email || "",
+      details.password || "",
+      details.profileName || "",
+      details.pinCode || "",
+      details.displayId ? `#${details.displayId}` : "",
+      details.displayId || ""
+    ].join(" ").toLowerCase();
+
+    // Group key for feed clustering
+    const app = (b.app_name || "").trim().toLowerCase();
+    const accId = b.account_id || "";
+    const displayId = details.displayId ? String(details.displayId).trim().toLowerCase() : "";
+    const profileName = details.profileName ? String(details.profileName).trim().toLowerCase() : "";
+    const email = details.email ? String(details.email).trim().toLowerCase() : "";
+
+    if (accId) {
+      b._groupKey = `${app}:::acc_${accId}:::${profileName || displayId || 'single'}`;
+    } else if (displayId) {
+      b._groupKey = `${app}:::disp_${displayId}:::${profileName || 'single'}`;
+    } else if (email && email !== '-') {
+      b._groupKey = `${app}:::email_${email}:::${profileName || 'single'}`;
+    } else {
+      b._groupKey = `single_${b.id}`;
+    }
+  });
+
+  cachedBindingMetrics = {
+    total: rawBindings.length,
+    active: activeCount,
+    expiring: expiringCount,
+    reverted: revertedCount
+  };
+
+  // 2. Pre-index co-sharers in DB for active/non-reverted bindings in O(M)
+  bindingCoSharersMap.clear();
+
+  const accGroupMap = new Map();
+  const dispGroupMap = new Map();
+  const emailProfileGroupMap = new Map();
+
+  const activeBindings = rawBindings.filter(b => !b._isReverted);
+
+  activeBindings.forEach(b => {
+    const d = b._details;
+    const bDisplayId = d.displayId ? String(d.displayId).toLowerCase().trim() : "";
+    const bProfile = (d.profileName || "").toLowerCase().trim();
+    const bEmail = (d.email || "").toLowerCase().trim();
+
+    if (b.account_id) {
+      const k = `${b.account_id}:::${bDisplayId || bProfile || 'all'}`;
+      if (!accGroupMap.has(k)) accGroupMap.set(k, []);
+      accGroupMap.get(k).push(b);
+    }
+
+    if (bDisplayId) {
+      const k = `disp:::${bDisplayId}`;
+      if (!dispGroupMap.has(k)) dispGroupMap.set(k, []);
+      dispGroupMap.get(k).push(b);
+    }
+
+    if (bEmail && bEmail !== "-") {
+      const k = `email:::${bEmail}:::${bProfile}`;
+      if (!emailProfileGroupMap.has(k)) emailProfileGroupMap.set(k, []);
+      emailProfileGroupMap.get(k).push(b);
+    }
+  });
+
+  // Build co-sharers array for each active binding in O(1)
+  activeBindings.forEach(b => {
+    const d = b._details;
+    const bDisplayId = d.displayId ? String(d.displayId).toLowerCase().trim() : "";
+    const bProfile = (d.profileName || "").toLowerCase().trim();
+    const bEmail = (d.email || "").toLowerCase().trim();
+
+    const coSharersMap = new Map();
+
+    if (b.account_id) {
+      const k = `${b.account_id}:::${bDisplayId || bProfile || 'all'}`;
+      const matches = accGroupMap.get(k);
+      if (matches) {
+        for (let i = 0; i < matches.length; i++) {
+          if (matches[i].id !== b.id) coSharersMap.set(matches[i].id, matches[i]);
+        }
+      }
+    }
+
+    if (bDisplayId) {
+      const k = `disp:::${bDisplayId}`;
+      const matches = dispGroupMap.get(k);
+      if (matches) {
+        for (let i = 0; i < matches.length; i++) {
+          if (matches[i].id !== b.id) coSharersMap.set(matches[i].id, matches[i]);
+        }
+      }
+    }
+
+    if (bEmail && bEmail !== "-") {
+      const k = `email:::${bEmail}:::${bProfile}`;
+      const matches = emailProfileGroupMap.get(k);
+      if (matches) {
+        for (let i = 0; i < matches.length; i++) {
+          if (matches[i].id !== b.id) coSharersMap.set(matches[i].id, matches[i]);
+        }
+      }
+    }
+
+    if (coSharersMap.size > 0) {
+      bindingCoSharersMap.set(b.id, Array.from(coSharersMap.values()));
+    }
+  });
 }
 
 // ----------------------------------------------------------------------------
@@ -4319,7 +4514,8 @@ function pickRandomCustomer() {
 // ----------------------------------------------------------------------------
 
 function getBindingProfileGroupKey(b) {
-  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  if (b && b._groupKey) return b._groupKey;
+  const linkedAcc = b.account_id ? (accountsByIdMap.get(b.account_id) || null) : null;
   const details = extractBindingDetails(b, linkedAcc);
   const app = (b.app_name || "").trim().toLowerCase();
   const accId = b.account_id || "";
@@ -4327,65 +4523,27 @@ function getBindingProfileGroupKey(b) {
   const profileName = details.profileName ? String(details.profileName).trim().toLowerCase() : "";
   const email = details.email ? String(details.email).trim().toLowerCase() : "";
 
+  let key;
   if (accId) {
-    return `${app}:::acc_${accId}:::${profileName || displayId || 'single'}`;
+    key = `${app}:::acc_${accId}:::${profileName || displayId || 'single'}`;
+  } else if (displayId) {
+    key = `${app}:::disp_${displayId}:::${profileName || 'single'}`;
+  } else if (email && email !== '-') {
+    key = `${app}:::email_${email}:::${profileName || 'single'}`;
+  } else {
+    key = `single_${b.id}`;
   }
-  if (displayId) {
-    return `${app}:::disp_${displayId}:::${profileName || 'single'}`;
-  }
-  if (email && email !== '-') {
-    return `${app}:::email_${email}:::${profileName || 'single'}`;
-  }
-  return `single_${b.id}`;
+  if (b) b._groupKey = key;
+  return key;
 }
 
 function getBindingCoSharersInDb(b) {
   if (!b || b.reverted || !rawBindings) return [];
-  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
-  const details = extractBindingDetails(b, linkedAcc);
-  const bEmail = (details.email || "").toLowerCase().trim();
-  const bDisplayId = details.displayId ? String(details.displayId).toLowerCase().trim() : "";
-  const bProfile = (details.profileName || "").toLowerCase().trim();
-
-  return rawBindings.filter(other => {
-    if (other.id === b.id || other.reverted) return false;
-
-    // 1. Same account ID
-    if (b.account_id && other.account_id && b.account_id === other.account_id) {
-      const oAcc = allAccountsList.find(a => a.id === other.account_id);
-      const oDetails = extractBindingDetails(other, oAcc);
-      const oProfile = (oDetails.profileName || "").toLowerCase().trim();
-      const oDisplayId = oDetails.displayId ? String(oDetails.displayId).toLowerCase().trim() : "";
-      if (bDisplayId && oDisplayId && bDisplayId === oDisplayId) return true;
-      if (bProfile && oProfile && bProfile === oProfile) return true;
-      if (!bProfile && !oProfile) return true;
-    }
-
-    // 2. Same displayId (e.g. #4533)
-    if (bDisplayId) {
-      const oAcc = other.account_id ? allAccountsList.find(a => a.id === other.account_id) : null;
-      const oDetails = extractBindingDetails(other, oAcc);
-      const oDisplayId = oDetails.displayId ? String(oDetails.displayId).toLowerCase().trim() : "";
-      if (oDisplayId && oDisplayId === bDisplayId) return true;
-    }
-
-    // 3. Same email and profile
-    if (bEmail && bEmail !== "-") {
-      const oAcc = other.account_id ? allAccountsList.find(a => a.id === other.account_id) : null;
-      const oDetails = extractBindingDetails(other, oAcc);
-      const oEmail = (oDetails.email || "").toLowerCase().trim();
-      if (oEmail && oEmail === bEmail) {
-        const oProfile = (oDetails.profileName || "").toLowerCase().trim();
-        if (bProfile && oProfile && bProfile === oProfile) return true;
-      }
-    }
-
-    return false;
-  });
+  return bindingCoSharersMap.get(b.id) || [];
 }
 
 function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, coSharersInDb = []) {
-  const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+  const linkedAcc = b.account_id ? (accountsByIdMap.get(b.account_id) || null) : null;
   const details = extractBindingDetails(b, linkedAcc);
   const appTheme = getAppTheme(b.app_name || "");
 
@@ -4612,38 +4770,22 @@ function renderBindingsFeed() {
   const feed = document.getElementById("bindings-feed");
   if (!feed) return;
 
+  hasRenderedBindingsFeed = true;
+  bindingsFeedDirty = false;
+
   const now = new Date();
   const query = bindingSearchQuery.trim().toLowerCase();
 
   const filtered = rawBindings.filter(b => {
-    // 1. Status Filter
-    const isReverted = !!b.reverted;
-    const isExpired = b.expiry_date ? (new Date(b.expiry_date) <= now) : false;
-    const isExpiringSoon = !isReverted && !isExpired && b.expiry_date && (new Date(b.expiry_date).getTime() - now.getTime() <= 3 * 24 * 3600 * 1000);
-    const isActive = !isReverted && !isExpired;
+    // 1. Status Filter (Fast boolean flags)
+    if (bindingFilter === "active" && !b._isActive) return false;
+    if (bindingFilter === "expiring" && !b._isExpiringSoon) return false;
+    if (bindingFilter === "expired" && !b._isExpired) return false;
+    if (bindingFilter === "reverted" && !b._isReverted) return false;
 
-    if (bindingFilter === "active" && !isActive) return false;
-    if (bindingFilter === "expiring" && !isExpiringSoon) return false;
-    if (bindingFilter === "expired" && !isExpired) return false;
-    if (bindingFilter === "reverted" && !isReverted) return false;
-
-    // 2. Query Search
+    // 2. Query Search (Fast precomputed string search)
     if (!query) return true;
-
-    const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
-    const details = extractBindingDetails(b, linkedAcc);
-
-    const matchCustName = (b.customer_name || "").toLowerCase().includes(query);
-    const matchAppName = (b.app_name || "").toLowerCase().includes(query);
-    const matchPkgName = (b.package_name || "").toLowerCase().includes(query);
-    const matchRaw = (b.raw_account_data || "").toLowerCase().includes(query);
-    const matchEmail = (details.email || "").toLowerCase().includes(query);
-    const matchPass = (details.password || "").toLowerCase().includes(query);
-    const matchProfile = (details.profileName || "").toLowerCase().includes(query);
-    const matchPin = (details.pinCode || "").toLowerCase().includes(query);
-    const matchDisplayId = details.displayId ? String(details.displayId).toLowerCase().includes(query.replace("#", "")) : false;
-
-    return matchCustName || matchAppName || matchPkgName || matchRaw || matchEmail || matchPass || matchProfile || matchPin || matchDisplayId;
+    return b._searchStr ? b._searchStr.includes(query) : true;
   });
 
   if (filtered.length === 0) {
@@ -4668,7 +4810,7 @@ function renderBindingsFeed() {
   const groupMap = new Map();
 
   displayedItems.forEach(b => {
-    const key = getBindingProfileGroupKey(b);
+    const key = b._groupKey || getBindingProfileGroupKey(b);
     if (!groupMap.has(key)) {
       const g = { key, items: [] };
       groupMap.set(key, g);
@@ -4677,11 +4819,13 @@ function renderBindingsFeed() {
     groupMap.get(key).items.push(b);
   });
 
+  const fragment = document.createDocumentFragment();
+
   groups.forEach(g => {
     if (g.items.length > 1) {
       // 👥 Multiple customers sharing the exact same profile in this feed view
       const firstB = g.items[0];
-      const linkedAcc = firstB.account_id ? allAccountsList.find(a => a.id === firstB.account_id) : null;
+      const linkedAcc = firstB.account_id ? (accountsByIdMap.get(firstB.account_id) || null) : null;
       const details = extractBindingDetails(firstB, linkedAcc);
 
       const cluster = document.createElement("div");
@@ -4720,13 +4864,13 @@ function renderBindingsFeed() {
         membersList.appendChild(card);
       });
 
-      feed.appendChild(cluster);
+      fragment.appendChild(cluster);
     } else {
       // Single customer card
       const b = g.items[0];
       const coSharersInDb = getBindingCoSharersInDb(b);
       const card = createBindingCardElement(b, now, -1, 1, coSharersInDb);
-      feed.appendChild(card);
+      fragment.appendChild(card);
     }
   });
 
@@ -4743,16 +4887,18 @@ function renderBindingsFeed() {
         <span>⬇️</span><span>โหลดสิทธิ์เพิ่มอีก 50 รายการ</span>
       </button>
     `;
-    feed.appendChild(loadMoreDiv);
+    fragment.appendChild(loadMoreDiv);
+  }
 
-    const loadMoreBtn = document.getElementById("btn-load-more-bindings");
-    if (loadMoreBtn) {
-      loadMoreBtn.addEventListener("click", () => {
-        haptic();
-        bindingsRenderLimit += 50;
-        renderBindingsFeed();
-      });
-    }
+  feed.appendChild(fragment);
+
+  const loadMoreBtn = document.getElementById("btn-load-more-bindings");
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener("click", () => {
+      haptic();
+      bindingsRenderLimit += 50;
+      renderBindingsFeed();
+    });
   }
 }
 
@@ -5244,6 +5390,7 @@ async function handleEditBindingExpiry(bindingId) {
           showToast(`📅 อัปเดตวันหมดอายุของคุณ ${b.customer_name || 'ลูกค้า'} เป็น ${formatDateThai(finalDate)} สำเร็จ!`);
         }
 
+        preprocessBindings();
         renderBindingsFeed();
         updateBindingMetrics();
       } catch (err) {
@@ -5333,6 +5480,7 @@ async function executeConfirmExtend() {
     await copyToClipboard(msg);
     closeExtendModal();
     showToast(`➕ ต่ออายุ +${addDays} วันสำเร็จ & คัดลอกข้อความแล้ว!`);
+    preprocessBindings();
     renderBindingsFeed();
     updateBindingMetrics();
   } catch (err) {
@@ -8279,6 +8427,8 @@ function extractDisneyOtpFromText(rawText) {
     .replace(/https?:\/\/[^\s"'<>\)]+/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
+    .replace(/[\u00a0\r\n\t]/g, " ")
+    .replace(/[’‘`]/g, "'")
     .replace(/[\w.-]+@[\w.-]+/g, " ")
     .replace(/[a-f0-9]{8,}(?:-[a-f0-9]{4,})+/gi, " ");
 
@@ -8385,13 +8535,6 @@ async function handleFetchMailyOtp() {
                                   subject.includes("ยินดีต้อนรับ") || 
                                   subject.includes("welcome to");
       if (isLoginNotification) continue;
-
-      // Disqualify if older than 180 minutes (3 hours)
-      if (mail.createdAt) {
-        const mailTime = new Date(mail.createdAt).getTime();
-        const diffMinutes = (Date.now() - mailTime) / (1000 * 60);
-        if (diffMinutes > 180) continue;
-      }
 
       // Check subject + snippet
       foundOtp = extractDisneyOtpFromText((mail.subject || "") + " " + (mail.snippet || ""));
