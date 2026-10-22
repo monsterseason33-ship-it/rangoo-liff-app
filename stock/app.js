@@ -73,6 +73,7 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 document.addEventListener("DOMContentLoaded", () => {
   loadSavedShop();
   initUIEventListeners();
+  initSmartSync();
   loadData();
 });
 
@@ -564,6 +565,274 @@ function initUIEventListeners() {
   initDisneyOverlayEventListeners();
 }
 
+// ============================================================================
+// 🛡️ Smart Semi-Realtime Background Sync Engine (Non-Intrusive & Guaranteed Safe)
+// ============================================================================
+
+let isUserActivelyInteracting = false;
+let userInteractionTimeout = null;
+let currentDataFingerprint = "";
+let pendingSilentUpdate = null;
+let autoSyncInterval = null;
+let isSilentFetchRunning = false;
+
+// 1. Calculate lightweight fingerprint of data to detect changes accurately
+function computeDataFingerprint(accounts, bindings) {
+  if (!Array.isArray(accounts) || !Array.isArray(bindings)) return "";
+  let availAcc = 0;
+  let brokenAcc = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    const st = accounts[i].status;
+    if (st === "available") availAcc++;
+    else if (st === "broken") brokenAcc++;
+  }
+
+  let revertedBind = 0;
+  for (let i = 0; i < bindings.length; i++) {
+    if (bindings[i].reverted) revertedBind++;
+  }
+
+  const latestAccId = accounts.length > 0 ? (accounts[0].id || "") : "";
+  const latestBindId = bindings.length > 0 ? (bindings[0].id || "") : "";
+  const latestBindCreated = bindings.length > 0 ? (bindings[0].created_at || "") : "";
+
+  return `${accounts.length}:${availAcc}:${brokenAcc}:${bindings.length}:${revertedBind}:${latestAccId}:${latestBindId}:${latestBindCreated}`;
+}
+
+// 2. Register user interaction (scrolling, touching, typing)
+function registerUserInteraction() {
+  isUserActivelyInteracting = true;
+  clearTimeout(userInteractionTimeout);
+  userInteractionTimeout = setTimeout(() => {
+    isUserActivelyInteracting = false;
+    // When user finishes interacting, check if there was a pending update waiting
+    if (pendingSilentUpdate && !isUserTypingOrInModal()) {
+      applySilentUpdate();
+    }
+  }, 2200);
+}
+
+// 3. Input Guard: Is the user currently typing or focused on ANY input/textarea?
+function isUserTypingOrFocused() {
+  const active = document.activeElement;
+  if (!active) return false;
+  const tag = active.tagName ? active.tagName.toUpperCase() : "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || active.isContentEditable) {
+    return true;
+  }
+  return false;
+}
+
+// 4. Modal Guard: Is ANY modal overlay open or is the stock form expanded?
+function isAnyModalOrFormOpen() {
+  const formPanel = document.getElementById("stock-form-panel");
+  if (formPanel && formPanel.classList.contains("expanded")) {
+    return true;
+  }
+  const openModals = document.querySelectorAll(".modal-overlay");
+  for (let i = 0; i < openModals.length; i++) {
+    const el = openModals[i];
+    if (el.style.display && el.style.display !== "none") {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isUserTypingOrInModal() {
+  return isUserTypingOrFocused() || isAnyModalOrFormOpen() || isUserActivelyInteracting;
+}
+
+// 5. Floating Sync Banner Controls
+function showFloatingSyncBanner() {
+  const banner = document.getElementById("floating-sync-banner");
+  if (banner) banner.classList.add("visible");
+}
+
+function hideFloatingSyncBanner() {
+  const banner = document.getElementById("floating-sync-banner");
+  if (banner) banner.classList.remove("visible");
+}
+
+function pulseSyncIndicator() {
+  const refreshBtn = document.getElementById("btn-refresh");
+  if (refreshBtn) {
+    refreshBtn.classList.add("sync-success-pulse");
+    setTimeout(() => refreshBtn.classList.remove("sync-success-pulse"), 1000);
+  }
+}
+
+// 6. Safe In-Place Silent Apply with Absolute Scroll Preservation
+function applySilentUpdate() {
+  if (!pendingSilentUpdate) return;
+
+  // Final safety check: if user started typing or opened modal, abort DOM touch!
+  if (isUserTypingOrFocused() || isAnyModalOrFormOpen()) {
+    showFloatingSyncBanner();
+    return;
+  }
+
+  const updateData = pendingSilentUpdate;
+  pendingSilentUpdate = null;
+  hideFloatingSyncBanner();
+
+  // 1. CAPTURE CURRENT SCROLL POSITION EXACTLY
+  const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+
+  // 2. Update internal memory state
+  allAccountsList = updateData.accounts;
+  rawAccounts = allAccountsList.filter(a => a.status === "available");
+  rawApps = updateData.apps;
+  rawPackages = updateData.pkgs;
+  rawBindings = updateData.bindings;
+  currentDataFingerprint = updateData.fingerprint;
+
+  updateAccountsMap();
+  processData();
+  preprocessBindings();
+  updateMetrics();
+  updateBindingMetrics();
+  updateTabBadges();
+
+  // 3. Re-render only active visible view
+  if (currentView === "bindings") {
+    stockFeedDirty = true;
+    renderBindingsFeed();
+  } else {
+    bindingsFeedDirty = true;
+    renderStockFeed();
+    renderChips();
+  }
+
+  // 4. RESTORE EXACT SCROLL POSITION INSTANTLY (0 pixel shift!)
+  window.scrollTo({
+    top: scrollY,
+    left: scrollX,
+    behavior: "instant"
+  });
+
+  pulseSyncIndicator();
+}
+
+// 7. Silent Background Update Checker
+async function silentCheckForUpdates() {
+  if (isSilentFetchRunning) return;
+  if (isUserTypingOrFocused()) return;
+
+  isSilentFetchRunning = true;
+  try {
+    let newAccounts = [];
+    let newApps = [];
+    let newPkgs = [];
+    let newBindings = [];
+
+    const headers = {
+      "Authorization": `Bearer ${currentShop.key}`,
+      "apikey": currentShop.key,
+      "Content-Type": "application/json"
+    };
+
+    if (currentShop.type === "supabase") {
+      const [accRes, appsRes, pkgsRes, bindsData] = await Promise.all([
+        fetch(`${currentShop.url}/rest/v1/accounts?select=*`, { headers }),
+        fetch(`${currentShop.url}/rest/v1/apps?select=*`, { headers }),
+        fetch(`${currentShop.url}/rest/v1/packages?select=*`, { headers }),
+        fetchAllSupabaseBindings(headers)
+      ]);
+      if (!accRes.ok) return;
+      newAccounts = await accRes.json();
+      newApps = appsRes.ok ? await appsRes.json() : [];
+      newPkgs = pkgsRes.ok ? await pkgsRes.json() : [];
+      newBindings = bindsData || [];
+    } else {
+      const [accRes, appsRes, pkgsRes, bindsRes] = await Promise.all([
+        fetch(`${currentShop.url}/api/accounts`, { headers }),
+        fetch(`${currentShop.url}/api/apps`, { headers }),
+        fetch(`${currentShop.url}/api/packages`, { headers }),
+        fetch(`${currentShop.url}/api/customer_bindings?order=created_at.desc&limit=10000`, { headers })
+      ]);
+      if (!accRes.ok) return;
+      newAccounts = await accRes.json();
+      newApps = appsRes.ok ? await appsRes.json() : [];
+      newPkgs = pkgsRes.ok ? await pkgsRes.json() : [];
+      newBindings = bindsRes.ok ? await bindsRes.json() : [];
+    }
+
+    const newFingerprint = computeDataFingerprint(newAccounts, newBindings);
+
+    // If identical, database has not changed!
+    if (newFingerprint === currentDataFingerprint) {
+      return;
+    }
+
+    // New data detected!
+    pendingSilentUpdate = {
+      accounts: newAccounts,
+      apps: newApps,
+      pkgs: newPkgs,
+      bindings: newBindings,
+      fingerprint: newFingerprint
+    };
+
+    // If user is typing, in a modal, or scrolling, do not disrupt:
+    if (isUserTypingOrInModal()) {
+      showFloatingSyncBanner();
+      return;
+    }
+
+    // Safe to apply update seamlessly
+    applySilentUpdate();
+
+  } catch (err) {
+    console.debug("[SmartSync] Silent check error (ignored):", err);
+  } finally {
+    isSilentFetchRunning = false;
+  }
+}
+
+// 8. Initialize Smart Sync Listeners
+function initSmartSync() {
+  // Listen for user interactions to prevent interrupting active work
+  window.addEventListener("scroll", registerUserInteraction, { passive: true });
+  window.addEventListener("touchmove", registerUserInteraction, { passive: true });
+  window.addEventListener("wheel", registerUserInteraction, { passive: true });
+  window.addEventListener("keydown", registerUserInteraction, { passive: true });
+
+  // Floating banner click handler
+  const banner = document.getElementById("floating-sync-banner");
+  if (banner) {
+    banner.addEventListener("click", () => {
+      haptic();
+      applySilentUpdate();
+    });
+  }
+
+  // 8.1. Window Focus / Tab Switch Back (Semi-Realtime Instant Sync)
+  window.addEventListener("focus", () => {
+    setTimeout(() => {
+      silentCheckForUpdates();
+    }, 250);
+  });
+
+  // 8.2. Visibility Change
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      setTimeout(() => {
+        silentCheckForUpdates();
+      }, 250);
+    }
+  });
+
+  // 8.3. Periodic Heartbeat (Every 25 seconds when tab is active)
+  if (autoSyncInterval) clearInterval(autoSyncInterval);
+  autoSyncInterval = setInterval(() => {
+    if (document.visibilityState === "visible") {
+      silentCheckForUpdates();
+    }
+  }, 25000);
+}
+
 // ----------------------------------------------------------------------------
 // Data Fetching
 // ----------------------------------------------------------------------------
@@ -599,6 +868,7 @@ async function loadData(force = false) {
     bindingsFeedDirty = false;
     updateBindingMetrics();
     updateTabBadges();
+    currentDataFingerprint = computeDataFingerprint(allAccountsList, rawBindings);
 
   } catch (err) {
     console.error("Fetch data error:", err);

@@ -4611,3 +4611,60 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
   color: #ffffff;
 }
 
+/* ============================================================================
+   Smart Semi-Realtime Floating Sync Pill & Indicator
+============================================================================ */
+.floating-sync-pill {
+  position: fixed;
+  bottom: calc(75px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 20px rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1100;
+  cursor: pointer;
+  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.floating-sync-pill.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.floating-sync-pill:hover {
+  background: rgba(30, 41, 59, 0.98);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.4);
+}
+
+.sync-success-pulse {
+  animation: syncIconSpin 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.7) !important;
+  border-color: #34d399 !important;
+  color: #34d399 !important;
+}
+
+@keyframes syncIconSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.18); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+
