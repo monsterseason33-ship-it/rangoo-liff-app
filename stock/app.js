@@ -326,6 +326,14 @@ function initUIEventListeners() {
         return;
       }
 
+      // 1.25 Delete entire stock account group
+      const delAccBtn = e.target.closest(".btn-delete-account-group");
+      if (delAccBtn) {
+        e.stopPropagation();
+        openDeleteAccountModal(delAccBtn.dataset.groupKey, delAccBtn.dataset.emailKey);
+        return;
+      }
+
       // 2. Copy entire app stock
       const copyAppBtn = e.target.closest(".group-copy-app-btn");
       if (copyAppBtn) {
@@ -1539,15 +1547,19 @@ function renderStockFeed() {
             </div>
           </div>
 
-          <!-- Account Action Buttons (Edit Account & Copy Script) -->
-          <div class="acc-actions-grid" style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; margin-top: 4px;">
+          <!-- Account Action Buttons (Edit Account & Copy Script & Delete Account) -->
+          <div class="acc-actions-grid" style="display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 6px; margin-top: 4px;">
             <button type="button" class="btn-edit-account-all" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}" title="แก้ไขข้อมูลบัญชีนี้ และทุกจอ">
               <span>✏️</span>
-              <span>แก้ไขบัญชี & จอ</span>
+              <span>แก้ไขบัญชี</span>
             </button>
             <button type="button" class="btn-copy-account-script" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}" style="margin-top: 0;">
               <span>📋</span>
-              <span>1-Tap ก็อปปี้สคริปต์</span>
+              <span>1-Tap ก็อปปี้</span>
+            </button>
+            <button type="button" class="btn-delete-account-group" data-group-key="${escapeHtml(groupKey)}" data-email-key="${escapeHtml(emailKey)}" title="🗑️ ลบบัญชี ${escapeHtml(acc.email)} ออกจากฐานข้อมูล">
+              <span>🗑️</span>
+              <span>ลบบัญชีนี้</span>
             </button>
           </div>
         </div>
@@ -5336,6 +5348,14 @@ function initTroubleshootingModalListeners() {
   const confirmEditCredsBtn = document.getElementById("btn-confirm-edit-creds");
   if (confirmEditCredsBtn) confirmEditCredsBtn.addEventListener("click", executeConfirmEditCreds);
 
+  // Delete Account Modal close and confirm
+  const closeDeleteAccBtn = document.getElementById("btn-close-delete-acc-modal");
+  if (closeDeleteAccBtn) closeDeleteAccBtn.addEventListener("click", closeDeleteAccountModal);
+  const cancelDeleteAccBtn = document.getElementById("btn-cancel-delete-acc");
+  if (cancelDeleteAccBtn) cancelDeleteAccBtn.addEventListener("click", closeDeleteAccountModal);
+  const confirmDeleteAccBtn = document.getElementById("btn-confirm-delete-acc");
+  if (confirmDeleteAccBtn) confirmDeleteAccBtn.addEventListener("click", executeConfirmDeleteAccount);
+
   const editExpTrigger = document.getElementById("edit-creds-expiry-trigger");
   if (editExpTrigger) {
     editExpTrigger.addEventListener("click", () => {
@@ -6171,6 +6191,131 @@ async function executeConfirmEditCreds() {
     if (confirmBtn) {
       confirmBtn.disabled = false;
       confirmBtn.textContent = editCredsContext.mode === "stock" ? "💾 บันทึกข้อมูลบัญชี & จอ" : "💾 บันทึกข้อมูล & ส่งลูกค้า";
+    }
+  }
+}
+
+// 5.9 Delete Stock Account Group Modal Handlers
+let targetAccountGroupToDelete = null;
+
+function openDeleteAccountModal(groupKey, emailKey) {
+  haptic();
+  const group = appGroups[groupKey];
+  if (!group) return;
+  const acc = group.accountsByEmail[emailKey];
+  if (!acc) return;
+
+  targetAccountGroupToDelete = {
+    groupKey,
+    emailKey,
+    group,
+    acc
+  };
+
+  const screens = acc.screens || [];
+  const boundCount = screens.filter(s => s.status === "bound" || s.customer_name).length;
+
+  const modal = document.getElementById("modal-delete-account");
+  const detailsBox = document.getElementById("delete-acc-details-box");
+
+  if (detailsBox) {
+    detailsBox.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
+        <span style="color: var(--text-dim);">🎬 แอปพลิเคชัน:</span>
+        <strong style="color: #fff; font-size: 12.5px;">${escapeHtml(group.appName)}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
+        <span style="color: var(--text-dim);">📧 อีเมลบัญชี:</span>
+        <span style="color: #38bdf8; font-family: monospace; font-weight: 700; word-break: break-all;">${escapeHtml(acc.email)}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
+        <span style="color: var(--text-dim);">📦 แพ็กเกจ:</span>
+        <span style="color: #c084fc; font-weight: 600;">${escapeHtml(group.pkgName || 'ไม่ระบุ')}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: var(--text-dim);">📺 จำนวนจอที่จะถูกลบ:</span>
+        <strong style="color: #fbbf24; font-size: 13px;">${screens.length} จอ</strong>
+      </div>
+      ${boundCount > 0 ? `
+      <div style="margin-top: 6px; padding: 8px 10px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; color: #fde68a; font-size: 11px; line-height: 1.5;">
+        ⚠️ <strong>คำเตือน:</strong> มี <strong>${boundCount} จอ</strong> กำลังผูกกับลูกค้าอยู่! หากลบ สิทธิ์ของลูกค้าจะถูกปลดการเชื่อมโยงทันที
+      </div>` : ''}
+    `;
+  }
+
+  if (modal) {
+    modal.style.display = "flex";
+  } else {
+    // Direct alert confirm fallback if modal container isn't rendered
+    if (confirm(`🗑️ ยืนยันการลบบัญชี ${acc.email} (${group.appName}) และทุกจอ (${screens.length} จอ) ออกจากฐานข้อมูลหรือไม่?`)) {
+      executeConfirmDeleteAccount();
+    }
+  }
+}
+
+function closeDeleteAccountModal() {
+  const modal = document.getElementById("modal-delete-account");
+  if (modal) modal.style.display = "none";
+  targetAccountGroupToDelete = null;
+}
+
+async function executeConfirmDeleteAccount() {
+  if (!targetAccountGroupToDelete) return;
+  const { group, acc } = targetAccountGroupToDelete;
+  const screens = acc.screens || [];
+  const screenIds = screens.map(s => s.id);
+  const email = acc.email;
+
+  const confirmBtn = document.getElementById("btn-confirm-delete-acc");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "⏳ กำลังลบข้อมูล...";
+  }
+
+  showToast(`⏳ กำลังลบบัญชี ${email} ออกจากฐานข้อมูล...`);
+
+  try {
+    // 1. Delete each screen using deleteAccountRecord(id)
+    for (const sid of screenIds) {
+      await deleteAccountRecord(sid);
+    }
+
+    // 2. Also execute clean-up delete by email & app_id in accounts table
+    try {
+      let delUrl, delHeaders;
+      if (currentShop.type === "supabase") {
+        delUrl = `${currentShop.url}/rest/v1/accounts?email=eq.${encodeURIComponent(email)}&app_id=eq.${encodeURIComponent(group.appId)}`;
+        delHeaders = {
+          "apikey": currentShop.key,
+          "Authorization": `Bearer ${currentShop.key}`
+        };
+      } else {
+        delUrl = `${currentShop.url}/api/accounts?email=eq.${encodeURIComponent(email)}&app_id=eq.${encodeURIComponent(group.appId)}`;
+        delHeaders = {
+          "Authorization": `Bearer ${currentShop.key}`
+        };
+      }
+      await fetch(delUrl, { method: "DELETE", headers: delHeaders });
+    } catch (e) { }
+
+    showToast(`🟢 ลบบัญชี ${email} ออกจากฐานข้อมูลเรียบร้อยแล้ว!`);
+    haptic();
+
+    closeDeleteAccountModal();
+
+    // 3. Refresh live data
+    if (typeof loadData === "function") {
+      await loadData(true);
+    } else {
+      location.reload();
+    }
+  } catch (err) {
+    console.error("Delete account group error:", err);
+    showToast(`❌ ลบล้มเหลว: ${err.message || err}`);
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "🗑️ ยืนยันลบออกจากระบบ";
     }
   }
 }
