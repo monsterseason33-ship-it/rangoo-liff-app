@@ -2783,7 +2783,7 @@ function flashParserSuccess(el) {
 // ----------------------------------------------------------------------------
 let multiAccountEditMode = 'batch'; // 'batch' (แบบรวม) | 'individual' (แบบแยก)
 let batchMasterConfig = {
-  package_id: '',
+  package_id: undefined,
   expiry_date: '',
   status: 'available',
   screens_count: 1,
@@ -3084,8 +3084,8 @@ function renderMultiAccountEditor() {
     };
   }
 
-  // Initialize batchMasterConfig if empty
-  if (!batchMasterConfig.package_id && activeAppPackages.length > 0) {
+  // Initialize batchMasterConfig if uninitialized
+  if (batchMasterConfig.package_id === undefined && activeAppPackages.length > 0) {
     batchMasterConfig.package_id = activeAppPackages[0].id;
   }
   if (!batchMasterConfig.expiry_date) {
@@ -3128,8 +3128,8 @@ function renderMultiAccountCardsOnly() {
   const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
 
   parsedBatchAccounts.forEach((acc, idx) => {
-    if (acc.package_id === undefined || acc.package_id === null) {
-      acc.package_id = batchMasterConfig.package_id || activeAppPackages[0]?.id || "";
+    if (acc.package_id === undefined) {
+      acc.package_id = batchMasterConfig.package_id !== undefined ? batchMasterConfig.package_id : (activeAppPackages[0]?.id || "");
     }
     if (!acc.expiry_date) {
       acc.expiry_date = batchMasterConfig.expiry_date;
@@ -4099,11 +4099,12 @@ async function submitAccountForm() {
     // Save multiple accounts from parsedBatchAccounts
     parsedBatchAccounts.forEach(acc => {
       const accExpiryISO = acc.expiry_date ? new Date(acc.expiry_date).toISOString() : expiryISO;
+      const accPkgId = (acc.package_id && acc.package_id !== "") ? acc.package_id : null;
       if (acc.profiles && acc.profiles.length > 0) {
         acc.profiles.forEach((prof, profIdx) => {
           records.push({
             app_id: appId,
-            package_id: acc.package_id || packageId,
+            package_id: accPkgId,
             email: acc.email.trim(),
             password: acc.password.trim(),
             profile_name: prof.name.trim() || `จอ ${profIdx + 1}`,
@@ -4118,7 +4119,7 @@ async function submitAccountForm() {
       } else {
         records.push({
           app_id: appId,
-          package_id: acc.package_id || packageId,
+          package_id: accPkgId,
           email: acc.email.trim(),
           password: acc.password.trim(),
           profile_name: "จอ 1",
@@ -4224,6 +4225,8 @@ function resetStockForm() {
     batchInfo.textContent = "";
   }
   parsedBatchAccounts = [];
+  batchMasterConfig.package_id = undefined;
+  batchMasterConfig.profiles = [];
   renderMultiAccountEditor();
   const emailInput = document.getElementById("acc-email");
   if (emailInput) emailInput.value = "";
