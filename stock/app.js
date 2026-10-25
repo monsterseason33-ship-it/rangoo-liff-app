@@ -4918,6 +4918,74 @@ function getBindingCoSharersInDb(b) {
   return bindingCoSharersMap.get(b.id) || [];
 }
 
+// ----------------------------------------------------------------------------
+// ⏰ Expiry Tracker & Master Account Relationship Helpers
+// ----------------------------------------------------------------------------
+
+function getMasterAccountForBinding(bindObj) {
+  if (!bindObj) return null;
+  if (bindObj.account_id && accountsByIdMap.has(bindObj.account_id)) {
+    return accountsByIdMap.get(bindObj.account_id);
+  }
+  const details = bindObj._details || extractBindingDetails(bindObj);
+  const emailVal = (details.email || "").toLowerCase().trim();
+  const appNameLower = (bindObj.app_name || "").toLowerCase().trim();
+  if (emailVal && emailVal !== "-" && emailVal.includes("@")) {
+    const found = allAccountsList.find(a => {
+      const aEmail = (a.email || "").toLowerCase().trim();
+      const aApp = (a.app_name || "").toLowerCase().trim();
+      return aEmail === emailVal && (!appNameLower || aApp === appNameLower);
+    });
+    if (found) return found;
+  }
+  return null;
+}
+
+function isCustExpiredMasterActive(bindObj, now = new Date()) {
+  if (!bindObj || !bindObj.expiry_date) return false;
+  const custExp = new Date(bindObj.expiry_date);
+  if (isNaN(custExp.getTime())) return false;
+  if (custExp - now > 0) return false; // Customer has not expired yet
+
+  const masterAcc = getMasterAccountForBinding(bindObj);
+  if (!masterAcc || !masterAcc.expiry_date) return false;
+
+  const masterExp = new Date(masterAcc.expiry_date);
+  if (isNaN(masterExp.getTime())) return false;
+  if (masterExp <= now) return false; // Master Account must still be active
+
+  // Same calendar day check
+  const isSameDay = masterExp.getFullYear() === custExp.getFullYear() &&
+    masterExp.getMonth() === custExp.getMonth() &&
+    masterExp.getDate() === custExp.getDate();
+  if (isSameDay) return false;
+
+  const diffDays = Math.round((masterExp.getTime() - custExp.getTime()) / (1000 * 60 * 60 * 24));
+  return diffDays > 2;
+}
+
+function isMasterExpiringBeforeCust(bindObj) {
+  if (!bindObj || !bindObj.expiry_date) return false;
+  const masterAcc = getMasterAccountForBinding(bindObj);
+  if (masterAcc && masterAcc.expiry_date) {
+    const masterExp = new Date(masterAcc.expiry_date);
+    const custExp = new Date(bindObj.expiry_date);
+    if (!isNaN(masterExp.getTime()) && !isNaN(custExp.getTime())) {
+      return masterExp < custExp;
+    }
+  }
+  return false;
+}
+
+function getExpiryDiffMs(bindObj) {
+  const masterAcc = getMasterAccountForBinding(bindObj);
+  if (!masterAcc || !masterAcc.expiry_date || !bindObj.expiry_date) return -1;
+  const masterExp = new Date(masterAcc.expiry_date).getTime();
+  const custExp = new Date(bindObj.expiry_date).getTime();
+  if (isNaN(masterExp) || isNaN(custExp)) return -1;
+  return Math.abs(masterExp - custExp);
+}
+
 function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, coSharersInDb = []) {
   const linkedAcc = b.account_id ? (accountsByIdMap.get(b.account_id) || null) : null;
   const details = extractBindingDetails(b, linkedAcc);
@@ -4965,6 +5033,58 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
   const createdDisplay = b.created_at ? formatDateThai(new Date(b.created_at)) : "-";
   const customerInitial = (b.customer_name || "C").trim().charAt(0).toUpperCase();
   const customerWebappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
+
+  // Master Account Expiry Comparison
+  const masterAcc = getMasterAccountForBinding(b);
+  let masterExpiryComparisonHtml = "";
+  if (masterAcc && masterAcc.expiry_date) {
+    const masterExpDate = new Date(masterAcc.expiry_date);
+    const custExpDate = b.expiry_date ? new Date(b.expiry_date) : null;
+    const diffMs = masterExpDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    let masterRemainingText = "";
+    let masterRemainingColor = "#34d399";
+    if (diffDays > 0) {
+      masterRemainingText = `(เหลือ ${diffDays} วัน)`;
+      if (diffDays <= 3) masterRemainingColor = "#f87171";
+      else if (diffDays <= 7) masterRemainingColor = "#fbbf24";
+    } else {
+      masterRemainingText = `(หมดอายุแล้ว)`;
+      masterRemainingColor = "#f87171";
+    }
+
+    let diffCalloutHtml = "";
+    if (custExpDate && !isNaN(custExpDate.getTime()) && !isNaN(masterExpDate.getTime())) {
+      const diffCustMs = masterExpDate.getTime() - custExpDate.getTime();
+      const diffCustDays = Math.round(Math.abs(diffCustMs) / (1000 * 60 * 60 * 24));
+      if (masterExpDate < custExpDate) {
+        diffCalloutHtml = `
+          <div class="prem-expiry-diff-callout callout-warning" title="บัญชีหลักจะหมดก่อนลูกค้า ${diffCustDays} วัน">
+            <span>⚠️</span><span>บัญชีหลักจะหมดก่อนลูกค้า <b>(${diffCustDays} วัน)</b></span>
+          </div>
+        `;
+      } else if (diffCustDays > 2) {
+        diffCalloutHtml = `
+          <div class="prem-expiry-diff-callout callout-purple" title="บัญชีหลักมีวันหมดอายุมากกว่าลูกค้า (ต่างกัน ${diffCustDays} วัน)">
+            <span>🟣</span><span>บัญชีหลักเหลือมากกว่าลูกค้า <b>(ต่างกัน ${diffCustDays} วัน)</b></span>
+          </div>
+        `;
+      }
+    }
+
+    masterExpiryComparisonHtml = `
+      <div class="binding-master-expiry-strip">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10.5px;">
+          <span style="color: #94a3b8;">🔑 หมดอายุบัญชีหลัก:</span>
+          <span style="font-weight: 700; color: #f8fafc;">
+            ${formatDateThai(masterExpDate)} <span style="color: ${masterRemainingColor}; font-weight: 800;">${masterRemainingText}</span>
+          </span>
+        </div>
+        ${diffCalloutHtml}
+      </div>
+    `;
+  }
 
   const isClusterMember = memberIndex >= 0 && totalMembers > 1;
 
@@ -5095,6 +5215,7 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
       <div>
         ${countdownHtml}
       </div>
+      ${masterExpiryComparisonHtml}
     </div>
 
     <!-- Customer Communication Links -->
@@ -5118,6 +5239,9 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
 
     <!-- Troubleshooting & Management Action Bar -->
     <div class="binding-troubleshoot-bar">
+      <button type="button" class="binding-action-btn upsell btn-action-upsell" data-binding-id="${b.id}" title="คัดลอกสคริปต์ทักเตือนต่ออายุ (พร้อมเปิดแชท LINE OA)">
+        <span>💬</span><span>เตือนต่ออายุ</span>
+      </button>
       <button type="button" class="binding-action-btn swap btn-action-swap" data-binding-id="${b.id}" title="เคลมจอ หรือย้ายไปใช้บัญชีอื่นจากคลัง">
         <span>🔄</span><span>เคลมจอ</span>
       </button>
@@ -5153,24 +5277,81 @@ function renderBindingsFeed() {
   const query = bindingSearchQuery.trim().toLowerCase();
 
   const filtered = rawBindings.filter(b => {
-    // 1. Status Filter (Fast boolean flags)
-    if (bindingFilter === "active" && !b._isActive) return false;
-    if (bindingFilter === "expiring" && !b._isExpiringSoon) return false;
-    if (bindingFilter === "expired" && !b._isExpired) return false;
-    if (bindingFilter === "reverted" && !b._isReverted) return false;
+    // 1. Status Filter (Enhanced Expiry Tracker)
+    const expDate = b.expiry_date ? new Date(b.expiry_date) : null;
+    const diff = expDate ? (expDate.getTime() - now.getTime()) : null;
+
+    if (bindingFilter === "active") {
+      if (b._isReverted || (diff !== null && diff <= 0)) return false;
+    } else if (bindingFilter === "expired") {
+      if (b._isReverted || diff === null || diff > 0 || isCustExpiredMasterActive(b, now)) return false;
+    } else if (bindingFilter === "cust-expired-master-active") {
+      if (b._isReverted || !isCustExpiredMasterActive(b, now)) return false;
+    } else if (bindingFilter === "master-expiring-before-cust") {
+      if (b._isReverted || !isMasterExpiringBeforeCust(b)) return false;
+    } else if (bindingFilter === "today") {
+      if (b._isReverted || !expDate) return false;
+      const isSameDay = expDate.getFullYear() === now.getFullYear() &&
+        expDate.getMonth() === now.getMonth() &&
+        expDate.getDate() === now.getDate();
+      if (!isSameDay && !(diff > 0 && diff <= 24 * 60 * 60 * 1000)) return false;
+    } else if (bindingFilter === "expiring") {
+      if (b._isReverted || diff === null || diff <= 0 || diff > 3 * 24 * 60 * 60 * 1000) return false;
+    } else if (bindingFilter === "reverted") {
+      if (!b._isReverted) return false;
+    }
 
     // 2. Query Search (Fast precomputed string search)
     if (!query) return true;
     return b._searchStr ? b._searchStr.includes(query) : true;
   });
 
+  // Sort logic for Expiry Tracker
+  if (bindingFilter === "cust-expired-master-active" || bindingFilter === "master-expiring-before-cust") {
+    filtered.sort((a, b) => {
+      const diffA = getExpiryDiffMs(a);
+      const diffB = getExpiryDiffMs(b);
+      if (diffB !== diffA) return diffB - diffA;
+      return new Date(a.expiry_date || 0) - new Date(b.expiry_date || 0);
+    });
+  } else if (bindingFilter === "expired" || bindingFilter === "today" || bindingFilter === "expiring") {
+    filtered.sort((a, b) => new Date(a.expiry_date || 0) - new Date(b.expiry_date || 0));
+  }
+
+  // 1-Click Batch Unlink Banner Management
+  const batchBanner = document.getElementById("batch-unlink-expired-banner");
+  const batchTitle = document.getElementById("batch-unlink-title");
+  const batchCount = document.getElementById("batch-unlink-count");
+  const batchIcon = document.getElementById("batch-unlink-icon");
+  const batchBtn = document.getElementById("btn-batch-unlink-expired");
+
+  const isBatchEligible = (bindingFilter === "expired" || bindingFilter === "cust-expired-master-active") && filtered.length > 0;
+
+  if (batchBanner) {
+    if (isBatchEligible) {
+      batchBanner.style.display = "flex";
+      const isCustExpiredActive = bindingFilter === "cust-expired-master-active";
+      batchBanner.className = `prem-expiry-batch-hero ${isCustExpiredActive ? 'variant-purple' : 'variant-red'}`;
+      if (batchTitle) batchTitle.textContent = isCustExpiredActive ? "ปลดลิ้งก์ลูกค้าหมดอายุ (หลักยังเหลือ) ทั้งหมด" : "ปลดลิ้งก์หมดอายุทั้งหมด";
+      if (batchCount) batchCount.textContent = `${filtered.length} รายการ`;
+      if (batchIcon) batchIcon.textContent = isCustExpiredActive ? "🟣" : "⚡";
+      if (batchBtn) {
+        batchBtn.className = `prem-expiry-batch-btn ${isCustExpiredActive ? 'btn-batch-purple' : 'btn-batch-red'}`;
+        batchBtn.innerHTML = `<span>⚡ ปลดลิ้งก์ทั้งหมด (${filtered.length})</span>`;
+        batchBtn.onclick = () => batchRevertExpiredBindings(filtered);
+      }
+    } else {
+      batchBanner.style.display = "none";
+    }
+  }
+
   if (filtered.length === 0) {
     feed.innerHTML = `
       <div class="empty-state" style="padding: 40px 16px;">
         <div class="empty-icon">🔍</div>
-        <div class="empty-title">ไม่พบข้อมูลการผูกสิทธิ์ที่ตรงกับคำค้นหา</div>
+        <div class="empty-title">ไม่พบข้อมูลการผูกสิทธิ์ที่ตรงกับคำค้นหาหรือตัวกรอง</div>
         <div style="font-size: 11px; color: var(--text-dim); margin-top: 6px;">
-          ลองค้นหาด้วยชื่อลูกค้าอื่น, ID จอ เช่น #153, อีเมล หรือแตะปุ่ม "🎲 สุ่มชื่อลูกค้า" ด้านบน
+          ลองเปลี่ยนตัวกรองด้านบน หรือค้นหาด้วยชื่อลูกค้า, ID จอ เช่น #153, หรืออีเมล
         </div>
       </div>
     `;
@@ -5371,6 +5552,14 @@ function initTroubleshootingModalListeners() {
       if (handoverBtn) {
         e.stopPropagation();
         copyBindingHandoverScript(handoverBtn.dataset.bindingId, handoverBtn);
+        return;
+      }
+
+      // 3.1 1-Tap Upsell / Renewal Reminder Script
+      const upsellBtn = e.target.closest(".btn-action-upsell");
+      if (upsellBtn) {
+        e.stopPropagation();
+        handleRenewalReminder(upsellBtn.dataset.bindingId, upsellBtn);
         return;
       }
 
@@ -5675,39 +5864,119 @@ async function executeConfirmSwap() {
   }
 }
 
-// 2. Revert Binding
+function isExemptApp(appOrBind) {
+  const name = ((typeof appOrBind === "string" ? appOrBind : (appOrBind?.app_name || "")) || "").toLowerCase();
+  return name.includes("prime") || name.includes("netflix") || name.includes("hbo");
+}
+
+function determineAccountStatusAfterUnbind(acc, excludeBindingIds = [], isExempt = false, remainingDays = 999) {
+  if (!acc || !acc.id) {
+    return {
+      status: "available",
+      customer_id: null,
+      sold_at: null,
+      hasOtherActiveUsers: false,
+      primaryRemainingCustomer: null,
+      remainingCount: 0
+    };
+  }
+
+  const excludeSet = new Set(
+    (Array.isArray(excludeBindingIds) ? excludeBindingIds : [excludeBindingIds]).filter(Boolean)
+  );
+
+  const remainingBindings = rawBindings.filter(b => 
+    !b.reverted && 
+    b.account_id === acc.id && 
+    !excludeSet.has(b.id)
+  );
+
+  // Filter bindings that are still active (not expired)
+  const activeUnexpired = remainingBindings.filter(b => {
+    if (!b.expiry_date) return true;
+    return new Date(b.expiry_date).getTime() > Date.now();
+  });
+
+  if (activeUnexpired.length > 0) {
+    return {
+      status: "used",
+      customer_id: activeUnexpired[0].customer_name || null,
+      sold_at: acc.sold_at || activeUnexpired[0].created_at || null,
+      hasOtherActiveUsers: true,
+      primaryRemainingCustomer: activeUnexpired[0].customer_name,
+      remainingCount: activeUnexpired.length
+    };
+  } else if (remainingBindings.length > 0) {
+    return {
+      status: "used",
+      customer_id: remainingBindings[0].customer_name || null,
+      sold_at: acc.sold_at || remainingBindings[0].created_at || null,
+      hasOtherActiveUsers: true,
+      primaryRemainingCustomer: remainingBindings[0].customer_name,
+      remainingCount: remainingBindings.length
+    };
+  } else {
+    const targetStatus = (!isExempt && remainingDays < 2) ? "used" : "available";
+    return {
+      status: targetStatus,
+      customer_id: null,
+      sold_at: null,
+      hasOtherActiveUsers: false,
+      primaryRemainingCustomer: null,
+      remainingCount: 0
+    };
+  }
+}
+
+// 2. Revert Single Binding
 async function executeRevertBinding(bindingId) {
   haptic();
   const b = rawBindings.find(x => x.id === bindingId);
   if (!b) return;
 
-  if (!confirm(`คุณต้องการดีดคืนสต็อกสิทธิ์ของคุณ ${b.customer_name} (${b.app_name}) ใช่หรือไม่?`)) {
+  const acc = b.account_id ? (accountsByIdMap.get(b.account_id) || allAccountsList.find(a => a.id === b.account_id)) : null;
+  const isExempt = isExemptApp(b.app_name || acc?.app_name);
+  let remainingDays = 999;
+  if (acc && acc.expiry_date) {
+    const diffMs = new Date(acc.expiry_date).getTime() - Date.now();
+    remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  }
+  const resolution = acc ? determineAccountStatusAfterUnbind(acc, [b.id], isExempt, remainingDays) : null;
+
+  let confirmMsg = `คุณต้องการปลดลิ้งก์สิทธิ์ของคุณ ${b.customer_name} (${b.app_name}) ใช่หรือไม่?\n`;
+  if (resolution && resolution.hasOtherActiveUsers) {
+    confirmMsg += `(จอนี้จะยังคงสถานะใช้งานต่อ เนื่องจากยังมีคุณ "${resolution.primaryRemainingCustomer}" ใช้งานอยู่)`;
+  } else {
+    confirmMsg += `(ระบบจะดีดบัญชีและสิทธิ์หน้าจอนี้กลับคลังเพื่อให้ว่างสำหรับขายต่อทันที)`;
+  }
+
+  if (!confirm(confirmMsg)) {
     return;
   }
 
-  showToast("⏳ กำลังดำเนินการดีดคืนสต็อก...");
+  showToast("⏳ กำลังดำเนินการปลดลิ้งก์และคืนคลัง...");
 
   try {
     // 1. Mark binding reverted = true
     await patchDatabase("customer_bindings", b.id, { reverted: true });
     b.reverted = true;
 
-    // 2. If account linked, check if co-sharers exist
-    if (b.account_id) {
-      const otherActive = rawBindings.filter(other => !other.reverted && other.account_id === b.account_id && other.id !== b.id);
-      if (otherActive.length > 0) {
-        await patchDatabase("accounts", b.account_id, {
-          status: "used",
-          customer_id: otherActive[0].customer_name
-        });
-        showToast(`↩️ ปลดสิทธิ์สำเร็จ (จอยังคงมีคุณ ${otherActive[0].customer_name} ใช้งานอยู่)`);
-      } else {
-        await patchDatabase("accounts", b.account_id, {
+    // 2. If account linked, update status according to resolution
+    if (acc) {
+      if (resolution.status === "available") {
+        await patchDatabase("accounts", acc.id, {
           status: "available",
           customer_id: null,
           sold_at: null
         });
         showToast("↩️ ปลดสิทธิ์และคืนจอเข้าสต็อกพร้อมขายเรียบร้อยแล้ว!");
+      } else {
+        await patchDatabase("accounts", acc.id, {
+          status: "used",
+          customer_id: resolution.customer_id,
+          sold_at: resolution.sold_at
+        });
+        showToast(`↩️ ปลดสิทธิ์สำเร็จ (จอยังคงมีคุณ ${resolution.primaryRemainingCustomer || 'ลูกค้า'} ใช้งานอยู่)`);
       }
     } else {
       showToast("↩️ ปลดสิทธิ์เรียบร้อยแล้ว");
@@ -5717,6 +5986,91 @@ async function executeRevertBinding(bindingId) {
   } catch (err) {
     console.error("Revert binding error:", err);
     showToast("❌ ปลดสิทธิ์ไม่สำเร็จ: " + err.message);
+  }
+}
+
+// 2.1 Batch Revert Expired Bindings (1-Click Revert from Expiry Tracker)
+async function batchRevertExpiredBindings(bindingsToRevert) {
+  haptic();
+  if (!bindingsToRevert || bindingsToRevert.length === 0) {
+    showToast("⚠️ ไม่มีรายการให้ปลดลิ้งก์");
+    return;
+  }
+
+  const count = bindingsToRevert.length;
+  if (!confirm(`⚠️ ยืนยันการ "ปลดลิ้งก์ทั้งหมด" จำนวน ${count} รายการหรือไม่?\n\n(ระบบจะเปลี่ยนสถานะ reverted = true และคืนสถานะจอเข้าคลัง โดยจอที่ยังมีลูกค้าคนอื่นใช้งานอยู่จะคงสถานะใช้แล้ว และรายการที่อายุบัญชีหลักเหลือน้อยกว่า 2 วัน จะติดสถานะใช้แล้ว ยกเว้น Prime/Netflix/HBO ที่จะคืนคลังปกติ)`)) {
+    return;
+  }
+
+  showToast(`⏳ กำลังปลดลิ้งก์ทั้งหมด ${count} รายการ...`);
+
+  const bindIds = bindingsToRevert.map(b => b.id);
+
+  // Group affected accounts
+  const affectedAccountIds = [...new Set(bindingsToRevert.map(b => b.account_id).filter(Boolean))];
+
+  const availableAccountIds = [];
+  const usedAccountUpdates = []; // { id, customer_id, sold_at }
+
+  affectedAccountIds.forEach(accId => {
+    const acc = accountsByIdMap.get(accId) || allAccountsList.find(a => a.id === accId);
+    if (!acc) return;
+    const sampleBind = bindingsToRevert.find(b => b.account_id === accId) || {};
+    const isExempt = isExemptApp(sampleBind.app_name || acc.app_name);
+
+    let remainingDays = 999;
+    if (acc.expiry_date) {
+      const diffMs = new Date(acc.expiry_date).getTime() - Date.now();
+      remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    }
+
+    const resolution = determineAccountStatusAfterUnbind(acc, bindIds, isExempt, remainingDays);
+
+    if (resolution.status === "available") {
+      availableAccountIds.push(accId);
+    } else {
+      usedAccountUpdates.push({
+        id: accId,
+        customer_id: resolution.customer_id,
+        sold_at: resolution.sold_at
+      });
+    }
+  });
+
+  try {
+    // 1. Patch customer_bindings in batches of 20
+    const chunkSize = 20;
+    for (let i = 0; i < bindIds.length; i += chunkSize) {
+      const chunk = bindIds.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(id => patchDatabase("customer_bindings", id, { reverted: true })));
+    }
+
+    // 2. Patch available accounts
+    for (let i = 0; i < availableAccountIds.length; i += chunkSize) {
+      const chunk = availableAccountIds.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(id => patchDatabase("accounts", id, {
+        status: "available",
+        sold_at: null,
+        customer_id: null
+      })));
+    }
+
+    // 3. Patch used accounts
+    for (let i = 0; i < usedAccountUpdates.length; i += chunkSize) {
+      const chunk = usedAccountUpdates.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(u => patchDatabase("accounts", u.id, {
+        status: "used",
+        sold_at: u.sold_at,
+        customer_id: u.customer_id
+      })));
+    }
+
+    showToast(`✅ ปลดลิ้งก์ ${count} รายการและอัปเดตสต็อกเรียบร้อยแล้ว!`);
+    await loadData(true);
+  } catch (err) {
+    console.error("Batch revert error:", err);
+    showToast("❌ ปลดลิ้งก์ไม่สำเร็จบางรายการ: " + err.message);
+    await loadData(true);
   }
 }
 
@@ -6470,6 +6824,61 @@ async function copyBindingHandoverScript(bindingId, btnElement = null) {
   }
 
   showToast(`📋 คัดลอกสิทธิ์ของคุณ ${b.customer_name} เรียบร้อย!`);
+}
+
+// 7.1 Renewal / Upsell Reminder Script Copier & LINE OA Chat Opener
+function getRenewalReminderScript(b) {
+  const linkedAcc = b.account_id ? (accountsByIdMap.get(b.account_id) || allAccountsList.find(a => a.id === b.account_id)) : null;
+  const details = extractBindingDetails(b, linkedAcc);
+  const expDate = b.expiry_date ? new Date(b.expiry_date) : null;
+  const expStr = expDate ? formatDateThai(expDate) : "-";
+  const now = new Date();
+
+  let timeContext = "ครบกำหนดหมดอายุแล้ว";
+  if (expDate) {
+    const diffHours = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (diffHours < 0) {
+      const daysPassed = Math.round(Math.abs(diffHours) / 24);
+      timeContext = daysPassed > 0 ? `ครบกำหนดหมดอายุแล้ว (${daysPassed} วันที่ผ่านมา)` : `ครบกำหนดหมดอายุแล้ว`;
+    } else if (diffHours <= 24) {
+      timeContext = `จะครบกำหนดหมดอายุในวันนี้ (${expStr})`;
+    } else {
+      const daysLeft = Math.ceil(diffHours / 24);
+      timeContext = `จะครบกำหนดหมดอายุในอีก ${daysLeft} วัน (${expStr})`;
+    }
+  }
+
+  let text = `สวัสดีครับคุณ ${b.customer_name || 'ลูกค้า'} 🙏✨\n\n`;
+  text += `แจ้งเตือนสิทธิ์การใช้งาน *${(b.app_name || '').toUpperCase()}* [${b.package_name || 'แพ็กเกจพรีเมียม'}]\n`;
+  text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  if (details.profileName) text += `👤 โปรไฟล์/จอ: ${details.profileName}\n`;
+  if (details.email) text += `📧 บัญชี: ${details.email}\n`;
+  text += `⏰ สถานะ: *${timeContext}*\n`;
+  text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  text += `หากคุณลูกค้าต้องการต่ออายุการใช้งานต่อ สามารถแจ้งแอดมินเพื่อต่ออายุได้เลยนะครับ ขอบคุณครับ 💖`;
+  return text;
+}
+
+async function handleRenewalReminder(bindingId, btnElement = null) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  if (!b) return;
+
+  const script = getRenewalReminderScript(b);
+  await copyToClipboard(script);
+
+  if (btnElement) {
+    const orig = btnElement.innerHTML;
+    btnElement.innerHTML = `<span>✅</span><span>คัดลอกแล้ว!</span>`;
+    setTimeout(() => { btnElement.innerHTML = orig; }, 1500);
+  }
+
+  showToast(`💬 คัดลอกข้อความเตือนต่ออายุของคุณ ${b.customer_name || 'ลูกค้า'} เรียบร้อย!`);
+
+  // If customer has chat_url (e.g. LINE OA chat), open it in a new window/tab
+  if (b.chat_url && typeof b.chat_url === "string" && b.chat_url.startsWith("http")) {
+    window.open(b.chat_url, "_blank");
+  }
 }
 
 // ----------------------------------------------------------------------------

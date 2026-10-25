@@ -431,11 +431,31 @@
       <!-- Filter Chips -->
       <div class="binding-filter-chips" id="binding-filter-chips">
         <button type="button" class="bind-filter-chip active" data-filter="all">🌐 ทั้งหมด</button>
+        <button type="button" class="bind-filter-chip" data-filter="expired">🔴 หมดอายุ</button>
+        <button type="button" class="bind-filter-chip" data-filter="cust-expired-master-active">🟣 จอลูกค้าหมด (หลักยังเหลือ)</button>
+        <button type="button" class="bind-filter-chip" data-filter="master-expiring-before-cust">⚠️ หลักหมดก่อนลูกค้า</button>
+        <button type="button" class="bind-filter-chip" data-filter="today">🟡 หมดวันนี้</button>
+        <button type="button" class="bind-filter-chip" data-filter="expiring">🔵 ใกล้หมด (3 วัน)</button>
         <button type="button" class="bind-filter-chip" data-filter="active">🟢 กำลังใช้งาน</button>
-        <button type="button" class="bind-filter-chip" data-filter="expiring">⏰ ใกล้หมดอายุ (&lt;3 วัน)</button>
-        <button type="button" class="bind-filter-chip" data-filter="expired">🔴 หมดอายุแล้ว</button>
         <button type="button" class="bind-filter-chip" data-filter="reverted">⚪ ดีดคืนแล้ว</button>
       </div>
+    </div>
+
+    <!-- 1-Click Batch Unlink Banner (Hero Banner) -->
+    <div id="batch-unlink-expired-banner" class="prem-expiry-batch-hero" style="display: none; margin-bottom: 12px;">
+      <div class="prem-expiry-batch-hero-left">
+        <div class="prem-expiry-batch-icon" id="batch-unlink-icon">⚡</div>
+        <div class="prem-expiry-batch-text">
+          <div class="prem-expiry-batch-title">
+            <span id="batch-unlink-title">ปลดลิ้งก์หมดอายุทั้งหมด</span>
+            <span class="prem-expiry-batch-count" id="batch-unlink-count">0 รายการ</span>
+          </div>
+          <div class="prem-expiry-batch-sub">ปลดสิทธิ์ลูกค้าและดีดคืนสถานะเข้าคลังพร้อมขายต่อใน 1 คลิก</div>
+        </div>
+      </div>
+      <button id="btn-batch-unlink-expired" type="button" class="prem-expiry-batch-btn btn-batch-red">
+        <span>⚡ ปลดลิ้งก์ทั้งหมด</span>
+      </button>
     </div>
 
     <!-- Main Bindings Feed -->

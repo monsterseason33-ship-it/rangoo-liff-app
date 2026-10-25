@@ -5034,5 +5034,185 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
   color: #38bdf8;
 }
 
+/* ========================================================================== */
+/* ⏰ Expiry Tracker & Batch Unlink Hero Styles                               */
+/* ========================================================================== */
+
+.prem-expiry-batch-hero {
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
+  box-sizing: border-box;
+}
+
+.prem-expiry-batch-hero.variant-purple {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(99, 102, 241, 0.12) 100%);
+  border: 1.5px solid rgba(168, 85, 247, 0.45);
+}
+
+.prem-expiry-batch-hero.variant-purple:hover {
+  border-color: rgba(168, 85, 247, 0.65);
+  box-shadow: 0 8px 30px rgba(168, 85, 247, 0.3);
+}
+
+.prem-expiry-batch-hero.variant-red {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.45);
+}
+
+.prem-expiry-batch-hero.variant-red:hover {
+  border-color: rgba(239, 68, 68, 0.65);
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.3);
+}
+
+.prem-expiry-batch-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.prem-expiry-batch-icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.prem-expiry-batch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.prem-expiry-batch-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #f1f5f9;
+  line-height: 1.35;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.variant-purple .prem-expiry-batch-title {
+  color: #e9d5ff;
+}
+
+.variant-red .prem-expiry-batch-title {
+  color: #fca5a5;
+}
+
+.prem-expiry-batch-count {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.prem-expiry-batch-sub {
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.prem-expiry-batch-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.prem-expiry-batch-btn:active {
+  transform: scale(0.97);
+}
+
+.prem-expiry-batch-btn.btn-batch-purple {
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+}
+
+.prem-expiry-batch-btn.btn-batch-red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+/* Master Account Expiry Section & Callouts */
+.binding-master-expiry-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+.prem-expiry-diff-callout {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.35;
+}
+
+.prem-expiry-diff-callout.callout-purple {
+  background: rgba(168, 85, 247, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #d8b4fe;
+}
+
+.prem-expiry-diff-callout.callout-warning {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+.binding-action-btn.upsell {
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.35);
+  background: rgba(192, 132, 252, 0.08);
+}
+
+.binding-action-btn.upsell:hover,
+.binding-action-btn.upsell:active {
+  background: rgba(192, 132, 252, 0.2);
+  border-color: #c084fc;
+  color: #ffffff;
+}
+
+
 
 
