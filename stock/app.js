@@ -350,6 +350,14 @@ function initUIEventListeners() {
         return;
       }
 
+      // 2.06 Open Smart Fetch Modal from group card header
+      const smartFetchBtn = e.target.closest(".group-smart-fetch-btn");
+      if (smartFetchBtn) {
+        e.stopPropagation();
+        openSmartFetchModal(smartFetchBtn.dataset.appId);
+        return;
+      }
+
       // 2.1 Quick Copy Normal Sales Script (1-Tap from card header)
       const salesBtn = e.target.closest(".group-sales-btn");
       if (salesBtn) {
@@ -515,6 +523,86 @@ function initUIEventListeners() {
 
   const btnSendBindCopyOnly = document.getElementById("btn-send-bind-copy-only");
   if (btnSendBindCopyOnly) btnSendBindCopyOnly.addEventListener("click", executeSendBindCopyOnly);
+
+  // Smart Fetch Modal Event Listeners
+  const btnOpenSmartFetch = document.getElementById("btn-open-smart-fetch-modal");
+  if (btnOpenSmartFetch) {
+    btnOpenSmartFetch.addEventListener("click", () => openSmartFetchModal());
+  }
+
+  const btnCloseSmartFetch = document.getElementById("btn-close-smart-fetch-modal");
+  if (btnCloseSmartFetch) {
+    btnCloseSmartFetch.addEventListener("click", closeSmartFetchModal);
+  }
+
+  const modalSmartFetch = document.getElementById("modal-smart-fetch");
+  if (modalSmartFetch) {
+    modalSmartFetch.addEventListener("click", (e) => {
+      if (e.target === modalSmartFetch) closeSmartFetchModal();
+    });
+  }
+
+  const btnSmartFetchRandomName = document.getElementById("btn-smart-fetch-random-name");
+  if (btnSmartFetchRandomName) {
+    btnSmartFetchRandomName.addEventListener("click", executeSmartFetchRandomName);
+  }
+
+  const btnSmartFetchCopyName = document.getElementById("btn-smart-fetch-copy-name");
+  if (btnSmartFetchCopyName) {
+    btnSmartFetchCopyName.addEventListener("click", executeSmartFetchCopyName);
+  }
+
+  const smartFetchNameInput = document.getElementById("smart-fetch-customer-name");
+  if (smartFetchNameInput) {
+    smartFetchNameInput.addEventListener("input", (e) => {
+      updateSmartFetchCustomerNameStatus(e.target.value);
+    });
+    smartFetchNameInput.addEventListener("change", (e) => {
+      updateSmartFetchCustomerNameStatus(e.target.value);
+    });
+  }
+
+  const smartFetchDaysInput = document.getElementById("smart-fetch-days");
+  if (smartFetchDaysInput) {
+    smartFetchDaysInput.addEventListener("input", (e) => {
+      updateSmartFetchQuickDayChips(e.target.value);
+      updateSmartFetchModalCandidates();
+    });
+  }
+
+  const smartFetchQuickDayChips = document.getElementById("smart-fetch-quick-day-chips");
+  if (smartFetchQuickDayChips) {
+    smartFetchQuickDayChips.querySelectorAll(".btn-quick-day-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        haptic();
+        const d = chip.dataset.days;
+        if (smartFetchDaysInput) smartFetchDaysInput.value = d;
+        updateSmartFetchQuickDayChips(d);
+        updateSmartFetchModalCandidates();
+      });
+    });
+  }
+
+  const smartFetchDeviceChips = document.getElementById("smart-fetch-device-chips");
+  if (smartFetchDeviceChips) {
+    smartFetchDeviceChips.querySelectorAll(".btn-device-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        haptic();
+        const dev = chip.dataset.device;
+        updateSmartFetchDeviceUI(dev);
+      });
+    });
+  }
+
+  const btnSmartFetchConfirm = document.getElementById("btn-smart-fetch-confirm");
+  if (btnSmartFetchConfirm) {
+    btnSmartFetchConfirm.addEventListener("click", () => executeConfirmSmartFetch(false));
+  }
+
+  const btnSmartFetchCopyOnly = document.getElementById("btn-smart-fetch-copy-only");
+  if (btnSmartFetchCopyOnly) {
+    btnSmartFetchCopyOnly.addEventListener("click", () => executeConfirmSmartFetch(true));
+  }
 
   // Sales Script Modal Event Listeners
   const btnOpenSales = document.getElementById("btn-open-sales-modal");
@@ -1363,6 +1451,9 @@ function renderStockFeed() {
             }
           </div>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="group-smart-fetch-btn" data-app-id="${escapeHtml(group.appId)}" title="⚡ ดึงรหัสอัจฉริยะ (คัดสรรจอว่างและจอแชร์ที่ดีที่สุด)">
+              ⚡ ดึงอัจฉริยะ
+            </button>
             ${(group.appName || '').toLowerCase().includes("disney") ? `
             <button type="button" class="group-disney-btn" data-app-id="${escapeHtml(group.appId)}" title="เปิดวิซาร์ดผูก Disney+ และส่งรหัส OTP">
               🏰 ผูก Disney+
@@ -6981,6 +7072,48 @@ function openSendBindModal(screenDataset, btnEl = null) {
     confirmBtn.innerHTML = `<span>🚀</span><span>ผูกสิทธิ์ & ตัดสต็อก (พร้อมก็อปสคริปต์)</span>`;
   }
 
+  // Smart Candidates Recommendation Carousel in Send-Bind Modal
+  const candContainer = document.getElementById("send-bind-candidates-container");
+  const candCarousel = document.getElementById("send-bind-candidates-carousel");
+  const candCountBadge = document.getElementById("send-bind-candidates-count");
+
+  if (candContainer && candCarousel) {
+    const candidatePool = (allAccountsList || []).filter(a => {
+      if (appId && a.app_id !== appId) return false;
+      if (!appId && appName && a.app_name !== appName) return false;
+      if (a.status === "broken" || a.hasBroken) return false;
+      return true;
+    });
+
+    const activePkg = (rawPackages || []).find(p => p.name === pkgName && (!appId || p.app_id === appId)) || pkgName;
+    let availables = candidatePool.filter(a => a.status === "available");
+    let poolForSort = availables.length > 0 ? availables : candidatePool.filter(a => a.status === "used");
+    let sortedCandidates = sortCandidateAccountsForSmartFetch(poolForSort, activePkg, availables.length === 0);
+
+    if (sortedCandidates.length > 1) {
+      candContainer.style.display = "block";
+      if (candCountBadge) candCountBadge.textContent = `${sortedCandidates.length} จอ`;
+      renderSmartCandidatesCarousel(candCarousel, sortedCandidates, accountId, (chosenAcc) => {
+        openSendBindModal({
+          accountId: chosenAcc.id,
+          appName: chosenAcc.app_name || appName,
+          appId: chosenAcc.app_id || appId,
+          email: chosenAcc.email,
+          password: chosenAcc.password,
+          screenName: chosenAcc.profile_name,
+          pinTxt: chosenAcc.pin_code ? `🔒 PIN: ${chosenAcc.pin_code}` : '🔓 ไม่มี PIN',
+          pinCode: chosenAcc.pin_code,
+          expiry: chosenAcc.expiry_date,
+          screenId: chosenAcc.display_id || chosenAcc.id,
+          pkgName: chosenAcc.package_name || pkgName,
+          deviceType: chosenAcc.device_type || deviceType
+        });
+      });
+    } else {
+      candContainer.style.display = "none";
+    }
+  }
+
   modal.style.display = "flex";
 }
 
@@ -9782,6 +9915,670 @@ function openResolveBrokenModal(email, appId) {
     };
   }
 }
+
+// ============================================================================
+// Smart Fetch & Candidate Sorting Engine (Anti-Clustering & Co-Sharer Load Balancing)
+// ============================================================================
+
+let smartFetchState = {
+  appId: null,
+  pkgId: null,
+  selectedCandidate: null,
+  candidateAccs: [],
+  isUsedFallback: false
+};
+
+function getAccountRemainingDays(expiryDateStr) {
+  if (!expiryDateStr) return 0;
+  const expDate = new Date(expiryDateStr);
+  const now = new Date();
+  const diffMs = expDate.getTime() - now.getTime();
+  if (diffMs <= 0) return 0;
+  return diffMs / (1000 * 60 * 60 * 24);
+}
+
+function getAccountActiveSharers(acc) {
+  if (!acc || !acc.id || !rawBindings || !Array.isArray(rawBindings)) return 0;
+  return rawBindings.filter(b => !b.reverted && !b._isReverted && b.account_id === acc.id).length;
+}
+
+function getAccountEmailSharersCount(acc) {
+  if (!acc || !acc.email || !allAccountsList || !rawBindings) return 0;
+  const emailLower = (acc.email || "").toLowerCase().trim();
+  const sameEmailAccIds = new Set(
+    allAccountsList
+      .filter(a => (a.email || "").toLowerCase().trim() === emailLower && (a.app_id === acc.app_id || a.app_name === acc.app_name))
+      .map(a => a.id)
+  );
+  return rawBindings.filter(b => !b.reverted && !b._isReverted && b.account_id && sameEmailAccIds.has(b.account_id)).length;
+}
+
+function getAccountLastSharedTimestamp(acc) {
+  if (!acc) return 0;
+  let maxTime = 0;
+  if (acc.sold_at) {
+    const soldMs = new Date(acc.sold_at).getTime();
+    if (!isNaN(soldMs)) maxTime = Math.max(maxTime, soldMs);
+  }
+  if (acc.id && rawBindings && Array.isArray(rawBindings)) {
+    rawBindings.forEach(b => {
+      if (!b.reverted && !b._isReverted && b.account_id === acc.id && (b.created_at || b.updated_at)) {
+        const bindMs = new Date(b.created_at || b.updated_at).getTime();
+        if (!isNaN(bindMs)) maxTime = Math.max(maxTime, bindMs);
+      }
+    });
+  }
+  return maxTime;
+}
+
+function isAccountDateCompatible(acc, pkgOrDays) {
+  if (!acc) return false;
+  const remainingDays = getAccountRemainingDays(acc.expiry_date);
+  if (remainingDays <= 0) return false;
+  let pkgDays = 30;
+  let pkgName = "";
+  if (typeof pkgOrDays === "number") {
+    pkgDays = pkgOrDays;
+  } else if (typeof pkgOrDays === "string") {
+    pkgName = pkgOrDays;
+    pkgDays = getPackageDays(pkgName, acc.app_id) || 30;
+  } else if (pkgOrDays && typeof pkgOrDays === "object") {
+    pkgName = pkgOrDays.name || "";
+    pkgDays = getPackageDays(pkgName, pkgOrDays.app_id) || (pkgOrDays.days || 30);
+  }
+  const isNetflix = (pkgName && pkgName.toLowerCase().includes("netflix")) || 
+                    (acc.app_name && acc.app_name.toLowerCase().includes("netflix"));
+  if (isNetflix) {
+    return Math.ceil(remainingDays) >= pkgDays;
+  }
+  if (pkgDays === 30) {
+    return remainingDays >= 20 && remainingDays <= 32;
+  } else if (pkgDays >= 90) {
+    return remainingDays >= pkgDays;
+  } else {
+    return remainingDays >= pkgDays;
+  }
+}
+
+function sortCandidateAccountsForSmartFetch(candidateAccs, activePkg, isUsedFallback = false) {
+  if (!Array.isArray(candidateAccs) || candidateAccs.length <= 1) return candidateAccs;
+
+  return candidateAccs.slice().sort((x, y) => {
+    // 1. Prioritize Date Compatibility (Sufficient days for package duration)
+    const xCompat = isAccountDateCompatible(x, activePkg) ? 1 : 0;
+    const yCompat = isAccountDateCompatible(y, activePkg) ? 1 : 0;
+    if (xCompat !== yCompat) {
+      return yCompat - xCompat; // 1 (compatible) comes before 0
+    }
+
+    // If fallback or either is used, load balance
+    const xIsUsed = x.status === 'used' || isUsedFallback;
+    const yIsUsed = y.status === 'used' || isUsedFallback;
+
+    if (xIsUsed || yIsUsed) {
+      // Available before used
+      if (x.status !== y.status) {
+        if (x.status === 'available') return -1;
+        if (y.status === 'available') return 1;
+      }
+
+      // 2. Active Co-Sharers on this specific Screen / Account ID (Lowest first: 0, 1, 2...)
+      const xSharers = getAccountActiveSharers(x);
+      const ySharers = getAccountActiveSharers(y);
+      if (xSharers !== ySharers) {
+        return xSharers - ySharers;
+      }
+
+      // 3. Total Active Sharers across the entire Email (Lowest master email load first)
+      const xEmailSharers = getAccountEmailSharersCount(x);
+      const yEmailSharers = getAccountEmailSharersCount(y);
+      if (xEmailSharers !== yEmailSharers) {
+        return xEmailSharers - yEmailSharers;
+      }
+
+      // 4. Least Recently Used / Shared (Oldest timestamp first)
+      const xLastUsed = getAccountLastSharedTimestamp(x);
+      const yLastUsed = getAccountLastSharedTimestamp(y);
+      if (xLastUsed !== yLastUsed) {
+        return xLastUsed - yLastUsed;
+      }
+    }
+
+    // 5. Remaining Days Comparison: Prefer account with MORE days if difference >= 5
+    const xDays = getAccountRemainingDays(x.expiry_date);
+    const yDays = getAccountRemainingDays(y.expiry_date);
+    const daysDiff = Math.ceil(yDays) - Math.ceil(xDays);
+    if (Math.abs(daysDiff) >= 5) {
+      return daysDiff;
+    }
+
+    // 6. Natural order / tie breaker
+    const emailComp = (x.email || "").localeCompare(y.email || "");
+    if (emailComp !== 0) return emailComp;
+
+    const xNum = parseInt((x.profile_name || "").replace(/\D/g, "")) || 0;
+    const yNum = parseInt((y.profile_name || "").replace(/\D/g, "")) || 0;
+    return xNum - yNum;
+  });
+}
+
+function renderSmartCandidatesCarousel(containerEl, candidateAccs, selectedAccId, onSelectCallback) {
+  if (!containerEl) return;
+  if (!candidateAccs || candidateAccs.length === 0) {
+    containerEl.innerHTML = `
+      <div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px; width: 100%;">
+        📭 ไม่พบบัญชีที่ตรงเงื่อนไข
+      </div>
+    `;
+    return;
+  }
+
+  let html = "";
+  candidateAccs.forEach((acc, idx) => {
+    const isSelected = String(acc.id) === String(selectedAccId);
+    const rank = idx + 1;
+    const rankLabel = rank === 1 ? "★ แนะนำสูงสุด" : `#${rank}`;
+    const rankClass = rank === 1 ? "best" : "";
+
+    const sharers = getAccountActiveSharers(acc);
+    const sharerText = sharers === 0 ? "ว่าง 0 คนแชร์" : `👥 แชร์ ${sharers} คน`;
+    const sharerClass = sharers === 0 ? "cand-sharer-free" : "cand-sharer-shared";
+
+    const remainingDays = Math.max(0, Math.ceil(getAccountRemainingDays(acc.expiry_date)));
+    const cleanId = (acc.display_id && acc.display_id !== "-" && acc.display_id !== "undefined") ? String(acc.display_id).trim().replace(/^#/, '') : "";
+    const slotName = acc.profile_name || "จอว่าง";
+
+    html += `
+      <div class="smart-candidate-card ${isSelected ? 'active' : ''}" data-acc-id="${escapeHtml(acc.id)}">
+        <div class="cand-top-row">
+          <span class="cand-rank-badge ${rankClass}">${rankLabel}</span>
+          <div class="cand-check-circle">
+            ${isSelected ? '✓' : ''}
+          </div>
+        </div>
+        <div class="cand-main-info">
+          <div class="cand-slot-title">
+            <span>📺</span>
+            <span>${escapeHtml(slotName)}</span>
+            ${cleanId ? `<span style="font-size: 10px; opacity: 0.75; font-family: monospace;">#${escapeHtml(cleanId)}</span>` : ''}
+          </div>
+          <div class="cand-email-sub" title="${escapeHtml(acc.email || '')}">${escapeHtml(acc.email || '-')}</div>
+        </div>
+        <div class="cand-meta-row">
+          <span class="cand-meta-pill ${sharerClass}">${sharerText}</span>
+          <span class="cand-meta-pill cand-days-pill">⏱️ เหลือ ${remainingDays} วัน</span>
+        </div>
+      </div>
+    `;
+  });
+
+  containerEl.innerHTML = html;
+
+  containerEl.querySelectorAll(".smart-candidate-card").forEach(card => {
+    card.addEventListener("click", () => {
+      haptic();
+      const accId = card.dataset.accId;
+      const found = candidateAccs.find(a => String(a.id) === String(accId));
+      if (found && typeof onSelectCallback === "function") {
+        onSelectCallback(found);
+      }
+    });
+  });
+}
+
+function openSmartFetchModal(preselectedAppId = null) {
+  haptic();
+  const modal = document.getElementById("modal-smart-fetch");
+  if (!modal) return;
+
+  // 1. Determine selected app
+  if (preselectedAppId) {
+    smartFetchState.appId = preselectedAppId;
+  } else if (!smartFetchState.appId && rawApps && rawApps.length > 0) {
+    smartFetchState.appId = rawApps[0].id;
+  }
+
+  // 2. Render App chips
+  renderSmartFetchAppChips();
+
+  // 3. Render Package chips for selected App
+  renderSmartFetchPkgChips();
+
+  // 4. Update candidates list and UI
+  updateSmartFetchModalCandidates();
+
+  // 5. Initialize customer name & quick days
+  const nameInput = document.getElementById("smart-fetch-customer-name");
+  if (nameInput && !nameInput.value) {
+    const newName = generateUniqueCustomerName(18);
+    nameInput.value = newName;
+    updateSmartFetchCustomerNameStatus(newName);
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeSmartFetchModal() {
+  const modal = document.getElementById("modal-smart-fetch");
+  if (modal) modal.style.display = "none";
+}
+
+function renderSmartFetchAppChips() {
+  const container = document.getElementById("smart-fetch-app-chips");
+  if (!container) return;
+
+  if (!rawApps || rawApps.length === 0) {
+    container.innerHTML = `<span style="font-size: 11px; color: #94a3b8;">ไม่มีรายการแอป</span>`;
+    return;
+  }
+
+  let html = "";
+  rawApps.forEach(app => {
+    const isActive = String(app.id) === String(smartFetchState.appId);
+    const theme = getAppTheme(app.name || app.display_name);
+    html += `
+      <button type="button" class="smart-app-chip ${isActive ? 'active' : ''}" data-app-id="${escapeHtml(app.id)}">
+        <span class="chip-app-icon">${theme.icon || '🎬'}</span>
+        <span>${escapeHtml(app.display_name || app.name)}</span>
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  container.querySelectorAll(".smart-app-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      haptic();
+      smartFetchState.appId = chip.dataset.appId;
+      smartFetchState.pkgId = null; // Reset package when app changes
+      renderSmartFetchAppChips();
+      renderSmartFetchPkgChips();
+      updateSmartFetchModalCandidates();
+    });
+  });
+}
+
+function renderSmartFetchPkgChips() {
+  const container = document.getElementById("smart-fetch-pkg-chips");
+  if (!container) return;
+
+  const appPkgs = (rawPackages || []).filter(p => !smartFetchState.appId || p.app_id === smartFetchState.appId);
+
+  let html = `
+    <button type="button" class="smart-pkg-chip ${!smartFetchState.pkgId ? 'active' : ''}" data-pkg-id="">
+      <span>🌐 อัตโนมัติ (ทุกแพ็กเกจ)</span>
+    </button>
+  `;
+
+  appPkgs.forEach(pkg => {
+    const isActive = String(pkg.id) === String(smartFetchState.pkgId);
+    html += `
+      <button type="button" class="smart-pkg-chip ${isActive ? 'active' : ''}" data-pkg-id="${escapeHtml(pkg.id)}" data-pkg-name="${escapeHtml(pkg.name)}" data-pkg-days="${pkg.days || 30}" data-pkg-price="${pkg.price || 0}">
+        <span>${escapeHtml(pkg.name)}</span>
+        ${pkg.days ? `<span style="font-size: 10px; opacity: 0.8;">(${pkg.days} วัน)</span>` : ''}
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  container.querySelectorAll(".smart-pkg-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      haptic();
+      smartFetchState.pkgId = chip.dataset.pkgId || null;
+      renderSmartFetchPkgChips();
+
+      // If package has days/price, update inputs
+      if (chip.dataset.pkgDays) {
+        const d = parseInt(chip.dataset.pkgDays, 10);
+        const daysInput = document.getElementById("smart-fetch-days");
+        if (daysInput && d) {
+          daysInput.value = d;
+          updateSmartFetchQuickDayChips(d);
+        }
+      }
+      if (chip.dataset.pkgPrice) {
+        const p = parseFloat(chip.dataset.pkgPrice);
+        const priceInput = document.getElementById("smart-fetch-price");
+        if (priceInput && !isNaN(p)) {
+          priceInput.value = p;
+        }
+      }
+
+      updateSmartFetchModalCandidates();
+    });
+  });
+}
+
+function updateSmartFetchModalCandidates() {
+  const statusBanner = document.getElementById("smart-fetch-status-banner");
+  const statusDot = document.getElementById("smart-fetch-status-dot");
+  const statusText = document.getElementById("smart-fetch-status-text");
+  const statusBadge = document.getElementById("smart-fetch-status-badge");
+  const candidatesSection = document.getElementById("smart-fetch-candidates-section");
+  const candidatesCountBadge = document.getElementById("smart-fetch-candidates-count");
+  const candidatesList = document.getElementById("smart-fetch-candidates-list");
+  const previewCard = document.getElementById("smart-fetch-active-card-preview");
+
+  // Get active package object
+  const activePkg = smartFetchState.pkgId ? (rawPackages || []).find(p => p.id === smartFetchState.pkgId) : null;
+  const daysVal = parseInt(document.getElementById("smart-fetch-days")?.value, 10) || (activePkg?.days || 30);
+  const pkgMatcher = activePkg || daysVal;
+
+  // Filter accounts belonging to current appId (or all)
+  const pool = (allAccountsList || []).filter(a => {
+    if (smartFetchState.appId && a.app_id !== smartFetchState.appId) return false;
+    if (a.status === "broken" || a.hasBroken) return false;
+    return true;
+  });
+
+  // Separate available vs used
+  let availables = pool.filter(a => a.status === "available");
+  let isUsedFallback = false;
+  let candidates = [];
+
+  if (availables.length > 0) {
+    candidates = availables;
+    isUsedFallback = false;
+  } else {
+    // Fallback: used accounts for co-sharing
+    candidates = pool.filter(a => a.status === "used");
+    isUsedFallback = true;
+  }
+
+  // Sort candidates using intelligent engine
+  candidates = sortCandidateAccountsForSmartFetch(candidates, pkgMatcher, isUsedFallback);
+  smartFetchState.candidateAccs = candidates;
+  smartFetchState.isUsedFallback = isUsedFallback;
+
+  if (candidates.length > 0) {
+    // Select first (best) if current selected candidate is not in list
+    const foundStill = smartFetchState.selectedCandidate ? candidates.find(c => c.id === smartFetchState.selectedCandidate.id) : null;
+    smartFetchState.selectedCandidate = foundStill || candidates[0];
+
+    if (statusBanner) statusBanner.style.display = "flex";
+    if (candidatesSection) candidatesSection.style.display = "block";
+    if (previewCard) previewCard.style.display = "block";
+
+    if (!isUsedFallback) {
+      if (statusBanner) statusBanner.className = "smart-fetch-status-banner available";
+      if (statusDot) statusDot.style.background = "#10b981";
+      if (statusText) statusText.textContent = "✨ มีจอว่างในคลัง (พร้อมส่งมอบทันที)";
+      if (statusBadge) statusBadge.textContent = `${candidates.length} จอว่าง`;
+    } else {
+      if (statusBanner) statusBanner.className = "smart-fetch-status-banner warning";
+      if (statusDot) statusDot.style.background = "#f59e0b";
+      if (statusText) statusText.textContent = "⚡ คัดสรรจอแชร์ที่ดีที่สุด (สต็อกรหัสว่างหมดคลัง)";
+      if (statusBadge) statusBadge.textContent = `${candidates.length} จอแชร์`;
+    }
+
+    if (candidatesCountBadge) {
+      candidatesCountBadge.textContent = `${candidates.length} รายการ`;
+    }
+
+    // Render carousel
+    const onSelectCard = (selected) => {
+      smartFetchState.selectedCandidate = selected;
+      renderSmartCandidatesCarousel(candidatesList, candidates, selected.id, onSelectCard);
+      updateSmartFetchPreview(selected);
+    };
+
+    renderSmartCandidatesCarousel(candidatesList, candidates, smartFetchState.selectedCandidate.id, onSelectCard);
+
+    updateSmartFetchPreview(smartFetchState.selectedCandidate);
+
+  } else {
+    smartFetchState.selectedCandidate = null;
+    if (statusBanner) {
+      statusBanner.style.display = "flex";
+      statusBanner.className = "smart-fetch-status-banner error";
+    }
+    if (statusDot) statusDot.style.background = "#ef4444";
+    if (statusText) statusText.textContent = "❌ ไม่พบจอที่ตรงตามเงื่อนไขในขณะนี้";
+    if (statusBadge) statusBadge.textContent = "0 จอ";
+
+    if (candidatesSection) candidatesSection.style.display = "none";
+    if (previewCard) {
+      previewCard.style.display = "block";
+      previewCard.innerHTML = `
+        <div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
+          📭 ไม่พบบัญชีสำหรับแอปหรือแพ็กเกจที่เลือก โปรดเพิ่มสต็อกหรือเลือกแอปอื่น
+        </div>
+      `;
+    }
+  }
+}
+
+function updateSmartFetchPreview(acc) {
+  const previewEl = document.getElementById("smart-fetch-active-card-preview");
+  if (!previewEl || !acc) return;
+
+  const appTheme = getAppTheme(acc.app_name || "");
+  const cleanId = (acc.display_id && acc.display_id !== "-" && acc.display_id !== "undefined") ? String(acc.display_id).trim().replace(/^#/, '') : "";
+  const pinTxt = acc.pin_code ? `🔒 PIN: ${acc.pin_code}` : '🔓 ไม่มี PIN';
+  const sharers = getAccountActiveSharers(acc);
+  const remainingDays = Math.max(0, Math.ceil(getAccountRemainingDays(acc.expiry_date)));
+
+  previewEl.innerHTML = `
+    <div class="send-bind-screen-header">
+      <span class="send-bind-app-tag" style="color: ${appTheme.color || '#38bdf8'};">
+        <span>${appTheme.icon}</span>
+        <span>${escapeHtml(acc.app_name || 'App')}</span>
+      </span>
+      <div class="send-bind-screen-badges">
+        <span class="send-bind-badge slot">📺 ${escapeHtml(acc.profile_name || 'จอว่าง')}</span>
+        ${cleanId ? `<span class="send-bind-badge id">🆔 #${escapeHtml(cleanId)}</span>` : ''}
+        ${sharers > 0 ? `<span class="send-bind-badge" style="background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4);">👥 แชร์ ${sharers} คน</span>` : '<span class="send-bind-badge" style="background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.4);">✨ ว่าง</span>'}
+      </div>
+    </div>
+    <div class="send-bind-screen-details">
+      <div class="detail-row">
+        <span>📧 อีเมล:</span>
+        <span class="detail-val">${escapeHtml(acc.email || '-')}</span>
+      </div>
+      <div class="detail-row">
+        <span>🔑 รหัสผ่าน:</span>
+        <span class="detail-val">${escapeHtml(acc.password || '-')}</span>
+      </div>
+      <div class="detail-row">
+        <span>${pinTxt.includes('PIN') ? '🔒' : '🔓'}</span>
+        <span class="detail-val">${escapeHtml(pinTxt)}</span>
+      </div>
+      <div class="detail-row">
+        <span>⏱️ วันใช้งาน:</span>
+        <span style="color: #38bdf8; font-weight: 700;">เหลือ ${remainingDays} วัน</span>
+      </div>
+      ${acc.package_name ? `
+        <div class="detail-row">
+          <span>📦 แพ็กเกจ:</span>
+          <span style="color: #cbd5e1; font-weight: 600;">${escapeHtml(acc.package_name)}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function updateSmartFetchCustomerNameStatus(name) {
+  const statusEl = document.getElementById("smart-fetch-name-status");
+  if (!statusEl) return;
+  const status = checkCustomerNameStatus(name);
+  statusEl.textContent = status.message;
+  statusEl.style.color = status.color;
+}
+
+function updateSmartFetchQuickDayChips(selectedDays) {
+  const container = document.getElementById("smart-fetch-quick-day-chips");
+  if (!container) return;
+  container.querySelectorAll(".btn-quick-day-chip").forEach(chip => {
+    const chipDays = parseInt(chip.dataset.days, 10);
+    if (chipDays === parseInt(selectedDays, 10)) {
+      chip.classList.add("active");
+    } else {
+      chip.classList.remove("active");
+    }
+  });
+}
+
+function updateSmartFetchDeviceUI(val) {
+  const badge = document.getElementById("smart-fetch-device-badge");
+  if (badge) badge.textContent = val;
+
+  const container = document.getElementById("smart-fetch-device-chips");
+  if (!container) return;
+  container.querySelectorAll(".btn-device-chip").forEach(chip => {
+    if (chip.dataset.device === val) {
+      chip.classList.add("active");
+    } else {
+      chip.classList.remove("active");
+    }
+  });
+}
+
+function executeSmartFetchRandomName() {
+  haptic();
+  const newName = generateUniqueCustomerName(18);
+  const nameInput = document.getElementById("smart-fetch-customer-name");
+  if (nameInput) {
+    nameInput.value = newName;
+    updateSmartFetchCustomerNameStatus(newName);
+    nameInput.focus();
+  }
+  showToast(`🎲 สุ่มชื่อใหม่ 18 หลัก: ${newName}`);
+}
+
+async function executeSmartFetchCopyName() {
+  haptic();
+  const nameInput = document.getElementById("smart-fetch-customer-name");
+  const name = (nameInput ? nameInput.value : "").trim();
+  if (!name) {
+    showToast("⚠️ ไม่มีชื่อลูกค้าที่จะคัดลอก กรุณากดสุ่มชื่อใหม่ก่อน", "warning");
+    return;
+  }
+  await copyToClipboard(name);
+  showToast(`📋 คัดลอกชื่อ "${name}" เรียบร้อย! นำไปเปลี่ยนชื่อใน LINE OA ได้ทันที`);
+}
+
+async function executeConfirmSmartFetch(copyOnly = false) {
+  haptic();
+  if (!smartFetchState.selectedCandidate) {
+    showToast("⚠️ ไม่พบบัญชีที่เลือก กรุณาเลือกแอปและแพ็กเกจที่มีจอว่างหรือจอแชร์", "warning");
+    return;
+  }
+
+  const candidate = smartFetchState.selectedCandidate;
+  const nameInput = document.getElementById("smart-fetch-customer-name");
+  const customerName = (nameInput?.value || "").trim().toUpperCase();
+
+  if (!customerName) {
+    showToast("⚠️ โปรดระบุชื่อลูกค้าก่อน (พิมพ์ชื่อ หรือกดสุ่มชื่อใหม่ 18 หลัก)", "warning");
+    if (nameInput) nameInput.focus();
+    return;
+  }
+
+  const days = parseInt(document.getElementById("smart-fetch-days")?.value, 10) || 30;
+  const price = parseFloat(document.getElementById("smart-fetch-price")?.value) || 0;
+  const device = document.getElementById("smart-fetch-device-badge")?.textContent || "มือถือ/แท็บเล็ต/PC/iPad";
+
+  const confirmBtn = document.getElementById("btn-smart-fetch-confirm");
+  if (!copyOnly && confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = `<span>⏳</span><span>กำลังผูกสิทธิ์ & ตัดสต็อก...</span>`;
+  }
+
+  try {
+    const expiryDateObj = new Date();
+    expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
+    expiryDateObj.setHours(23, 59, 0, 0);
+
+    const pad = (num) => String(num).padStart(2, '0');
+    const offsetHours = Math.abs(Math.floor(expiryDateObj.getTimezoneOffset() / 60));
+    const offsetMinutes = Math.abs(expiryDateObj.getTimezoneOffset() % 60);
+    const offsetSign = expiryDateObj.getTimezoneOffset() <= 0 ? "+" : "-";
+    const formattedExpiry = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T23:59:00${offsetSign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
+
+    const rawAccountData = `📧 อีเมล: ${candidate.email}\n🔑 รหัสผ่าน: ${candidate.password}` +
+      `${candidate.profile_name ? `\n👤 โปรไฟล์: ${candidate.profile_name}` : ''}` +
+      `${candidate.pin_code ? `\n🔒 รหัส PIN: ${candidate.pin_code}` : ''}`;
+
+    const sendBindUrlParams = new URLSearchParams(window.location.search);
+    const resolvedChatUrl = sendBindUrlParams.get("chat_url") || "https://chat.line.biz/";
+
+    const pkgName = candidate.package_name || (smartFetchState.pkgId ? (rawPackages.find(p => p.id === smartFetchState.pkgId)?.name) : `แพ็กเกจ ${days} วัน`);
+
+    const context = {
+      accountId: candidate.id,
+      appName: candidate.app_name || "App",
+      appId: candidate.app_id || smartFetchState.appId,
+      email: candidate.email,
+      password: candidate.password,
+      screenName: candidate.profile_name,
+      pinTxt: candidate.pin_code ? `🔒 PIN: ${candidate.pin_code}` : '🔓 ไม่มี PIN',
+      pinCode: candidate.pin_code,
+      expiry: candidate.expiry_date,
+      screenId: candidate.display_id || candidate.id,
+      pkgName: pkgName,
+      deviceType: device,
+      targetAcc: candidate
+    };
+
+    const deliveryScript = buildUnifiedHandoverText(customerName, context, days, expiryDateObj, device);
+    await copyToClipboard(deliveryScript);
+
+    if (copyOnly) {
+      showToast(`📋 คัดลอกสคริปต์ส่งมอบเรียบร้อย (ไม่ได้ตัดสต็อก)`);
+      return;
+    }
+
+    const bindingPayload = {
+      customer_name: customerName,
+      chat_url: resolvedChatUrl,
+      app_name: context.appName,
+      package_name: pkgName,
+      days: days,
+      expiry_date: formattedExpiry,
+      device_type: device,
+      raw_account_data: rawAccountData,
+      account_id: candidate.id || null,
+      price_paid: price,
+      reverted: false
+    };
+
+    if (candidate.supplier_order_id) {
+      bindingPayload.supplier_order_id = candidate.supplier_order_id;
+    }
+    if (candidate.supplier_url) {
+      bindingPayload.supplier_url = candidate.supplier_url;
+    }
+
+    // 1. Insert into customer_bindings
+    await insertDatabase("customer_bindings", bindingPayload);
+
+    // 2. Patch accounts row to 'used'
+    if (candidate.id) {
+      await patchDatabase("accounts", candidate.id, {
+        status: "used",
+        customer_id: customerName,
+        sold_at: new Date().toISOString(),
+        expiry_date: formattedExpiry
+      });
+    }
+
+    closeSmartFetchModal();
+    showToast(`🎉 ผูกสิทธิ์คุณ ${customerName} สำเร็จ & คัดลอกสคริปต์ส่งมอบแล้ว!`);
+
+    await loadData(true);
+
+  } catch (err) {
+    console.error("Smart fetch confirm error:", err);
+    showToast(`❌ ดำเนินการล้มเหลว: ${err.message || 'โปรดตรวจสอบการเชื่อมต่อ'}`, "error");
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `<span>🚀</span><span>ยืนยันผูกสิทธิ์ & ตัดสต็อก (พร้อมก็อปสคริปต์)</span>`;
+    }
+  }
+}
+
 
 
 
