@@ -542,6 +542,50 @@ function initUIEventListeners() {
     });
   }
 
+  // Recent Messages & Multi-App Upsell Modal (div#recent-msg-modal-overlay.recent-msg-modal-overlay.open)
+  const btnOpenRecentMsgModal = document.getElementById("btn-open-recent-msg-modal");
+  if (btnOpenRecentMsgModal) {
+    btnOpenRecentMsgModal.addEventListener("click", () => {
+      haptic();
+      openRecentMessagesModal("multi");
+    });
+  }
+
+  const btnCloseRecentMsgModal = document.getElementById("btn-close-recent-msg-modal");
+  if (btnCloseRecentMsgModal) {
+    btnCloseRecentMsgModal.addEventListener("click", () => {
+      haptic();
+      closeRecentMessagesModal();
+    });
+  }
+
+  const recentMsgOverlay = document.getElementById("recent-msg-modal-overlay");
+  if (recentMsgOverlay) {
+    recentMsgOverlay.addEventListener("click", (e) => {
+      if (e.target === recentMsgOverlay) {
+        haptic();
+        closeRecentMessagesModal();
+      }
+    });
+
+    recentMsgOverlay.querySelectorAll(".recent-msg-modal-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        haptic();
+        const tab = btn.getAttribute("data-tab");
+        currentRecentMessagesTab = tab;
+        recentMsgOverlay.querySelectorAll(".recent-msg-modal-tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderRecentMessagesModalContent();
+      });
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isRecentMessagesModalOpen) {
+      closeRecentMessagesModal();
+    }
+  });
+
   const btnSmartFetchRandomName = document.getElementById("btn-smart-fetch-random-name");
   if (btnSmartFetchRandomName) {
     btnSmartFetchRandomName.addEventListener("click", executeSmartFetchRandomName);
@@ -10988,9 +11032,711 @@ async function executeConfirmSmartFetch(copyOnly = false) {
   }
 }
 
+// ============================================================================
+// 💬 RECENT MESSAGES & MULTI-APP UPSELL CONTROL HUB
+// div#recent-msg-modal-overlay.recent-msg-modal-overlay.open
+// ============================================================================
 
+let isRecentMessagesModalOpen = false;
+let currentRecentMessagesTab = "multi"; // Default to "multi" as requested / shown in screenshot
+let manualSelectedAppIds = [];
+let multiAppPackageSelections = {};
+let recentMessagesScanDepth = 8;
+let autoPopupOnNewMatch = false;
 
+// Simulated/recent chat messages for testing chat detection tab
+let simulatedChatMessages = [
+  "สนใจ HBO Go กับ WeTV VIP ครับ มีโปรคู่ไหม",
+  "Netflix พรีเมียม 1 เดือน พร้อมโอนค่ะ",
+  "Canva Pro กับ iQIYI รายปีคิดราคารวมเท่าไหร่ครับ",
+  "มี Bilibili กับ YOUKU ไหมครับ",
+  "MonoMax กับ ONE D มีแบบกี่เดือนบ้างครับ",
+  "GagaOOLala มีจอว่างไหมคะ",
+  "แจ้งปัญหาจอ Netflix เข้าไม่ได้ค่ะ",
+  "ขอบคุณมากครับ โอนเงินเรียบร้อยแล้ว"
+];
 
+function getRecentModalApps() {
+  const result = [];
+  const seenKeys = new Set();
 
+  function norm(str) {
+    return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
 
+  function getBaseKey(str) {
+    const s = norm(str);
+    if (s.includes("netflix")) return "netflix";
+    if (s.includes("hbo") || s.includes("max")) return "hbo";
+    if (s.includes("bilibili") || s.includes("bili")) return "bilibili";
+    if (s.includes("wetv")) return "wetv";
+    if (s.includes("iqiyi")) return "iqiyi";
+    if (s.includes("canva")) return "canva";
+    if (s.includes("youku")) return "youku";
+    if (s.includes("mono")) return "monomax";
+    if (s.includes("oned")) return "oned";
+    if (s.includes("gaga")) return "gagaoolala";
+    if (s.includes("disney") || s.includes("hotstar")) return "disney";
+    if (s.includes("prime") || s.includes("amazon")) return "prime";
+    if (s.includes("youtube")) return "youtube";
+    return s;
+  }
+
+  // 1. Defaults presets (exact order as user's screenshot)
+  const presets = [
+    { id: "hbo", name: "HBO Go / MAX", display_name: "HBO Go / MAX", theme_color: "#a855f7", keywords: "hbo,max,เอชบีโอ" },
+    { id: "bilibili", name: "Bilibili", display_name: "Bilibili", theme_color: "#38bdf8", keywords: "bilibili,bili,บิลิ" },
+    { id: "wetv", name: "WeTV VIP", display_name: "WeTV VIP ⚡", theme_color: "#10b981", keywords: "wetv,we tv,วีทีวี" },
+    { id: "iqiyi", name: "iQIYI", display_name: "iQIYI", theme_color: "#22c55e", keywords: "iqiyi,iq,อ้ายฉีอี้" },
+    { id: "canva", name: "Canva Pro", display_name: "Canva Pro", theme_color: "#06b6d4", keywords: "canva,แคนวา" },
+    { id: "youku", name: "YOUKU", display_name: "YOUKU", theme_color: "#f43f5e", keywords: "youku,โยวคู่" },
+    { id: "monomax", name: "MonoMax", display_name: "MonoMax", theme_color: "#f97316", keywords: "monomax,mono,โมโน" },
+    { id: "oned", name: "ONE D", display_name: "ONE D", theme_color: "#ec4899", keywords: "one d,oned,วันดี" },
+    { id: "gagaoolala", name: "GagaOOLala", display_name: "GagaOOLala", theme_color: "#a855f7", keywords: "gagaoolala,gaga,กาก้า" },
+    { id: "disney", name: "Disney+ Hotstar", display_name: "Disney+ Hotstar", theme_color: "#3b82f6", keywords: "disney,hotstar,ดิสนีย์" },
+    { id: "prime", name: "Prime Video", display_name: "Prime Video", theme_color: "#0284c7", keywords: "prime,amazon,ไพรม์" },
+    { id: "netflix", name: "Netflix UHD 4K", display_name: "Netflix UHD 4K", theme_color: "#ef4444", keywords: "netflix,เน็ตฟลิก,เนตฟลิก,nf" }
+  ];
+
+  presets.forEach(p => {
+    const key = getBaseKey(p.name);
+    seenKeys.add(key);
+
+    // Look if database rawApps has an actual id
+    const foundInDb = (rawApps || []).find(a => getBaseKey(a.name || a.display_name) === key);
+    result.push({
+      id: foundInDb ? String(foundInDb.id) : p.id,
+      name: p.name,
+      display_name: p.display_name,
+      theme_color: foundInDb?.theme_color || p.theme_color,
+      keywords: p.keywords
+    });
+  });
+
+  // 2. Add any additional apps from rawApps not in presets
+  if (rawApps && rawApps.length > 0) {
+    rawApps.forEach(app => {
+      const key = getBaseKey(app.name || app.display_name);
+      if (key && !seenKeys.has(key)) {
+        seenKeys.add(key);
+        result.push({
+          id: String(app.id),
+          name: app.name || app.display_name || "App",
+          display_name: app.display_name || app.name || "App",
+          theme_color: app.theme_color || getAppTheme(app.name || app.display_name).color || "#a855f7",
+          keywords: app.keywords || ""
+        });
+      }
+    });
+  }
+
+  return result;
+}
+
+function getPackagesForModalApp(app) {
+  let pkgs = [];
+  if (rawPackages && rawPackages.length > 0) {
+    pkgs = rawPackages.filter(p => {
+      if (p.app_id && (String(p.app_id) === String(app.id) || String(p.app_id) === app.name)) return true;
+      if (p.app_name && p.app_name.toLowerCase() === app.name.toLowerCase()) return true;
+      return false;
+    });
+  }
+
+  if (pkgs.length === 0) {
+    const foundPkgNames = new Set();
+    (allAccountsList || []).forEach(acc => {
+      const matchApp = (acc.app_id && String(acc.app_id) === String(app.id)) ||
+                       (acc.app_name && acc.app_name.toLowerCase() === app.name.toLowerCase());
+      if (matchApp && acc.package_name && !foundPkgNames.has(acc.package_name)) {
+        foundPkgNames.add(acc.package_name);
+        pkgs.push({
+          id: `pkg_${app.id}_${acc.package_name}`,
+          app_id: app.id,
+          name: acc.package_name,
+          price: acc.price || 89
+        });
+      }
+    });
+  }
+
+  if (pkgs.length === 0) {
+    pkgs = [
+      { id: `pkg_${app.id}_1m`, app_id: app.id, name: "1 เดือน (30 วัน)", price: 89 },
+      { id: `pkg_${app.id}_3m`, app_id: app.id, name: "3 เดือน (90 วัน)", price: 239 },
+      { id: `pkg_${app.id}_1y`, app_id: app.id, name: "1 ปี (365 วัน)", price: 690 }
+    ];
+  }
+
+  return pkgs;
+}
+
+function generateMultiAppPaymentScript(appPackagePairs) {
+  if (!appPackagePairs || appPackagePairs.length === 0) return "";
+
+  let totalPrice = 0;
+  let itemsText = "";
+
+  appPackagePairs.forEach((item, index) => {
+    totalPrice += item.price;
+    let itemPkgName = item.pkg.name || "แพ็กเกจมาตรฐาน";
+    if (item.isClearance) {
+      itemPkgName = item.clearanceLabel || `${itemPkgName} (⚡️ โละเคลียร์สต็อก เหลือ ${item.clearanceDays || 0} วัน)`;
+    }
+    itemsText += `${index + 1}. 📱 *${item.app.display_name || item.app.name}*\n` +
+      `   📦 แพ็กเกจ: ${itemPkgName}\n` +
+      `   💵 ราคา: *${item.price} บาท*\n\n`;
+  });
+
+  let script = `🛍️ *สรุปรายการสั่งซื้อร่วมกัน (${appPackagePairs.length} แอป)*\n` +
+    `───────────────────\n` +
+    itemsText.trim() + `\n` +
+    `───────────────────\n` +
+    `💰 *ยอดชำระรวมทั้งหมด: ${totalPrice} บาท*\n` +
+    `───────────────────\n` +
+    `🏦 *ช่องทางชำระเงินหลัก (โอนเงินผ่านธนาคาร)* ✿♡\n` +
+    `───────────────────\n` +
+    `🏛️ ธนาคารกสิกรไทย (KBANK)\n` +
+    `เลขบัญชี: \`1231634114\` (แตะคัดลอกเลขบัญชีได้เลย)\n` +
+    `👤 ชื่อบัญชี: สมิตานัน\n` +
+    `───────────────────\n` +
+    `🍤 โอนเงินเรียบร้อยแล้ว แจ้งสลิปด้วยนะคะ ขอบคุณค่ะ 🍤`;
+
+  return script;
+}
+
+function classifyMessageIntent(text = "") {
+  const lower = text.toLowerCase();
+  const buyKeywords = ["สนใจ", "ซื้อ", "ราคา", "กี่บาท", "สั่ง", "รับ", "แพ็ก", "จอ", "โปร", "พร้อมโอน", "มีไหม"];
+  const problemKeywords = ["เข้าไม่ได้", "พัง", "รหัสผิด", "ดูไม่ได้", "หลุด", "เมลดับ", "หมดอายุ", "เคลม", "แจ้งปัญหา"];
+  const askKeywords = ["ถาม", "สอบถาม", "ยังอยู่ไหม", "ว่างไหม"];
+
+  if (problemKeywords.some(k => lower.includes(k))) {
+    return { tag: "🔧 แจ้งปัญหา", bg: "rgba(239, 68, 68, 0.2)", color: "#f87171", border: "rgba(239, 68, 68, 0.4)", class: "broken" };
+  }
+  if (buyKeywords.some(k => lower.includes(k))) {
+    return { tag: "🛒 สนใจสั่งซื้อ", bg: "rgba(16, 185, 129, 0.2)", color: "#34d399", border: "rgba(16, 185, 129, 0.4)", class: "buy" };
+  }
+  if (askKeywords.some(k => lower.includes(k))) {
+    return { tag: "❓ สอบถาม", bg: "rgba(56, 189, 248, 0.2)", color: "#38bdf8", border: "rgba(56, 189, 248, 0.4)", class: "ask" };
+  }
+  return null;
+}
+
+function isAppKeywordMatched(text = "", app) {
+  if (!text || !app) return false;
+  const lower = text.toLowerCase();
+  const names = [app.name, app.display_name, ...(app.keywords ? app.keywords.split(',') : [])].filter(Boolean);
+  return names.some(n => {
+    const cleaned = n.trim().toLowerCase();
+    return cleaned && lower.includes(cleaned);
+  });
+}
+
+function openRecentMessagesModal(defaultTab = "multi") {
+  currentRecentMessagesTab = defaultTab;
+  const overlay = document.getElementById("recent-msg-modal-overlay");
+  if (!overlay) return;
+
+  overlay.classList.add("open");
+  isRecentMessagesModalOpen = true;
+
+  overlay.querySelectorAll(".recent-msg-modal-tab-btn").forEach(btn => {
+    if (btn.getAttribute("data-tab") === currentRecentMessagesTab) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  renderRecentMessagesModalContent();
+}
+
+function closeRecentMessagesModal() {
+  const overlay = document.getElementById("recent-msg-modal-overlay");
+  if (overlay) overlay.classList.remove("open");
+  isRecentMessagesModalOpen = false;
+}
+
+function renderRecentMessagesModalContent() {
+  const overlay = document.getElementById("recent-msg-modal-overlay");
+  if (!overlay) return;
+
+  const bodyEl = document.getElementById("recent-msg-modal-body");
+  const footerEl = document.getElementById("recent-msg-modal-footer");
+  if (!bodyEl || !footerEl) return;
+
+  bodyEl.innerHTML = "";
+  footerEl.innerHTML = "";
+
+  const allApps = getRecentModalApps();
+
+  if (currentRecentMessagesTab === "multi") {
+    renderRecentMessagesMultiTab(bodyEl, footerEl, allApps);
+  } else if (currentRecentMessagesTab === "bubbles") {
+    renderRecentMessagesBubblesTab(bodyEl, footerEl, allApps);
+  } else if (currentRecentMessagesTab === "settings") {
+    renderRecentMessagesSettingsTab(bodyEl, footerEl);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Tab 2: 📁 เลือกหลายแอป (Multi-App Upsell & Combined Payment)
+// ----------------------------------------------------------------------------
+function renderRecentMessagesMultiTab(bodyEl, footerEl, allApps) {
+  bodyEl.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+        <span style="font-size: 12px; font-weight: 700; color: #c084fc;">📁 1. เลือกแอปพลิเคชันที่ต้องการเสนอขายร่วมกัน:</span>
+        <div style="display: flex; gap: 6px;">
+          <button id="modal-btn-select-all" class="prem-btn-mini-pill" style="font-size: 10px; padding: 4px 9px;" type="button">✔ เลือกทั้งหมด</button>
+          <button id="modal-btn-clear-all" class="prem-btn-mini-pill" style="font-size: 10px; padding: 4px 9px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);" type="button">✕ ล้างการเลือก</button>
+        </div>
+      </div>
+
+      <div class="manual-multi-app-grid" id="modal-multi-apps-container">
+        ${allApps.map(app => {
+          const isChecked = manualSelectedAppIds.includes(app.id);
+          return `
+            <label class="manual-app-chip-item ${isChecked ? 'active' : ''}" data-app-id="${app.id}">
+              <input type="checkbox" class="modal-app-chk" data-app-id="${app.id}" ${isChecked ? 'checked' : ''}>
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: ${app.theme_color}; box-shadow: 0 0 6px ${app.theme_color}; display: inline-block; flex-shrink: 0;"></span>
+              <span style="font-size: 11.5px; font-weight: 600; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${app.display_name}</span>
+            </label>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- Package Selection & Combined Payment Section -->
+      <div id="modal-multi-pkg-section" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(167, 139, 250, 0.25); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+            📦 2. เลือกแพ็กเกจย่อยของแต่ละแอป (เพื่อสร้างสคริปต์ชำระเงิน):
+          </span>
+          <span id="modal-multi-pkg-summary-badge" style="font-size: 11px; font-weight: 800; color: #3ecf8e; background: rgba(62, 207, 142, 0.15); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(62, 207, 142, 0.3);">
+            ยอดรวม: ฿0
+          </span>
+        </div>
+        <div id="modal-multi-pkg-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 170px; overflow-y: auto;">
+          <!-- Dynamic Package Rows -->
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Dynamic UI update for package selection and total amount
+  function updateMultiAppPackageUI() {
+    const listEl = bodyEl.querySelector("#modal-multi-pkg-list");
+    const badgeEl = bodyEl.querySelector("#modal-multi-pkg-summary-badge");
+    const footerCountEl = document.getElementById("modal-footer-count");
+    const sendPaymentBtn = document.getElementById("modal-send-multi-payment-btn");
+
+    if (!listEl) return;
+
+    const checkedChks = bodyEl.querySelectorAll(".modal-app-chk:checked");
+    const checkedAppIds = Array.from(checkedChks).map(c => c.getAttribute("data-app-id"));
+    manualSelectedAppIds = checkedAppIds;
+
+    if (footerCountEl) footerCountEl.textContent = checkedAppIds.length;
+
+    if (checkedAppIds.length === 0) {
+      listEl.innerHTML = `
+        <div style="font-size: 11.5px; color: rgba(255,255,255,0.5); text-align: center; padding: 18px 10px; line-height: 1.5;">
+          💡 ติ๊กเลือกแอปพลิเคชันด้านบนเพื่อเลือกแพ็กเกจย่อยและคำนวณยอดชำระรวม
+        </div>
+      `;
+      if (badgeEl) badgeEl.textContent = "ยอดรวม: ฿0";
+      if (sendPaymentBtn) {
+        sendPaymentBtn.style.opacity = "0.5";
+        sendPaymentBtn.style.pointerEvents = "none";
+        sendPaymentBtn.innerHTML = "💳 ส่งสคริปต์ชำระเงินรวม";
+      }
+      return;
+    }
+
+    if (sendPaymentBtn) {
+      sendPaymentBtn.style.opacity = "1";
+      sendPaymentBtn.style.pointerEvents = "auto";
+    }
+
+    let totalSum = 0;
+    listEl.innerHTML = "";
+
+    checkedAppIds.forEach(appId => {
+      const app = allApps.find(a => a.id === appId);
+      if (!app) return;
+
+      const appPackages = getPackagesForModalApp(app);
+      if (appPackages.length === 0) return;
+
+      let selectedVal = multiAppPackageSelections[app.id];
+      let activeOpt = appPackages.find(p => p.id === selectedVal);
+      if (!activeOpt) {
+        activeOpt = appPackages[0];
+        selectedVal = activeOpt ? activeOpt.id : "";
+        multiAppPackageSelections[app.id] = selectedVal;
+      }
+
+      const itemPrice = activeOpt ? (activeOpt.price || 0) : 0;
+      totalSum += itemPrice;
+
+      const row = document.createElement("div");
+      row.style.cssText = "display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;";
+
+      const optionsHtml = appPackages.map(p => `
+        <option value="${p.id}" ${p.id === selectedVal ? 'selected' : ''}>
+          ${p.name} (${p.price} บาท)
+        </option>
+      `).join('');
+
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 120px; max-width: 150px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: ${app.theme_color}; box-shadow: 0 0 6px ${app.theme_color}; display: inline-block; flex-shrink: 0;"></span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #ffffff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${app.display_name}">${app.display_name}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+          <select class="prem-select modal-pkg-select" data-app-id="${app.id}" style="flex: 1; min-width: 0; font-size: 11px; padding: 4px 8px; height: 30px; margin-bottom: 0;">
+            ${optionsHtml}
+          </select>
+          <span style="font-size: 11.5px; font-weight: 800; color: #3ecf8e; min-width: 55px; text-align: right; flex-shrink: 0;">
+            ฿${itemPrice}
+          </span>
+        </div>
+      `;
+
+      const selectEl = row.querySelector(".modal-pkg-select");
+      selectEl.addEventListener("change", (e) => {
+        haptic();
+        multiAppPackageSelections[app.id] = e.target.value;
+        updateMultiAppPackageUI();
+      });
+
+      listEl.appendChild(row);
+    });
+
+    if (badgeEl) badgeEl.textContent = `ยอดรวม: ฿${totalSum}`;
+    if (sendPaymentBtn) {
+      sendPaymentBtn.innerHTML = `💳 ส่งสคริปต์ชำระเงินรวม (${checkedAppIds.length} แอป - ฿${totalSum})`;
+    }
+  }
+
+  // Bind checkbox clicks
+  bodyEl.querySelectorAll(".modal-app-chk").forEach(chk => {
+    chk.addEventListener("change", () => {
+      haptic();
+      const label = chk.closest(".manual-app-chip-item");
+      if (label) {
+        if (chk.checked) label.classList.add("active");
+        else label.classList.remove("active");
+      }
+      updateMultiAppPackageUI();
+    });
+  });
+
+  // Select all & clear all buttons
+  const btnSelectAll = bodyEl.querySelector("#modal-btn-select-all");
+  if (btnSelectAll) {
+    btnSelectAll.addEventListener("click", () => {
+      haptic();
+      bodyEl.querySelectorAll(".modal-app-chk").forEach(chk => {
+        chk.checked = true;
+        const label = chk.closest(".manual-app-chip-item");
+        if (label) label.classList.add("active");
+      });
+      updateMultiAppPackageUI();
+    });
+  }
+
+  const btnClearAll = bodyEl.querySelector("#modal-btn-clear-all");
+  if (btnClearAll) {
+    btnClearAll.addEventListener("click", () => {
+      haptic();
+      bodyEl.querySelectorAll(".modal-app-chk").forEach(chk => {
+        chk.checked = false;
+        const label = chk.closest(".manual-app-chip-item");
+        if (label) label.classList.remove("active");
+      });
+      updateMultiAppPackageUI();
+    });
+  }
+
+  // Footer Actions
+  footerEl.innerHTML = `
+    <div style="font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.7);">
+      เลือกแล้ว <span style="color: #c084fc; font-weight: 800;" id="modal-footer-count">${manualSelectedAppIds.length}</span> แอป
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+      <button id="modal-send-multi-payment-btn" class="prem-btn" style="padding: 7px 14px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);" type="button">💳 ส่งสคริปต์ชำระเงินรวม</button>
+      <button id="modal-submit-multi-btn" class="prem-btn" style="padding: 7px 14px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #8b5cf6, #6366f1); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);" type="button">✨ ยืนยันการเลือกเสนอขาย</button>
+      <button id="modal-close-footer-btn" class="prem-btn-secondary" style="padding: 7px 12px; font-size: 11px; margin: 0;" type="button">✕ ปิดหน้าต่าง</button>
+    </div>
+  `;
+
+  const sendPaymentBtn = footerEl.querySelector("#modal-send-multi-payment-btn");
+  if (sendPaymentBtn) {
+    sendPaymentBtn.addEventListener("click", async () => {
+      haptic();
+      const checkedChks = bodyEl.querySelectorAll(".modal-app-chk:checked");
+      const selectedPairs = [];
+
+      checkedChks.forEach(chk => {
+        const appId = chk.getAttribute("data-app-id");
+        const app = allApps.find(a => a.id === appId);
+        if (!app) return;
+
+        const appPackages = getPackagesForModalApp(app);
+        const selVal = multiAppPackageSelections[app.id] || (appPackages[0] ? appPackages[0].id : null);
+        const pkg = appPackages.find(p => p.id === selVal) || appPackages[0];
+
+        if (pkg) {
+          selectedPairs.push({
+            app,
+            pkg,
+            price: pkg.price || 0
+          });
+        }
+      });
+
+      if (selectedPairs.length === 0) {
+        showToast("⚠️ โปรดเลือกแอปอย่างน้อย 1 แอป");
+        return;
+      }
+
+      const script = generateMultiAppPaymentScript(selectedPairs);
+      await copyToClipboard(script);
+      const totalSum = selectedPairs.reduce((acc, curr) => acc + curr.price, 0);
+      showToast(`🟢 คัดลอกสคริปต์ชำระเงินรวม ${selectedPairs.length} แอป (฿${totalSum}) เรียบร้อยแล้ว! 🚀`);
+    });
+  }
+
+  const submitMultiBtn = footerEl.querySelector("#modal-submit-multi-btn");
+  if (submitMultiBtn) {
+    submitMultiBtn.addEventListener("click", () => {
+      haptic();
+      const checkedChks = bodyEl.querySelectorAll(".modal-app-chk:checked");
+      const selectedIds = Array.from(checkedChks).map(c => c.getAttribute("data-app-id"));
+
+      if (selectedIds.length === 0) {
+        showToast("⚠️ โปรดเลือกแอปอย่างน้อย 1 แอป");
+        return;
+      }
+
+      manualSelectedAppIds = selectedIds;
+      if (selectedIds.length > 0) {
+        activeAppFilter = selectedIds[0];
+        renderChips();
+        renderStockFeed();
+      }
+
+      closeRecentMessagesModal();
+      showToast(`🟢 ยืนยันการเลือกเสนอขาย ${selectedIds.length} แอปเรียบร้อย! ✨`);
+    });
+  }
+
+  const closeFooterBtn = footerEl.querySelector("#modal-close-footer-btn");
+  if (closeFooterBtn) {
+    closeFooterBtn.addEventListener("click", () => {
+      haptic();
+      closeRecentMessagesModal();
+    });
+  }
+
+  // Initial trigger to calculate
+  updateMultiAppPackageUI();
+}
+
+// ----------------------------------------------------------------------------
+// Tab 1: 💬 แชทล่าสุด (Recent Messages & Intent Detector)
+// ----------------------------------------------------------------------------
+function renderRecentMessagesBubblesTab(bodyEl, footerEl, allApps) {
+  bodyEl.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <!-- Quick Chat Input Tester -->
+      <div style="background: rgba(30, 41, 59, 0.4); padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
+        <div style="font-size: 11px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">💬 ทดสอบวิเคราะห์ข้อความลูกค้า (พิมพ์หรือวางแชท):</div>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="modal-test-chat-input" class="prem-input" style="margin-bottom: 0; font-size: 11.5px; height: 32px; flex: 1;" placeholder="เช่น: สนใจ HBO กับ WeTV รายเดือน พร้อมโอนครับ...">
+          <button type="button" id="modal-btn-add-chat-test" class="prem-btn" style="padding: 0 12px; height: 32px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #38bdf8, #0284c7);">⚡ ตรวจจับ</button>
+        </div>
+      </div>
+
+      <!-- Messages List -->
+      <div id="modal-recent-bubbles-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 2px;">
+        <!-- Injected Below -->
+      </div>
+    </div>
+  `;
+
+  const bubblesContainer = bodyEl.querySelector("#modal-recent-bubbles-list");
+  const testInput = bodyEl.querySelector("#modal-test-chat-input");
+  const testAddBtn = bodyEl.querySelector("#modal-btn-add-chat-test");
+
+  function renderBubblesRows() {
+    if (!bubblesContainer) return;
+    bubblesContainer.innerHTML = "";
+
+    const visibleMsgs = simulatedChatMessages.slice(0, recentMessagesScanDepth || 8);
+
+    visibleMsgs.forEach(msgText => {
+      const row = document.createElement("div");
+      row.className = "recent-msg-row";
+
+      const intent = classifyMessageIntent(msgText);
+      const intentBadge = intent
+        ? `<span class="prem-badge ${intent.class === 'broken' ? 'pulse' : ''}" style="background: ${intent.bg}; border: 1px solid ${intent.border}; color: ${intent.color}; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-right: 6px; flex-shrink: 0;">${intent.tag}</span>`
+        : "";
+
+      const matchedApps = allApps.filter(app => isAppKeywordMatched(msgText, app));
+
+      let matchedBadgesHtml = "";
+      if (matchedApps.length > 0) {
+        matchedBadgesHtml = matchedApps.map(app => `
+          <button type="button" class="matched-badge btn-select-matched-app" data-app-id="${app.id}" title="แตะเพื่อเลือกแอปนี้ไปเสนอขาย" style="cursor: pointer; border: 1px solid rgba(62, 207, 142, 0.4); background: rgba(62, 207, 142, 0.15);">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${app.theme_color}; display: inline-block;"></span>
+            <span>+ ${app.display_name}</span>
+          </button>
+        `).join('');
+      } else {
+        matchedBadgesHtml = `<span style="font-size: 10px; color: rgba(255,255,255,0.4);">-</span>`;
+      }
+
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; min-width: 0; flex: 1; overflow: hidden; gap: 4px;">
+          ${intentBadge}
+          <span style="font-size: 11.5px; color: #ffffff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-weight: 500;" title="${msgText}">💬 "${msgText}"</span>
+        </div>
+        <div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center; flex-shrink: 0;">
+          ${matchedBadgesHtml}
+        </div>
+      `;
+
+      // Click matched badge to select app and jump to multi tab
+      row.querySelectorAll(".btn-select-matched-app").forEach(btn => {
+        btn.addEventListener("click", () => {
+          haptic();
+          const appId = btn.getAttribute("data-app-id");
+          if (appId && !manualSelectedAppIds.includes(appId)) {
+            manualSelectedAppIds.push(appId);
+          }
+          openRecentMessagesModal("multi");
+          showToast(`✨ เพิ่มแอปไปที่โหมดเสนอขายหลายแอปแล้ว!`);
+        });
+      });
+
+      bubblesContainer.appendChild(row);
+    });
+  }
+
+  if (testAddBtn && testInput) {
+    const handleAdd = () => {
+      const val = testInput.value.trim();
+      if (!val) return;
+      haptic();
+      simulatedChatMessages.unshift(val);
+      testInput.value = "";
+      renderBubblesRows();
+      showToast(`🟢 วิเคราะห์ข้อความแชทใหม่เรียบร้อย`);
+    };
+    testAddBtn.addEventListener("click", handleAdd);
+    testInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleAdd();
+    });
+  }
+
+  renderBubblesRows();
+
+  // Footer for bubbles
+  footerEl.innerHTML = `
+    <div style="font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.7);">
+      แสดง <span style="color: #38bdf8; font-weight: 800;">${Math.min(simulatedChatMessages.length, recentMessagesScanDepth || 8)}</span> ข้อความล่าสุด
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="modal-bubbles-goto-multi" class="prem-btn" style="padding: 7px 14px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #a855f7, #6366f1);" type="button">📁 ไปที่โหมดเสนอขายหลายแอป</button>
+      <button id="modal-close-footer-btn" class="prem-btn-secondary" style="padding: 7px 12px; font-size: 11px; margin: 0;" type="button">✕ ปิดหน้าต่าง</button>
+    </div>
+  `;
+
+  const gotoMultiBtn = footerEl.querySelector("#modal-bubbles-goto-multi");
+  if (gotoMultiBtn) {
+    gotoMultiBtn.addEventListener("click", () => {
+      haptic();
+      openRecentMessagesModal("multi");
+    });
+  }
+
+  const closeFooterBtn = footerEl.querySelector("#modal-close-footer-btn");
+  if (closeFooterBtn) {
+    closeFooterBtn.addEventListener("click", () => {
+      haptic();
+      closeRecentMessagesModal();
+    });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Tab 3: ⚙️ ตั้งค่าตรวจจับ (Detection Settings)
+// ----------------------------------------------------------------------------
+function renderRecentMessagesSettingsTab(bodyEl, footerEl) {
+  bodyEl.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="background: rgba(30, 41, 59, 0.4); padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
+        <div style="font-size: 12.5px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🔍 ความลึกในการสแกนข้อความแชท (Scan Depth)</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 12px; line-height: 1.4;">เลือกจำนวนข้อความย้อนหลังที่ต้องการให้ระบบวิเคราะห์คำสำคัญสินค้าและเจตนาของลูกค้า</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${[5, 8, 12, 20].map(depth => `
+            <button type="button" class="scan-depth-pill ${recentMessagesScanDepth === depth ? 'active' : ''}" data-depth="${depth}">
+              ${depth} ข้อความ ${depth === 8 ? '(แนะนำ)' : ''}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div style="background: rgba(30, 41, 59, 0.4); padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div>
+          <div style="font-size: 12.5px; font-weight: 700; color: #3ecf8e; margin-bottom: 4px;">⚡ เด้งป๊อปอัพอัตโนมัติเมื่อพบแอปใหม่ (Auto Popup)</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4;">เปิดหน้าต่างป๊อปอัพขึ้นมาโดยอัตโนมัติทันทีเมื่อตรวจพบชื่อสินค้าในแชท</div>
+        </div>
+        <label class="prem-switch" style="cursor: pointer; flex-shrink: 0;">
+          <input type="checkbox" id="modal-auto-popup-toggle" ${autoPopupOnNewMatch ? 'checked' : ''}>
+          <span class="prem-slider"></span>
+        </label>
+      </div>
+    </div>
+  `;
+
+  bodyEl.querySelectorAll(".scan-depth-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      recentMessagesScanDepth = parseInt(btn.getAttribute("data-depth"));
+      renderRecentMessagesModalContent();
+      showToast(`🟢 ตั้งค่าความลึกสแกนเป็น ${recentMessagesScanDepth} ข้อความแล้ว`);
+    });
+  });
+
+  const autoPopupChk = bodyEl.querySelector("#modal-auto-popup-toggle");
+  if (autoPopupChk) {
+    autoPopupChk.addEventListener("change", () => {
+      haptic();
+      autoPopupOnNewMatch = autoPopupChk.checked;
+      showToast(`🟢 Auto Popup: ${autoPopupOnNewMatch ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`);
+    });
+  }
+
+  footerEl.innerHTML = `
+    <div style="font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.7);">
+      ⚙️ บันทึกการตั้งค่าลงหน่วยความจำอัตโนมัติ
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="modal-close-footer-btn" class="prem-btn-secondary" style="padding: 7px 14px; font-size: 11px; margin: 0;" type="button">✕ ปิดหน้าต่าง</button>
+    </div>
+  `;
+
+  const closeFooterBtn = footerEl.querySelector("#modal-close-footer-btn");
+  if (closeFooterBtn) {
+    closeFooterBtn.addEventListener("click", () => {
+      haptic();
+      closeRecentMessagesModal();
+    });
+  }
+}
 

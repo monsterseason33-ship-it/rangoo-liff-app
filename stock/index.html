@@ -147,6 +147,10 @@
           <span>📢</span>
           <span>บทเสนอขาย</span>
         </button>
+        <button type="button" id="btn-open-recent-msg-modal" class="pill-tool-btn pill-btn-multi-app" title="💬 ศูนย์ควบคุมการตรวจจับแชท & 📁 เสนอขายหลายแอป">
+          <span>📁</span>
+          <span>เสนอขายหลายแอป</span>
+        </button>
         <button type="button" id="btn-toggle-stock-form" class="pill-tool-btn primary-tool-btn" title="เปิดแผงเพิ่มสต็อกเข้าคลัง">
           <span>➕</span>
           <span>เพิ่มสต็อก</span>
@@ -1386,7 +1390,35 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.41"></script>
+  <!-- ===================================================================== -->
+  <!-- 💬 MODAL: ศูนย์ควบคุมการตรวจจับแชท & 📁 เสนอขายหลายแอป                -->
+  <!-- div#recent-msg-modal-overlay.recent-msg-modal-overlay                 -->
+  <!-- ===================================================================== -->
+  <div id="recent-msg-modal-overlay" class="recent-msg-modal-overlay">
+    <div class="recent-msg-modal-card">
+      <div class="recent-msg-modal-header">
+        <div class="recent-msg-modal-title-box">
+          <div class="recent-msg-modal-icon">🤖</div>
+          <div>
+            <div class="recent-msg-modal-title">💬 ศูนย์ควบคุมการตรวจจับแชท & 📁 เสนอขายหลายแอป</div>
+            <div class="recent-msg-modal-subtitle">วิเคราะห์แท็กลูกค้าและจัดการโหมดเสนอขายหลายแอป</div>
+          </div>
+        </div>
+        <div class="recent-msg-modal-header-right">
+          <div class="recent-msg-modal-nav">
+            <button type="button" class="recent-msg-modal-tab-btn" data-tab="bubbles">💬 แชทล่าสุด</button>
+            <button type="button" class="recent-msg-modal-tab-btn active" data-tab="multi">📁 เลือกหลายแอป</button>
+            <button type="button" class="recent-msg-modal-tab-btn" data-tab="settings">⚙️ ตั้งค่าตรวจจับ</button>
+          </div>
+          <button type="button" class="recent-msg-modal-close-btn" id="btn-close-recent-msg-modal" title="ปิดป๊อปอัพ (Esc)">✕</button>
+        </div>
+      </div>
+      <div id="recent-msg-modal-body" class="recent-msg-modal-body"></div>
+      <div id="recent-msg-modal-footer" class="recent-msg-modal-footer"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=2.43"></script>
 </body>
 
 </html>
