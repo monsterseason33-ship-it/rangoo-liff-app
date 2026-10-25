@@ -11286,11 +11286,11 @@ function renderRecentMessagesModalContent() {
 function renderRecentMessagesMultiTab(bodyEl, footerEl, allApps) {
   bodyEl.innerHTML = `
     <div style="display: flex; flex-direction: column; gap: 12px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
-        <span style="font-size: 12px; font-weight: 700; color: #c084fc;">📁 1. เลือกแอปพลิเคชันที่ต้องการเสนอขายร่วมกัน:</span>
-        <div style="display: flex; gap: 6px;">
-          <button id="modal-btn-select-all" class="prem-btn-mini-pill" style="font-size: 10px; padding: 4px 9px;" type="button">✔ เลือกทั้งหมด</button>
-          <button id="modal-btn-clear-all" class="prem-btn-mini-pill" style="font-size: 10px; padding: 4px 9px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);" type="button">✕ ล้างการเลือก</button>
+      <div class="multi-section-bar">
+        <span class="multi-section-title">📁 1. เลือกแอปพลิเคชันที่ต้องการเสนอขายร่วมกัน:</span>
+        <div class="multi-section-actions">
+          <button id="modal-btn-select-all" class="prem-btn-mini-pill" type="button">✔ เลือกทั้งหมด</button>
+          <button id="modal-btn-clear-all" class="prem-btn-mini-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);" type="button">✕ ล้างการเลือก</button>
         </div>
       </div>
 
@@ -11309,7 +11309,7 @@ function renderRecentMessagesMultiTab(bodyEl, footerEl, allApps) {
 
       <!-- Package Selection & Combined Payment Section -->
       <div id="modal-multi-pkg-section" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(167, 139, 250, 0.25); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; flex-wrap: wrap; gap: 6px;">
           <span style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
             📦 2. เลือกแพ็กเกจย่อยของแต่ละแอป (เพื่อสร้างสคริปต์ชำระเงิน):
           </span>
@@ -11381,7 +11381,7 @@ function renderRecentMessagesMultiTab(bodyEl, footerEl, allApps) {
       totalSum += itemPrice;
 
       const row = document.createElement("div");
-      row.style.cssText = "display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;";
+      row.className = "modal-pkg-row";
 
       const optionsHtml = appPackages.map(p => `
         <option value="${p.id}" ${p.id === selectedVal ? 'selected' : ''}>
@@ -11390,15 +11390,15 @@ function renderRecentMessagesMultiTab(bodyEl, footerEl, allApps) {
       `).join('');
 
       row.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 6px; min-width: 120px; max-width: 150px;">
-          <span style="width: 7px; height: 7px; border-radius: 50%; background: ${app.theme_color}; box-shadow: 0 0 6px ${app.theme_color}; display: inline-block; flex-shrink: 0;"></span>
-          <span style="font-size: 11.5px; font-weight: 700; color: #ffffff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${app.display_name}">${app.display_name}</span>
+        <div class="modal-pkg-row-app">
+          <span class="app-dot" style="background: ${app.theme_color}; box-shadow: 0 0 6px ${app.theme_color};"></span>
+          <span class="app-name" title="${app.display_name}">${app.display_name}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <div class="modal-pkg-row-controls">
           <select class="prem-select modal-pkg-select" data-app-id="${app.id}" style="flex: 1; min-width: 0; font-size: 11px; padding: 4px 8px; height: 30px; margin-bottom: 0;">
             ${optionsHtml}
           </select>
-          <span style="font-size: 11.5px; font-weight: 800; color: #3ecf8e; min-width: 55px; text-align: right; flex-shrink: 0;">
+          <span class="modal-pkg-price">
             ฿${itemPrice}
           </span>
         </div>
@@ -11462,13 +11462,17 @@ function renderRecentMessagesMultiTab(bodyEl, footerEl, allApps) {
 
   // Footer Actions
   footerEl.innerHTML = `
-    <div style="font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.7);">
-      เลือกแล้ว <span style="color: #c084fc; font-weight: 800;" id="modal-footer-count">${manualSelectedAppIds.length}</span> แอป
-    </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-      <button id="modal-send-multi-payment-btn" class="prem-btn" style="padding: 7px 14px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);" type="button">💳 ส่งสคริปต์ชำระเงินรวม</button>
-      <button id="modal-submit-multi-btn" class="prem-btn" style="padding: 7px 14px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #8b5cf6, #6366f1); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);" type="button">✨ ยืนยันการเลือกเสนอขาย</button>
-      <button id="modal-close-footer-btn" class="prem-btn-secondary" style="padding: 7px 12px; font-size: 11px; margin: 0;" type="button">✕ ปิดหน้าต่าง</button>
+    <div class="recent-msg-modal-footer-inner">
+      <div class="modal-footer-top-row">
+        <div class="modal-footer-count-box">
+          เลือกแล้ว <span style="color: #c084fc; font-weight: 800;" id="modal-footer-count">${manualSelectedAppIds.length}</span> แอป
+        </div>
+        <button id="modal-close-footer-btn" class="prem-btn-secondary modal-footer-close-btn" type="button">✕ ปิดหน้าต่าง</button>
+      </div>
+      <div class="modal-footer-actions-row">
+        <button id="modal-send-multi-payment-btn" class="prem-btn modal-btn-send-payment" type="button">💳 ส่งสคริปต์ชำระเงินรวม</button>
+        <button id="modal-submit-multi-btn" class="prem-btn modal-btn-submit-offer" type="button">✨ ยืนยันการเลือกเสนอขาย</button>
+      </div>
     </div>
   `;
 
@@ -11647,12 +11651,16 @@ function renderRecentMessagesBubblesTab(bodyEl, footerEl, allApps) {
 
   // Footer for bubbles
   footerEl.innerHTML = `
-    <div style="font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.7);">
-      แสดง <span style="color: #38bdf8; font-weight: 800;">${Math.min(simulatedChatMessages.length, recentMessagesScanDepth || 8)}</span> ข้อความล่าสุด
-    </div>
-    <div style="display: flex; gap: 8px;">
-      <button id="modal-bubbles-goto-multi" class="prem-btn" style="padding: 7px 14px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #a855f7, #6366f1);" type="button">📁 ไปที่โหมดเสนอขายหลายแอป</button>
-      <button id="modal-close-footer-btn" class="prem-btn-secondary" style="padding: 7px 12px; font-size: 11px; margin: 0;" type="button">✕ ปิดหน้าต่าง</button>
+    <div class="recent-msg-modal-footer-inner">
+      <div class="modal-footer-top-row">
+        <div class="modal-footer-count-box">
+          แสดง <span style="color: #38bdf8; font-weight: 800;">${Math.min(simulatedChatMessages.length, recentMessagesScanDepth || 8)}</span> ข้อความล่าสุด
+        </div>
+        <button id="modal-close-footer-btn" class="prem-btn-secondary modal-footer-close-btn" type="button">✕ ปิดหน้าต่าง</button>
+      </div>
+      <div class="modal-footer-actions-row">
+        <button id="modal-bubbles-goto-multi" class="prem-btn modal-btn-submit-offer" type="button">📁 ไปที่โหมดเสนอขายหลายแอป</button>
+      </div>
     </div>
   `;
 
@@ -11723,11 +11731,13 @@ function renderRecentMessagesSettingsTab(bodyEl, footerEl) {
   }
 
   footerEl.innerHTML = `
-    <div style="font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,0.7);">
-      ⚙️ บันทึกการตั้งค่าลงหน่วยความจำอัตโนมัติ
-    </div>
-    <div style="display: flex; gap: 8px;">
-      <button id="modal-close-footer-btn" class="prem-btn-secondary" style="padding: 7px 14px; font-size: 11px; margin: 0;" type="button">✕ ปิดหน้าต่าง</button>
+    <div class="recent-msg-modal-footer-inner">
+      <div class="modal-footer-top-row">
+        <div class="modal-footer-count-box">
+          ⚙️ บันทึกการตั้งค่าลงหน่วยความจำอัตโนมัติ
+        </div>
+        <button id="modal-close-footer-btn" class="prem-btn-secondary modal-footer-close-btn" type="button">✕ ปิดหน้าต่าง</button>
+      </div>
     </div>
   `;
 
