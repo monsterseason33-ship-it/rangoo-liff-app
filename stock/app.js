@@ -5078,28 +5078,34 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
   const customerInitial = (b.customer_name || "C").trim().charAt(0).toUpperCase();
   const customerWebappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
 
-  // Master Account Expiry Comparison
+  // Master Account Expiry Comparison & Separate Editor
   const masterAcc = getMasterAccountForBinding(b);
   let masterExpiryComparisonHtml = "";
-  if (masterAcc && masterAcc.expiry_date) {
-    const masterExpDate = new Date(masterAcc.expiry_date);
+  if (masterAcc) {
+    const hasMasterExp = !!masterAcc.expiry_date;
+    const masterExpDate = hasMasterExp ? new Date(masterAcc.expiry_date) : null;
+    const isMasterExpValid = masterExpDate && !isNaN(masterExpDate.getTime());
     const custExpDate = b.expiry_date ? new Date(b.expiry_date) : null;
-    const diffMs = masterExpDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
     let masterRemainingText = "";
     let masterRemainingColor = "#34d399";
-    if (diffDays > 0) {
-      masterRemainingText = `(เหลือ ${diffDays} วัน)`;
-      if (diffDays <= 3) masterRemainingColor = "#f87171";
-      else if (diffDays <= 7) masterRemainingColor = "#fbbf24";
-    } else {
-      masterRemainingText = `(หมดอายุแล้ว)`;
-      masterRemainingColor = "#f87171";
+    let masterExpDisplay = isMasterExpValid ? formatDateThai(masterExpDate) : "(ยังไม่กำหนด)";
+
+    if (isMasterExpValid) {
+      const diffMs = masterExpDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        masterRemainingText = `(เหลือ ${diffDays} วัน)`;
+        if (diffDays <= 3) masterRemainingColor = "#f87171";
+        else if (diffDays <= 7) masterRemainingColor = "#fbbf24";
+      } else {
+        masterRemainingText = `(หมดอายุแล้ว)`;
+        masterRemainingColor = "#f87171";
+      }
     }
 
     let diffCalloutHtml = "";
-    if (custExpDate && !isNaN(custExpDate.getTime()) && !isNaN(masterExpDate.getTime())) {
+    if (custExpDate && !isNaN(custExpDate.getTime()) && isMasterExpValid) {
       const diffCustMs = masterExpDate.getTime() - custExpDate.getTime();
       const diffCustDays = Math.round(Math.abs(diffCustMs) / (1000 * 60 * 60 * 24));
       if (masterExpDate < custExpDate) {
@@ -5120,9 +5126,13 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
     masterExpiryComparisonHtml = `
       <div class="binding-master-expiry-strip">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10.5px;">
-          <span style="color: #94a3b8;">🔑 หมดอายุบัญชีหลัก:</span>
-          <span style="font-weight: 700; color: #f8fafc;">
-            ${formatDateThai(masterExpDate)} <span style="color: ${masterRemainingColor}; font-weight: 800;">${masterRemainingText}</span>
+          <span style="color: #94a3b8; display: inline-flex; align-items: center; gap: 4px;">🔑 หมดอายุบัญชีหลัก:</span>
+          <span class="binding-timeline-expiry-row btn-edit-master-expiry" data-binding-id="${b.id}" data-account-id="${masterAcc.id || ''}" title="คลิกเพื่อแก้ไขวันหมดอายุบัญชีหลัก (ปฏิทิน พ.ศ.)" style="cursor: pointer;">
+            <strong class="binding-master-expiry-text" style="color: #f8fafc;">${masterExpDisplay}</strong>
+            ${masterRemainingText ? `<span style="color: ${masterRemainingColor}; font-weight: 800; font-size: 10px;">${masterRemainingText}</span>` : ''}
+            <span class="binding-edit-expiry-icon master-edit-icon" style="color: #c084fc; background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35);" title="คลิกเพื่อเลือกวันเวลาหมดอายุบัญชีหลัก">
+              <span>✏️</span><span>แก้ไข</span>
+            </span>
           </span>
         </div>
         ${diffCalloutHtml}
@@ -5555,6 +5565,16 @@ function initTroubleshootingModalListeners() {
         e.stopPropagation();
         const bId = editExpBtn.dataset.bindingId;
         if (bId) handleEditBindingExpiry(bId);
+        return;
+      }
+
+      // 1.5b. Edit Master Account Expiry Date directly via Thai Datepicker (div.binding-timeline-box)
+      const editMasterExpBtn = e.target.closest(".btn-edit-master-expiry");
+      if (editMasterExpBtn) {
+        e.stopPropagation();
+        const bId = editMasterExpBtn.dataset.bindingId;
+        const accId = editMasterExpBtn.dataset.accountId;
+        if (bId || accId) handleEditMasterExpiry(bId, accId);
         return;
       }
 
@@ -6140,11 +6160,6 @@ async function handleEditBindingExpiry(bindingId) {
           });
           b.expiry_date = null;
           b.days = 0;
-          if (b.account_id) {
-            await patchDatabase("accounts", b.account_id, {
-              expiry_date: null
-            });
-          }
           showToast(`🟢 ล้างวันหมดอายุของคุณ ${b.customer_name || 'ลูกค้า'} เรียบร้อยแล้ว`);
         } else {
           // Case: Valid finalDate chosen
@@ -6160,12 +6175,6 @@ async function handleEditBindingExpiry(bindingId) {
             days: calculatedDays
           });
 
-          if (b.account_id) {
-            await patchDatabase("accounts", b.account_id, {
-              expiry_date: isoStr
-            });
-          }
-
           b.expiry_date = isoStr;
           b.days = calculatedDays;
 
@@ -6178,6 +6187,76 @@ async function handleEditBindingExpiry(bindingId) {
       } catch (err) {
         console.error("Update binding expiry error:", err);
         showToast("❌ อัปเดตวันหมดอายุไม่สำเร็จ: " + err.message);
+      }
+    }
+  });
+}
+
+// 2.6. Direct Edit Master Account Expiry Date via Thai Datepicker (div.binding-master-expiry-strip)
+async function handleEditMasterExpiry(bindingId, accountId) {
+  haptic();
+  const b = rawBindings.find(x => x.id === bindingId);
+  const masterAcc = accountId 
+    ? (accountsByIdMap.get(accountId) || allAccountsList.find(a => a.id === accountId))
+    : (b ? getMasterAccountForBinding(b) : null);
+
+  if (!masterAcc) {
+    showToast("⚠️ ไม่พบบัญชีหลักที่เชื่อมโยงกับรายการนี้", "warning");
+    return;
+  }
+
+  const currentExp = masterAcc.expiry_date ? new Date(masterAcc.expiry_date) : new Date();
+  const masterTitle = masterAcc.email ? `${masterAcc.email}` : (b?.app_name || 'บัญชีหลัก');
+
+  openThaiDatePicker({
+    initialDate: currentExp,
+    title: `📆 แก้ไขวันหมดอายุบัญชีหลัก: ${masterTitle}`,
+    onConfirm: async (valStr, finalDate) => {
+      try {
+        // Find all account screens belonging to this master account
+        const targetAccounts = (masterAcc.email && masterAcc.email !== "-")
+          ? allAccountsList.filter(a => 
+              (a.email || "").toLowerCase().trim() === (masterAcc.email || "").toLowerCase().trim() &&
+              (!masterAcc.app_name || (a.app_name || "").toLowerCase().trim() === (masterAcc.app_name || "").toLowerCase().trim())
+            )
+          : [masterAcc];
+
+        if (targetAccounts.length === 0) targetAccounts.push(masterAcc);
+
+        if (!finalDate) {
+          // Case: Clear date
+          showToast("⏳ กำลังล้างวันหมดอายุบัญชีหลัก...");
+          for (const acc of targetAccounts) {
+            await patchDatabase("accounts", acc.id, {
+              expiry_date: null
+            });
+            acc.expiry_date = null;
+          }
+          masterAcc.expiry_date = null;
+          showToast(`🟢 ล้างวันหมดอายุบัญชีหลัก (${targetAccounts.length} จอ) เรียบร้อยแล้ว`);
+        } else {
+          // Case: Valid finalDate chosen
+          const isoStr = finalDate.toISOString();
+          showToast("⏳ กำลังบันทึกวันหมดอายุบัญชีหลัก...");
+
+          for (const acc of targetAccounts) {
+            await patchDatabase("accounts", acc.id, {
+              expiry_date: isoStr
+            });
+            acc.expiry_date = isoStr;
+          }
+          masterAcc.expiry_date = isoStr;
+
+          showToast(`📅 อัปเดตวันหมดอายุบัญชีหลัก (${targetAccounts.length} จอ) เป็น ${formatDateThai(finalDate)} สำเร็จ!`);
+        }
+
+        rebuildAccountsIndex();
+        preprocessBindings();
+        renderBindingsFeed();
+        updateBindingMetrics();
+      } catch (err) {
+        console.error("Update master account expiry error:", err);
+        showToast("❌ อัปเดตวันหมดอายุบัญชีหลักไม่สำเร็จ: " + err.message);
       }
     }
   });
@@ -6241,12 +6320,6 @@ async function executeConfirmExtend() {
       days: newDaysTotal,
       expiry_date: newExpiry.toISOString()
     });
-
-    if (b.account_id) {
-      await patchDatabase("accounts", b.account_id, {
-        expiry_date: newExpiry.toISOString()
-      });
-    }
 
     b.days = newDaysTotal;
     b.expiry_date = newExpiry.toISOString();

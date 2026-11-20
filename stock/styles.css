@@ -5256,6 +5256,21 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
   margin-top: 4px;
 }
 
+.binding-timeline-expiry-row.btn-edit-master-expiry:hover {
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.binding-timeline-expiry-row.btn-edit-master-expiry:hover .binding-master-expiry-text {
+  color: #c084fc;
+}
+
+.binding-timeline-expiry-row.btn-edit-master-expiry:hover .binding-edit-expiry-icon {
+  background: #a855f7 !important;
+  color: #ffffff !important;
+  border-color: #a855f7 !important;
+  transform: scale(1.05);
+}
+
 .prem-expiry-diff-callout {
   font-size: 10px;
   font-weight: 700;
