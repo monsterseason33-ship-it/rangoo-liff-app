@@ -5883,13 +5883,16 @@ async function executeConfirmSwap() {
       await patchDatabase("accounts", b.account_id, { status: "broken" });
     }
 
-    // 2. Mark new account as used
-    await patchDatabase("accounts", newAcc.id, {
+    // 2. Mark new account as used (preserve existing expiry date if present)
+    const newAccPatch = {
       status: "used",
       customer_id: b.customer_name,
-      sold_at: new Date().toISOString(),
-      expiry_date: b.expiry_date
-    });
+      sold_at: new Date().toISOString()
+    };
+    if (!newAcc.expiry_date) {
+      newAccPatch.expiry_date = b.expiry_date;
+    }
+    await patchDatabase("accounts", newAcc.id, newAccPatch);
 
     // 3. Update customer_binding
     const newRawData = `อีเมล: ${newAcc.email}\nรหัสผ่าน: ${newAcc.password}\nID จอ: #${newAcc.display_id || '-'}\nโปรไฟล์: ${newAcc.profile_name || 'จอที่กำหนด'}${newAcc.pin_code ? '\nPIN: ' + newAcc.pin_code : ''}`;
@@ -7864,14 +7867,18 @@ async function executeConfirmSendBind() {
     // 1. Insert into customer_bindings
     await insertDatabase("customer_bindings", bindingPayload);
 
-    // 2. Patch accounts row to 'used'
+    // 2. Patch accounts row to 'used' (preserve master account's existing expiry date)
     if (currentSendBindContext.accountId) {
-      await patchDatabase("accounts", currentSendBindContext.accountId, {
+      const existingAcc = (currentSendBindContext.accountId ? allAccountsList.find(a => String(a.id) === String(currentSendBindContext.accountId)) : null) || currentSendBindContext.targetAcc;
+      const accPatch = {
         status: "used",
         customer_id: customerName,
-        sold_at: new Date().toISOString(),
-        expiry_date: formattedExpiry
-      });
+        sold_at: new Date().toISOString()
+      };
+      if (!existingAcc?.expiry_date) {
+        accPatch.expiry_date = formattedExpiry;
+      }
+      await patchDatabase("accounts", currentSendBindContext.accountId, accPatch);
     }
 
     // 3. Build & copy handover message with customer webapp link
@@ -9952,12 +9959,16 @@ async function handleDisneyCompleteBindingStep2() {
       }
 
       await insertDatabase("customer_bindings", bindingPayload);
-      await patchDatabase("accounts", disneyWizardState.accountId, {
+      const existingAcc = (disneyWizardState.accountId ? allAccountsList.find(a => String(a.id) === String(disneyWizardState.accountId)) : null) || disneyWizardState.targetAcc;
+      const accPatch = {
         status: "used",
         customer_id: customerName,
-        sold_at: new Date().toISOString(),
-        expiry_date: formattedExpiry
-      });
+        sold_at: new Date().toISOString()
+      };
+      if (!existingAcc?.expiry_date) {
+        accPatch.expiry_date = formattedExpiry;
+      }
+      await patchDatabase("accounts", disneyWizardState.accountId, accPatch);
 
       closeDisneyOverlayWizard();
       showToast(`🎉 ผูกสิทธิ์คุณ ${customerName} สำเร็จ & คัดลอกสคริปต์ส่งมอบแล้ว!`);
@@ -11079,14 +11090,18 @@ async function executeConfirmSmartFetch(copyOnly = false) {
     // 1. Insert into customer_bindings
     await insertDatabase("customer_bindings", bindingPayload);
 
-    // 2. Patch accounts row to 'used'
+    // 2. Patch accounts row to 'used' (preserve master account's existing expiry date)
     if (candidate.id) {
-      await patchDatabase("accounts", candidate.id, {
+      const existingAcc = allAccountsList.find(a => String(a.id) === String(candidate.id)) || candidate;
+      const accPatch = {
         status: "used",
         customer_id: customerName,
-        sold_at: new Date().toISOString(),
-        expiry_date: formattedExpiry
-      });
+        sold_at: new Date().toISOString()
+      };
+      if (!existingAcc?.expiry_date) {
+        accPatch.expiry_date = formattedExpiry;
+      }
+      await patchDatabase("accounts", candidate.id, accPatch);
     }
 
     closeSmartFetchModal();
