@@ -2598,16 +2598,54 @@ body {
 }
 
 .binding-timeline-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 10.5px;
-  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
   margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.binding-timeline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s ease;
+}
+
+.binding-timeline-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.binding-timeline-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.binding-timeline-val-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.binding-timeline-val {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .binding-timeline-expiry-row {
@@ -2666,21 +2704,31 @@ body {
 
 .binding-countdown {
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 3px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .binding-countdown.safe {
   color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.25);
 }
 
 .binding-countdown.warning {
   color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.25);
 }
 
 .binding-countdown.danger {
   color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.25);
 }
 
 .binding-countdown.btn-edit-binding-expiry {
@@ -5250,10 +5298,10 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
 .binding-master-expiry-strip {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   border-top: 1px dashed rgba(255, 255, 255, 0.08);
-  padding-top: 6px;
-  margin-top: 4px;
+  padding-top: 5px;
+  margin-top: 2px;
 }
 
 .binding-timeline-expiry-row.btn-edit-master-expiry:hover {

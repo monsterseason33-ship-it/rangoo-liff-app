@@ -5059,17 +5059,17 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
         statusClass = "expired";
         statusLabel = "🔴 หมดอายุแล้ว";
         statusColor = "#f87171";
-        countdownHtml = `<span class="binding-countdown danger btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว) ✏️</span>`;
+        countdownHtml = `<span class="binding-countdown danger">🔴 หมดอายุแล้ว (${Math.abs(diffDays)} วันที่แล้ว)</span>`;
       } else if (diffHours <= 72) {
         statusClass = "expired";
         statusLabel = `⏰ เหลืออีก ${diffHours} ชม.`;
         statusColor = "#fb923c";
-        countdownHtml = `<span class="binding-countdown warning btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⚠️ ใกล้หมดอายุ (เหลือ ${diffHours} ชม.) ✏️</span>`;
+        countdownHtml = `<span class="binding-countdown warning">⚠️ เหลืออีก ${diffHours} ชม.</span>`;
       } else {
         statusClass = "active";
         statusLabel = `🟢 เหลือ ${diffDays} วัน`;
         statusColor = "#3ecf8e";
-        countdownHtml = `<span class="binding-countdown safe btn-edit-binding-expiry" data-binding-id="${b.id}" style="cursor: pointer;" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">⏳ เหลืออีก ${diffDays} วัน ✏️</span>`;
+        countdownHtml = `<span class="binding-countdown safe">⏳ เหลืออีก ${diffDays} วัน</span>`;
       }
     }
   }
@@ -5125,15 +5125,15 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
 
     masterExpiryComparisonHtml = `
       <div class="binding-master-expiry-strip">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10.5px;">
-          <span style="color: #94a3b8; display: inline-flex; align-items: center; gap: 4px;">🔑 หมดอายุบัญชีหลัก:</span>
-          <span class="binding-timeline-expiry-row btn-edit-master-expiry" data-binding-id="${b.id}" data-account-id="${masterAcc.id || ''}" title="คลิกเพื่อแก้ไขวันหมดอายุบัญชีหลัก (ปฏิทิน พ.ศ.)" style="cursor: pointer;">
-            <strong class="binding-master-expiry-text" style="color: #f8fafc;">${masterExpDisplay}</strong>
-            ${masterRemainingText ? `<span style="color: ${masterRemainingColor}; font-weight: 800; font-size: 10px;">${masterRemainingText}</span>` : ''}
-            <span class="binding-edit-expiry-icon master-edit-icon" style="color: #c084fc; background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35);" title="คลิกเพื่อเลือกวันเวลาหมดอายุบัญชีหลัก">
+        <div class="binding-timeline-row" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.18);">
+          <span class="binding-timeline-label" style="color: #d8b4fe;">🔑 หมดอายุบัญชีหลัก:</span>
+          <div class="binding-timeline-val-group">
+            <span class="binding-timeline-val binding-master-expiry-text" style="color: #f8fafc;">${masterExpDisplay}</span>
+            ${masterRemainingText ? `<span class="binding-countdown" style="color: ${masterRemainingColor}; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);">${masterRemainingText}</span>` : ''}
+            <button type="button" class="binding-mini-btn btn-edit-master-expiry" data-binding-id="${b.id}" data-account-id="${masterAcc.id || ''}" title="คลิกเพื่อแก้ไขวันหมดอายุบัญชีหลัก (ปฏิทิน พ.ศ.)" style="color: #d8b4fe; border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.12);">
               <span>✏️</span><span>แก้ไข</span>
-            </span>
-          </span>
+            </button>
+          </div>
         </div>
         ${diffCalloutHtml}
       </div>
@@ -5255,20 +5255,29 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
       ` : ''}
     </div>
 
-    <!-- Timeline & Expiry Box (Click to edit expiry date with Thai Datepicker) -->
+    <!-- Timeline & Expiry Box -->
     <div class="binding-timeline-box">
-      <div style="display: flex; flex-direction: column; gap: 3px;">
-        <span>📅 เริ่ม: ${createdDisplay}</span>
-        <span class="binding-timeline-expiry-row btn-edit-binding-expiry" data-binding-id="${b.id}" title="คลิกเพื่อแก้ไขวันหมดอายุ (ปฏิทิน พ.ศ.)">
-          <span>⏰ หมดอายุ: <strong class="binding-expiry-text">${expiryDisplay}</strong></span>
-          <span class="binding-edit-expiry-icon" title="คลิกเพื่อเลือกวันเวลาหมดอายุ">
+      <!-- 1. Start Date & Remaining Countdown Row -->
+      <div class="binding-timeline-row">
+        <span class="binding-timeline-label">📅 เริ่ม:</span>
+        <div class="binding-timeline-val-group">
+          <span class="binding-timeline-val" style="color: #94a3b8;">${createdDisplay}</span>
+          ${countdownHtml ? `<div>${countdownHtml}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- 2. Customer Expiry Row -->
+      <div class="binding-timeline-row">
+        <span class="binding-timeline-label">⏰ หมดอายุลูกค้า:</span>
+        <div class="binding-timeline-val-group">
+          <span class="binding-timeline-val binding-expiry-text" style="color: #38bdf8; font-weight: 700;">${expiryDisplay}</span>
+          <button type="button" class="binding-mini-btn btn-edit-binding-expiry" data-binding-id="${b.id}" title="คลิกเพื่อแก้ไขวันหมดอายุลูกค้า (ปฏิทิน พ.ศ.)" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.12);">
             <span>✏️</span><span>แก้ไข</span>
-          </span>
-        </span>
+          </button>
+        </div>
       </div>
-      <div>
-        ${countdownHtml}
-      </div>
+
+      <!-- 3. Master Account Expiry Section -->
       ${masterExpiryComparisonHtml}
     </div>
 
