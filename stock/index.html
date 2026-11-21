@@ -506,9 +506,33 @@
         </div>
         <div>
           <label class="prem-label">🎬 เลือกบัญชี/จอใหม่จากคลังที่ว่างอยู่:</label>
-          <select id="swap-target-account-select" class="prem-select">
+          <select id="swap-target-account-select" class="prem-select" style="display: none;" aria-hidden="true">
             <option value="">-- ค้นหาจอว่างที่ตรงกันอัตโนมัติ --</option>
           </select>
+          <div id="swap-custom-select-container" class="swap-custom-select">
+            <button type="button" id="swap-custom-select-trigger" class="swap-select-trigger" aria-expanded="false">
+              <div class="swap-trigger-content" id="swap-trigger-content">
+                <span class="swap-trigger-placeholder">-- ค้นหาจอว่างที่ตรงกันอัตโนมัติ --</span>
+              </div>
+              <span class="swap-trigger-chevron">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 8 10 12 14 8"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="swap-custom-select-dropdown" class="swap-select-dropdown">
+              <div class="swap-dropdown-toolbar">
+                <div class="swap-search-wrap">
+                  <span class="swap-search-icon">🔍</span>
+                  <input type="text" id="swap-select-search" class="swap-search-input" placeholder="ค้นหาอีเมล, #ID จอ, โปรไฟล์, แพ็กเกจ..." autocomplete="off">
+                </div>
+                <span id="swap-select-count" class="swap-select-count">0 จอ</span>
+              </div>
+              <div id="swap-select-options-list" class="swap-options-list">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
         </div>
         <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4; background: rgba(56, 189, 248, 0.08); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.2);">
           💡 <strong>หมายเหตุ:</strong> ระบบจะทำเครื่องหมายจอเดิมเป็น <em>"มีปัญหา"</em> และผูกสิทธิ์จอใหม่ให้กับลูกค้าคนนี้ พร้อมสร้างสคริปต์ส่งมอบและคัดลอกลง Clipboard ให้อัตโนมัติทันที

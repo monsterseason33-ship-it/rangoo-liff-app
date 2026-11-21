@@ -5863,9 +5863,210 @@ function initTroubleshootingModalListeners() {
   }
 }
 
-// 1. Swap / Claim Modal
+// 1. Swap / Claim Modal (Custom Rich Screen Picker)
+let swapCandidateItems = [];
+let swapCustomSelectInitialized = false;
+
+function initSwapCustomSelectListeners() {
+  if (swapCustomSelectInitialized) return;
+  swapCustomSelectInitialized = true;
+
+  const container = document.getElementById("swap-custom-select-container");
+  const trigger = document.getElementById("swap-custom-select-trigger");
+  const searchInput = document.getElementById("swap-select-search");
+
+  if (trigger && container) {
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      haptic();
+      const isOpen = container.classList.toggle("open");
+      trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      if (isOpen && searchInput) {
+        setTimeout(() => searchInput.focus(), 60);
+      }
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      renderSwapCustomOptions(searchInput.value);
+    });
+    searchInput.addEventListener("click", (e) => e.stopPropagation());
+  }
+
+  document.addEventListener("click", (e) => {
+    if (container && container.classList.contains("open") && !container.contains(e.target)) {
+      container.classList.remove("open");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+function buildSwapAccountMeta(acc, b) {
+  const appObj = rawApps.find(ap => ap.id === acc.app_id);
+  const appName = appObj ? (appObj.display_name || appObj.name) : (acc.app_name || "แอป");
+  const pkgObj = acc.package_id ? rawPackages.find(p => p.id === acc.package_id) : null;
+  const pkgName = (pkgObj ? pkgObj.name : (acc.package_name || "")).trim();
+
+  const targetAppLower = (b.app_name || "").toLowerCase().trim();
+  const accAppLower = (appObj ? (appObj.name || appObj.display_name || "") : (acc.app_name || "")).toLowerCase().trim();
+  const isSameApp = Boolean(targetAppLower && accAppLower && (accAppLower.includes(targetAppLower) || targetAppLower.includes(accAppLower)));
+
+  const targetPkgLower = (b.package_name || "").toLowerCase().trim();
+  const accPkgLower = pkgName.toLowerCase().trim();
+  const isSamePkg = Boolean(isSameApp && targetPkgLower && accPkgLower && (accPkgLower.includes(targetPkgLower) || targetPkgLower.includes(accPkgLower)));
+
+  const now = new Date();
+  const custExp = b.expiry_date ? new Date(b.expiry_date) : null;
+  const expDate = acc.expiry_date ? new Date(acc.expiry_date) : null;
+  const isExpValid = expDate && !isNaN(expDate.getTime());
+  let diffDays = null;
+  let expLabel = "ยังไม่ระบุวันหมดอายุ";
+  let expColor = "#94a3b8";
+
+  if (isExpValid) {
+    diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const dateShort = formatDateThai(expDate);
+    if (diffDays <= 0) {
+      expLabel = `หมดอายุแล้ว (${dateShort})`;
+      expColor = "#f87171";
+    } else if (custExp && !isNaN(custExp.getTime()) && expDate < custExp) {
+      expLabel = `${dateShort} (เหลือ ${diffDays} วัน • น้อยกว่าลูกค้า)`;
+      expColor = "#fbbf24";
+    } else {
+      expLabel = `${dateShort} (เหลือ ${diffDays} วัน)`;
+      expColor = diffDays <= 3 ? "#fbbf24" : "#34d399";
+    }
+  }
+
+  return {
+    acc,
+    appName,
+    appTheme: getAppTheme(appName),
+    pkgName,
+    isSameApp,
+    isSamePkg,
+    isExpired: diffDays !== null && diffDays <= 0,
+    diffDays: diffDays ?? 9999,
+    expLabel,
+    expColor
+  };
+}
+
+function updateSwapTriggerDisplay(selectedId) {
+  const triggerContent = document.getElementById("swap-trigger-content");
+  if (!triggerContent) return;
+
+  const item = swapCandidateItems.find(x => x.acc.id === selectedId);
+  if (!item) {
+    triggerContent.innerHTML = `<span class="swap-trigger-placeholder">-- เลือกบัญชี/จอว่างจากคลัง --</span>`;
+    return;
+  }
+
+  const { acc, appName, appTheme, pkgName, isSameApp, isSamePkg, expLabel, expColor } = item;
+  const recBadge = isSamePkg
+    ? `<span class="swap-badge-rec">✨ แนะนำ (ตรงแพ็กเกจ)</span>`
+    : (isSameApp ? `<span class="swap-badge-rec">✨ ตรงแอป</span>` : "");
+
+  triggerContent.innerHTML = `
+    <div class="swap-opt-top">
+      <div class="swap-opt-badges">
+        <span class="swap-badge-app" style="background:${appTheme.gradient}; border-color:${appTheme.border};">${appTheme.icon} ${escapeHtml(appName)}</span>
+        <span class="swap-badge-id">#${escapeHtml(acc.display_id || "-")}</span>
+        <span class="swap-badge-profile">${escapeHtml(acc.profile_name || "จอว่าง")}</span>
+      </div>
+      ${recBadge}
+    </div>
+    <div class="swap-opt-mid">
+      <span class="swap-opt-email">📧 ${escapeHtml(acc.email || "-")}</span>
+      ${acc.pin_code ? `<span class="swap-opt-pin">PIN: ${escapeHtml(acc.pin_code)}</span>` : ""}
+    </div>
+    <div class="swap-opt-bot">
+      <span class="swap-opt-pkg">📦 ${escapeHtml(pkgName || "ไม่ระบุแพ็กเกจ")}</span>
+      <span class="swap-opt-exp" style="color: ${expColor};">⏳ ${escapeHtml(expLabel)}</span>
+    </div>
+  `;
+}
+
+function renderSwapCustomOptions(filterText = "") {
+  const listEl = document.getElementById("swap-select-options-list");
+  const countEl = document.getElementById("swap-select-count");
+  const select = document.getElementById("swap-target-account-select");
+  if (!listEl) return;
+
+  const q = (filterText || "").toLowerCase().trim();
+  const filtered = q
+    ? swapCandidateItems.filter(item => {
+        const { acc, appName, pkgName } = item;
+        const hay = `${appName} ${pkgName} ${acc.email || ""} ${acc.display_id || ""} ${acc.profile_name || ""} ${acc.pin_code || ""}`.toLowerCase();
+        return hay.includes(q);
+      })
+    : swapCandidateItems;
+
+  if (countEl) {
+    countEl.textContent = `${filtered.length} จอ`;
+  }
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="swap-opt-empty">📭 ไม่พบจอว่างที่ตรงกับคำค้นหา</div>`;
+    return;
+  }
+
+  const currentVal = select ? select.value : "";
+  listEl.innerHTML = "";
+
+  filtered.forEach((item, idx) => {
+    const { acc, appName, appTheme, pkgName, isSameApp, isSamePkg, expLabel, expColor } = item;
+    const isSelected = acc.id === currentVal;
+    const cardBtn = document.createElement("button");
+    cardBtn.type = "button";
+    cardBtn.className = `swap-option-card ${isSelected ? "selected" : ""}`;
+
+    const recBadge = isSamePkg
+      ? `<span class="swap-badge-rec">✨ แนะนำตรงแพ็กเกจ</span>`
+      : (isSameApp && idx === 0 ? `<span class="swap-badge-rec">✨ แนะนำ</span>` : "");
+
+    cardBtn.innerHTML = `
+      <div class="swap-opt-top">
+        <div class="swap-opt-badges">
+          <span class="swap-badge-app" style="background:${appTheme.gradient}; border-color:${appTheme.border};">${appTheme.icon} ${escapeHtml(appName)}</span>
+          <span class="swap-badge-id">#${escapeHtml(acc.display_id || "-")}</span>
+          <span class="swap-badge-profile">${escapeHtml(acc.profile_name || "จอว่าง")}</span>
+        </div>
+        ${isSelected ? `<span style="color:#34d399; font-weight:800; font-size:11px;">✓ เลือกอยู่</span>` : recBadge}
+      </div>
+      <div class="swap-opt-mid">
+        <span class="swap-opt-email">📧 ${escapeHtml(acc.email || "-")}</span>
+        ${acc.pin_code ? `<span class="swap-opt-pin">PIN: ${escapeHtml(acc.pin_code)}</span>` : `<span style="font-size:10px; color:#64748b;">ไม่มี PIN</span>`}
+      </div>
+      <div class="swap-opt-bot">
+        <span class="swap-opt-pkg">📦 ${escapeHtml(pkgName || "ไม่ระบุแพ็กเกจ")}</span>
+        <span class="swap-opt-exp" style="color: ${expColor};">⏳ ${escapeHtml(expLabel)}</span>
+      </div>
+    `;
+
+    cardBtn.addEventListener("click", () => {
+      haptic();
+      if (select) {
+        select.value = acc.id;
+        select.dispatchEvent(new Event("change"));
+      }
+      updateSwapTriggerDisplay(acc.id);
+      renderSwapCustomOptions(document.getElementById("swap-select-search")?.value || "");
+      const container = document.getElementById("swap-custom-select-container");
+      const trigger = document.getElementById("swap-custom-select-trigger");
+      if (container) container.classList.remove("open");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    });
+
+    listEl.appendChild(cardBtn);
+  });
+}
+
 function openSwapModal(bindingId) {
   haptic();
+  initSwapCustomSelectListeners();
+
   const b = rawBindings.find(x => x.id === bindingId);
   if (!b) return;
 
@@ -5883,34 +6084,46 @@ function openSwapModal(bindingId) {
     `;
   }
 
-  // Populate available accounts dropdown for this app
+  // Populate available accounts dropdown + rich custom picker
   const select = document.getElementById("swap-target-account-select");
+  const searchInput = document.getElementById("swap-select-search");
+  const container = document.getElementById("swap-custom-select-container");
+  const trigger = document.getElementById("swap-custom-select-trigger");
+  if (searchInput) searchInput.value = "";
+  if (container) container.classList.remove("open");
+  if (trigger) trigger.setAttribute("aria-expanded", "false");
+
+  const available = allAccountsList.filter(a => a.status === "available" && a.id !== b.account_id);
+  const enriched = available.map(acc => buildSwapAccountMeta(acc, b));
+  const sameAppList = enriched.filter(x => x.isSameApp);
+  const displayItems = (sameAppList.length > 0 ? sameAppList : enriched).sort((a, z) => {
+    if (a.isExpired !== z.isExpired) return a.isExpired ? 1 : -1;
+    if (a.isSamePkg !== z.isSamePkg) return a.isSamePkg ? -1 : 1;
+    if (a.isSameApp !== z.isSameApp) return a.isSameApp ? -1 : 1;
+    if (z.diffDays !== a.diffDays) return z.diffDays - a.diffDays;
+    return (a.acc.profile_name || "").localeCompare(z.acc.profile_name || "", "th", { numeric: true });
+  });
+
+  swapCandidateItems = displayItems;
+
   if (select) {
     select.innerHTML = `<option value="">-- เลือกบัญชีว่างจากคลัง --</option>`;
-
-    // Find available accounts
-    const available = allAccountsList.filter(a => a.status === "available" && a.id !== b.account_id);
-    const sameAppAvailable = available.filter(a => {
-      const app = rawApps.find(ap => ap.id === a.app_id);
-      const appName = app ? (app.name || app.display_name || "") : "";
-      return appName.toLowerCase().includes((b.app_name || "").toLowerCase()) || (b.app_name || "").toLowerCase().includes(appName.toLowerCase());
-    });
-
-    const displayList = sameAppAvailable.length > 0 ? sameAppAvailable : available;
-
-    displayList.forEach(acc => {
+    displayItems.forEach(({ acc, appName }) => {
       const opt = document.createElement("option");
       opt.value = acc.id;
-      const appObj = rawApps.find(ap => ap.id === acc.app_id);
-      const apName = appObj ? (appObj.display_name || appObj.name) : "แอป";
-      opt.textContent = `[${apName}] #${acc.display_id || '-'} • ${acc.email} (${acc.profile_name || 'จอว่าง'})`;
+      opt.textContent = `[${appName}] #${acc.display_id || '-'} • ${acc.email} (${acc.profile_name || 'จอว่าง'})`;
       select.appendChild(opt);
     });
 
-    if (displayList.length > 0) {
-      select.selectedIndex = 1;
+    if (displayItems.length > 0) {
+      select.value = displayItems[0].acc.id;
+    } else {
+      select.value = "";
     }
   }
+
+  updateSwapTriggerDisplay(select ? select.value : "");
+  renderSwapCustomOptions("");
 
   const modal = document.getElementById("modal-swap-account");
   if (modal) modal.style.display = "flex";
@@ -5919,6 +6132,10 @@ function openSwapModal(bindingId) {
 function closeSwapModal() {
   const modal = document.getElementById("modal-swap-account");
   if (modal) modal.style.display = "none";
+  const container = document.getElementById("swap-custom-select-container");
+  const trigger = document.getElementById("swap-custom-select-trigger");
+  if (container) container.classList.remove("open");
+  if (trigger) trigger.setAttribute("aria-expanded", "false");
   targetBindingForSwap = null;
 }
 
