@@ -1938,18 +1938,71 @@ window.copyAppStockScript = async function(appId) {
 // 5. Copy All Available Stock Script (Store Summary)
 window.copyAllStockScript = async function() {
   haptic();
+  const allAccounts = Array.isArray(allAccountsList) ? allAccountsList : [];
+  const allApps = Array.isArray(rawApps) ? rawApps : [];
+  const allPkgs = Array.isArray(rawPackages) ? rawPackages : [];
+
   const now = new Date();
   const thaiDate = now.toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });
   const thaiTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} น.`;
 
-  let totalScreens = 0;
-  const emailsSet = new Set();
-  Object.values(appGroups).forEach(g => {
-    totalScreens += g.totalScreens;
-    Object.keys(g.accountsByEmail).forEach(e => emailsSet.add(e));
+  // Match generateAvailableStockScript("full", "all") in content.js 100%:
+  // Filter only available accounts AND exclude expired or <= 24 hours
+  const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
+  const availableAccounts = allAccounts.filter(a => {
+    if (a.status !== "available") return false;
+    if (a.expiry_date) {
+      const expDate = new Date(a.expiry_date);
+      if (!isNaN(expDate.getTime()) && (expDate.getTime() - now.getTime()) <= MS_IN_24_HOURS) {
+        return false;
+      }
+    }
+    return true;
   });
 
-  if (totalScreens === 0) {
+  const scriptGroups = {};
+  let totalAvailableScreens = 0;
+  const uniqueEmailsSet = new Set();
+
+  availableAccounts.forEach(acc => {
+    const app = allApps.find(a => a.id === acc.app_id);
+    const appName = app ? (app.display_name || app.name) : "อื่นๆ (Unassigned)";
+    const appId = app ? app.id : "other";
+
+    const pkgObj = acc.package_id ? allPkgs.find(p => p.id === acc.package_id) : null;
+    const pkgName = (pkgObj ? pkgObj.name : (acc.package_name || "")).trim();
+
+    const groupKey = `${appId}____${pkgName}`;
+
+    if (!scriptGroups[groupKey]) {
+      scriptGroups[groupKey] = {
+        appId: appId,
+        name: appName,
+        pkgName: pkgName,
+        accountsByEmail: {},
+        totalScreens: 0
+      };
+    }
+
+    totalAvailableScreens++;
+    uniqueEmailsSet.add((acc.email || "").trim().toLowerCase());
+
+    const emailKey = (acc.email || "no_email").trim();
+    if (!scriptGroups[groupKey].accountsByEmail[emailKey]) {
+      scriptGroups[groupKey].accountsByEmail[emailKey] = {
+        email: acc.email,
+        password: acc.password,
+        expiry_date: acc.expiry_date,
+        package_id: acc.package_id,
+        screens: []
+      };
+    }
+
+    scriptGroups[groupKey].totalScreens++;
+    scriptGroups[groupKey].accountsByEmail[emailKey].screens.push(acc);
+  });
+
+  if (totalAvailableScreens === 0) {
     showToast("📭 ขณะนี้ไม่มีสินค้าสถานะว่างในระบบ");
     return;
   }
@@ -1957,41 +2010,41 @@ window.copyAllStockScript = async function() {
   let text = `✨ ══════════════════════ ✨\n`;
   text += `📦 *สรุปสต็อกสินค้าคงเหลือ (พร้อมขาย)*\n`;
   text += `📅 วันที่: ${thaiDate} (เวลา ${thaiTime})\n`;
-  text += `📊 สต็อกว่างรวม: *${emailsSet.size} บัญชีหลัก* | *${totalScreens} จอว่าง*\n`;
+  text += `📊 สต็อกว่างรวม: *${uniqueEmailsSet.size} บัญชีหลัก* | *${totalAvailableScreens} จอว่าง*\n`;
   text += `✨ ══════════════════════ ✨\n\n`;
 
-  Object.values(appGroups).forEach(group => {
+  Object.values(scriptGroups).forEach(group => {
     const emailKeys = Object.keys(group.accountsByEmail);
     if (emailKeys.length === 0) return;
 
-    text += `🎬 *${group.appName.toUpperCase()}*\n`;
+    text += `🎬 *${group.name.toUpperCase()}*\n`;
     if (group.pkgName && group.pkgName.trim() !== "") {
       text += `[${group.pkgName.trim()}]\n`;
     }
     text += `──────────────────────────\n`;
 
     emailKeys.forEach((emailKey, eIdx) => {
-      const acc = group.accountsByEmail[emailKey];
+      const accGroup = group.accountsByEmail[emailKey];
+      const pwdDisplay = accGroup.password || "-";
+
       let expiryStr = "-";
-      if (acc.expiry_date) {
-        const expDate = new Date(acc.expiry_date);
+      if (accGroup.expiry_date) {
+        const expDate = new Date(accGroup.expiry_date);
         if (!isNaN(expDate.getTime())) {
-          const dd = String(expDate.getDate()).padStart(2, '0');
-          const mm = String(expDate.getMonth() + 1).padStart(2, '0');
-          const yyyy = expDate.getFullYear();
+          const expFormatted = `${String(expDate.getDate()).padStart(2, '0')}/${String(expDate.getMonth() + 1).padStart(2, '0')}/${expDate.getFullYear()}`;
           const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          expiryStr = `${dd}/${mm}/${yyyy} (เหลือ ${Math.max(1, diffDays)} วัน)`;
+          expiryStr = `${expFormatted} (เหลือ ${Math.max(1, diffDays)} วัน)`;
         }
       }
 
-      text += `🔹 อีเมลล์: ${acc.email}\n`;
-      text += `🔑 รหัสผ่าน: ${acc.password}\n`;
+      text += `🔹 อีเมลล์: ${accGroup.email || "-"}\n`;
+      text += `🔑 รหัสผ่าน: ${pwdDisplay}\n`;
       if (expiryStr !== "-") {
         text += `📅 วันหมดอายุ: ${expiryStr}\n`;
       }
       text += `  จอว่างพร้อมส่ง:\n`;
 
-      const sortedScreens = [...acc.screens].sort((a, b) => {
+      const sortedScreens = [...accGroup.screens].sort((a, b) => {
         const nameA = a.profile_name || "";
         const nameB = b.profile_name || "";
         const numMatchA = nameA.match(/\d+/);
@@ -2003,9 +2056,9 @@ window.copyAllStockScript = async function() {
         return nameA.localeCompare(nameB, "th", { numeric: true, sensitivity: "base" });
       });
 
-      sortedScreens.forEach(s => {
-        const profName = s.profile_name || "จอว่าง";
-        const pinStr = (s.pin_code && s.pin_code !== "-") ? `PIN: ${s.pin_code}` : "ไม่มี PIN";
+      sortedScreens.forEach(screen => {
+        const profName = screen.profile_name || "จอว่าง";
+        const pinStr = (screen.pin_code && screen.pin_code !== "-") ? `PIN: ${screen.pin_code}` : "ไม่มี PIN";
         text += `    • 🟢 ${profName} | ${pinStr}\n`;
       });
 
@@ -2017,15 +2070,15 @@ window.copyAllStockScript = async function() {
 
   // Summary tail
   const appSummaryTotals = {};
-  Object.values(appGroups).forEach(group => {
-    appSummaryTotals[group.appName] = (appSummaryTotals[group.appName] || 0) + group.totalScreens;
+  Object.values(scriptGroups).forEach(group => {
+    appSummaryTotals[group.name] = (appSummaryTotals[group.name] || 0) + group.totalScreens;
   });
 
   text += `📊 *สรุปสต็อกคงเหลือส่งร้าน:*\n`;
   Object.entries(appSummaryTotals).forEach(([appName, screenCount]) => {
     text += `  • ${appName}: ${screenCount} จอ\n`;
   });
-  text += `✨ *รวมสต็อกพร้อมขายทั้งหมด: ${totalScreens} จอ*\n`;
+  text += `✨ *รวมสต็อกพร้อมขายทั้งหมด: ${totalAvailableScreens} จอ*\n`;
   text += `━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
   await copyToClipboard(text);
@@ -2043,7 +2096,7 @@ window.copyAllStockScript = async function() {
     }, 1600);
   }
 
-  showToast(`⚡ คัดลอกสรุปสต็อกทั้งหมดสำเร็จ (${totalScreens} จอ)`);
+  showToast(`⚡ คัดลอกสรุปสต็อกทั้งหมดสำเร็จ (${totalAvailableScreens} จอ)`);
 };
 
 // ----------------------------------------------------------------------------
@@ -2219,11 +2272,18 @@ function updateStockFormPackages() {
     pkgSelect.value = filteredPkgs[0].id;
     onStockFormPackageSelected(filteredPkgs[0]);
   } else {
-    const screensInput = document.getElementById("pkg-screens");
-    if (screensInput) screensInput.value = "1";
-    renderScreensInputs(1);
-    setDefaultExpiry(30);
+    onStockFormPackageSelected(null);
   }
+}
+
+function getDefaultScreensForSelectedApp() {
+  const appId = document.getElementById("acc-app-select")?.value;
+  const appObj = rawApps.find(a => a.id === appId);
+  const isNetflix = appObj && (
+    (appObj.name || "").toLowerCase().includes("netflix") ||
+    (appObj.display_name || "").toLowerCase().includes("netflix")
+  );
+  return isNetflix ? 5 : 1;
 }
 
 function onStockFormPackageSelected(pkg) {
@@ -2231,7 +2291,7 @@ function onStockFormPackageSelected(pkg) {
     const pkgId = document.getElementById("acc-package-select")?.value;
     pkg = rawPackages.find(p => p.id === pkgId);
   }
-  const screensCount = pkg ? (pkg.screens || 1) : 1;
+  const screensCount = pkg ? (pkg.screens || 1) : getDefaultScreensForSelectedApp();
   const screensInput = document.getElementById("pkg-screens");
   if (screensInput) screensInput.value = screensCount;
 
@@ -6694,8 +6754,15 @@ async function executeConfirmEditCreds() {
     const newOtp = (document.getElementById("edit-creds-otp")?.value || "").trim();
 
     const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
+    const prevDetails = extractBindingDetails(b, linkedAcc);
+    const targetEmail = ((linkedAcc && linkedAcc.email) || prevDetails.email || "").toLowerCase().trim();
+    const targetAppName = ((linkedAcc && linkedAcc.app_name) || b.app_name || "").toLowerCase().trim();
+    const targetAppId = linkedAcc && linkedAcc.app_id ? linkedAcc.app_id : null;
 
-    // 1. Update Accounts table if linked
+    // 1. Update Accounts table if linked (and propagate new password to all screens in the same account)
+    const accountIdsInGroup = b.account_id ? [b.account_id] : [];
+    let updatedScreensCount = b.account_id ? 1 : 0;
+
     if (b.account_id) {
       const accPayload = {};
       if (newPw) accPayload.password = newPw;
@@ -6717,8 +6784,27 @@ async function executeConfirmEditCreds() {
       }
     }
 
+    if (newPw && targetEmail && targetEmail !== "-") {
+      const matchingAccounts = allAccountsList.filter(a => {
+        const aEmail = (a.email || "").toLowerCase().trim();
+        if (aEmail !== targetEmail) return false;
+        if (targetAppId && a.app_id) return a.app_id === targetAppId;
+        if (targetAppName && a.app_name) return a.app_name.toLowerCase().trim() === targetAppName;
+        return true;
+      });
+
+      for (const acc of matchingAccounts) {
+        if (!accountIdsInGroup.includes(acc.id)) accountIdsInGroup.push(acc.id);
+        if (acc.id !== b.account_id && acc.password !== newPw) {
+          await patchDatabase("accounts", acc.id, { password: newPw });
+          acc.password = newPw;
+          updatedScreensCount++;
+        }
+      }
+    }
+
     // 2. Build updated raw_account_data
-    const emailStr = linkedAcc ? (linkedAcc.email || '-') : '-';
+    const emailStr = linkedAcc ? (linkedAcc.email || '-') : (prevDetails.email || '-');
     const displayIdStr = linkedAcc && linkedAcc.display_id ? '#' + linkedAcc.display_id : '-';
     const profileStr = newProfile || (linkedAcc ? linkedAcc.profile_name : 'จอ 1');
     const finalPw = newPw || (linkedAcc ? linkedAcc.password : '-');
@@ -6743,6 +6829,34 @@ async function executeConfirmEditCreds() {
     b.raw_account_data = updatedRaw;
     b.device_type = deviceDisplay;
     if (newOtp) b.supplier_url = newOtp;
+    b._details = null;
+
+    // 3.1 Sync new password into raw_account_data of other active bindings in the same account
+    if (newPw && (accountIdsInGroup.length > 0 || (targetEmail && targetEmail !== "-"))) {
+      const pwLineRegex = /((?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass)[:\s\t\-]+)([^\s\n\r]+)/i;
+      for (const otherB of rawBindings) {
+        if (otherB.id === b.id || otherB.reverted) continue;
+        const sameAccId = otherB.account_id && accountIdsInGroup.includes(otherB.account_id);
+        let sameEmail = false;
+        if (!sameAccId && targetEmail && targetEmail !== "-") {
+          const otherDetails = extractBindingDetails(otherB);
+          const otherEmail = (otherDetails.email || "").toLowerCase().trim();
+          const otherApp = (otherB.app_name || "").toLowerCase().trim();
+          sameEmail = otherEmail === targetEmail && (!targetAppName || !otherApp || otherApp === targetAppName);
+        }
+        if (!sameAccId && !sameEmail) continue;
+
+        otherB._details = null;
+        if (otherB.raw_account_data && pwLineRegex.test(otherB.raw_account_data)) {
+          const currentMatch = otherB.raw_account_data.match(pwLineRegex);
+          if (currentMatch && currentMatch[2] !== newPw) {
+            const updatedOtherRaw = otherB.raw_account_data.replace(pwLineRegex, `$1${newPw}`);
+            await patchDatabase("customer_bindings", otherB.id, { raw_account_data: updatedOtherRaw });
+            otherB.raw_account_data = updatedOtherRaw;
+          }
+        }
+      }
+    }
 
     // 4. Auto-generate customer notification text & copy to clipboard
     const copyMsg = `✨ แจ้งอัปเดตข้อมูลบัญชี ${b.app_name || 'พรีเมียม'}\n` +
