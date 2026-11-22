@@ -3832,6 +3832,19 @@ body {
   margin-bottom: 0;
 }
 
+.send-bind-device-chips.is-disney-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.send-bind-device-chips.is-disney-grid .btn-device-chip {
+  padding: 7px 2px;
+}
+
+.send-bind-device-chips.is-disney-grid .btn-device-chip .chip-label {
+  font-size: 9.5px;
+}
+
 .btn-device-chip {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.08);

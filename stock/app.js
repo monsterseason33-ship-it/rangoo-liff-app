@@ -497,9 +497,12 @@ function initUIEventListeners() {
     });
   });
 
-  // Device Selection Chips for Send-Bind Modal
-  document.querySelectorAll(".btn-device-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
+  // Device Selection Chips for Send-Bind Modal (event delegation for dynamic Disney+ / standard options)
+  const sendBindChipsContainer = document.getElementById("send-bind-device-chips");
+  if (sendBindChipsContainer) {
+    sendBindChipsContainer.addEventListener("click", (e) => {
+      const chip = e.target.closest(".btn-device-chip");
+      if (!chip) return;
       haptic();
       const dev = chip.dataset.device;
       const deviceSelect = document.getElementById("send-bind-device");
@@ -509,7 +512,7 @@ function initUIEventListeners() {
         deviceSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
-  });
+  }
 
   const deviceSelect = document.getElementById("send-bind-device");
   if (deviceSelect) {
@@ -629,12 +632,12 @@ function initUIEventListeners() {
 
   const smartFetchDeviceChips = document.getElementById("smart-fetch-device-chips");
   if (smartFetchDeviceChips) {
-    smartFetchDeviceChips.querySelectorAll(".btn-device-chip").forEach(chip => {
-      chip.addEventListener("click", () => {
-        haptic();
-        const dev = chip.dataset.device;
-        updateSmartFetchDeviceUI(dev);
-      });
+    smartFetchDeviceChips.addEventListener("click", (e) => {
+      const chip = e.target.closest(".btn-device-chip");
+      if (!chip) return;
+      haptic();
+      const dev = chip.dataset.device;
+      if (dev) updateSmartFetchDeviceUI(dev);
     });
   }
 
@@ -7924,12 +7927,28 @@ function openSendBindModal(screenDataset, btnEl = null) {
   }
   priceInput.value = defaultPrice;
 
-  // Set device (มือถือ/แท็บเล็ต/PC/iPad | TV / PC | ทุกอุปกรณ์)
+  // Set device (Disney+ separates every device: มือถือ | สมาร์ททีวี | ไอแพด | คอมพิวเตอร์)
+  const isDisneyApp = /disney|hotstar/i.test(appName || "");
+  renderDeviceChipsForContainer("send-bind-device-chips", deviceSelect, isDisneyApp, true);
   if (deviceSelect) {
-    const isTv = (deviceType && (deviceType.toLowerCase().includes('tv') || deviceType.includes('ทีวี'))) ||
-                 (screenName && (screenName.toLowerCase().includes('tv') || /จอ\s*5/.test(screenName)));
-    const isAll = deviceType && (deviceType.includes('ทุก') || deviceType.toLowerCase().includes('all'));
-    const targetDevice = isTv ? "TV / PC" : (isAll ? "ทุกอุปกรณ์" : "มือถือ/แท็บเล็ต/PC/iPad");
+    let targetDevice = "มือถือ/แท็บเล็ต/PC/iPad";
+    const devLower = (deviceType || "").toLowerCase();
+    const scrLower = (screenName || "").toLowerCase();
+    const isTv = devLower.includes("tv") || devLower.includes("ทีวี") || scrLower.includes("tv") || /จอ\s*5/.test(screenName || "");
+    if (isDisneyApp) {
+      if (isTv) {
+        targetDevice = "สมาร์ททีวี";
+      } else if (devLower.includes("ipad") || devLower.includes("ไอแพด") || devLower.includes("แท็บเล็ต") || devLower.includes("tablet")) {
+        targetDevice = "ไอแพด";
+      } else if (devLower.includes("pc") || devLower.includes("คอม") || devLower.includes("computer") || devLower.includes("mac") || devLower.includes("notebook")) {
+        targetDevice = "คอมพิวเตอร์";
+      } else {
+        targetDevice = "มือถือ";
+      }
+    } else {
+      const isAll = deviceType && (deviceType.includes("ทุก") || devLower.includes("all"));
+      targetDevice = isTv ? "TV / PC" : (isAll ? "ทุกอุปกรณ์" : "มือถือ/แท็บเล็ต/PC/iPad");
+    }
     deviceSelect.value = targetDevice;
     updateSendBindDeviceUI(targetDevice);
   }
@@ -8011,11 +8030,46 @@ function updateQuickDayChips(selectedDays) {
   });
 }
 
+function renderDeviceChipsForContainer(containerId, selectEl, isDisney, withCheckMark = true) {
+  const container = document.getElementById(containerId);
+  const options = isDisney
+    ? [
+        { value: "มือถือ", label: "มือถือ", icon: "📱" },
+        { value: "สมาร์ททีวี", label: "สมาร์ททีวี", icon: "📺" },
+        { value: "ไอแพด", label: "ไอแพด", icon: "🍎" },
+        { value: "คอมพิวเตอร์", label: "คอมพิวเตอร์", icon: "💻" }
+      ]
+    : [
+        { value: "มือถือ/แท็บเล็ต/PC/iPad", label: withCheckMark ? "มือถือ/แท็บเล็ต/PC/iPad" : "มือถือ/แท็บเล็ต", icon: "📱" },
+        { value: "TV / PC", label: "TV / PC", icon: "📺" },
+        { value: "ทุกอุปกรณ์", label: "ทุกอุปกรณ์", icon: "🌐" }
+      ];
+
+  if (container) {
+    container.classList.toggle("is-disney-grid", Boolean(isDisney));
+    container.innerHTML = options.map((opt, idx) => `
+      <button type="button" class="btn-device-chip${idx === 0 ? " active" : ""}" data-device="${escapeHtml(opt.value)}">
+        <span class="chip-icon">${opt.icon}</span>
+        <span class="chip-label">${escapeHtml(opt.label)}</span>
+        ${withCheckMark ? '<span class="chip-check">✓</span>' : ''}
+      </button>
+    `).join("");
+  }
+
+  if (selectEl) {
+    selectEl.innerHTML = options.map((opt, idx) =>
+      `<option value="${escapeHtml(opt.value)}"${idx === 0 ? " selected" : ""}>${escapeHtml(opt.value)}</option>`
+    ).join("");
+  }
+}
+
 function updateSendBindDeviceUI(val) {
   const badge = document.getElementById("send-bind-device-badge");
   if (badge) badge.textContent = val;
 
-  document.querySelectorAll(".btn-device-chip").forEach(chip => {
+  const container = document.getElementById("send-bind-device-chips");
+  if (!container) return;
+  container.querySelectorAll(".btn-device-chip").forEach(chip => {
     if (chip.dataset.device === val) {
       chip.classList.add("active");
     } else {
@@ -11139,6 +11193,20 @@ function updateSmartFetchModalCandidates() {
 
   // Get active package object
   const activePkg = smartFetchState.pkgId ? (rawPackages || []).find(p => p.id === smartFetchState.pkgId) : null;
+  const activeAppObj = smartFetchState.appId ? (rawApps || []).find(a => a.id === smartFetchState.appId) : null;
+  const isDisneySmartFetch = /disney|hotstar/i.test(activeAppObj?.name || activePkg?.name || "");
+  renderDeviceChipsForContainer("smart-fetch-device-chips", null, isDisneySmartFetch, false);
+  if (isDisneySmartFetch) {
+    const pkgNameLower = (activePkg?.name || "").toLowerCase();
+    const defaultDisneyDev = /tv|ทีวี/i.test(pkgNameLower)
+      ? "สมาร์ททีวี"
+      : (/ipad|ไอแพด|แท็บเล็ต|tablet/i.test(pkgNameLower)
+        ? "ไอแพด"
+        : (/pc|คอม|computer|mac|notebook/i.test(pkgNameLower) ? "คอมพิวเตอร์" : "มือถือ"));
+    updateSmartFetchDeviceUI(defaultDisneyDev);
+  } else {
+    updateSmartFetchDeviceUI("มือถือ/แท็บเล็ต/PC/iPad");
+  }
   const daysVal = parseInt(document.getElementById("smart-fetch-days")?.value, 10) || (activePkg?.days || 30);
   const pkgMatcher = activePkg || daysVal;
 
