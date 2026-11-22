@@ -6983,13 +6983,15 @@ async function executeConfirmEditCreds() {
     const accountIdsInGroup = b.account_id ? [b.account_id] : [];
     let updatedScreensCount = b.account_id ? 1 : 0;
 
+    const otpChanged = newOtp !== (prevDetails.otpUrl || "");
+
     if (b.account_id) {
       const accPayload = {};
       if (newPw) accPayload.password = newPw;
       accPayload.pin_code = newPin || null;
       if (newProfile) accPayload.profile_name = newProfile;
       accPayload.device_type = deviceDisplay;
-      if (newOtp) accPayload.supplier_url = newOtp;
+      if (otpChanged || newOtp) accPayload.supplier_url = newOtp || null;
       if (newCustomerName) accPayload.customer_id = newCustomerName;
 
       await patchDatabase("accounts", b.account_id, accPayload);
@@ -6999,12 +7001,12 @@ async function executeConfirmEditCreds() {
         linkedAcc.pin_code = newPin || null;
         if (newProfile) linkedAcc.profile_name = newProfile;
         linkedAcc.device_type = deviceDisplay;
-        if (newOtp) linkedAcc.supplier_url = newOtp;
+        if (otpChanged || newOtp) linkedAcc.supplier_url = newOtp || null;
         if (newCustomerName) linkedAcc.customer_id = newCustomerName;
       }
     }
 
-    if (newPw && targetEmail && targetEmail !== "-") {
+    if ((newPw || otpChanged) && targetEmail && targetEmail !== "-") {
       const matchingAccounts = allAccountsList.filter(a => {
         const aEmail = (a.email || "").toLowerCase().trim();
         if (aEmail !== targetEmail) return false;
@@ -7015,10 +7017,17 @@ async function executeConfirmEditCreds() {
 
       for (const acc of matchingAccounts) {
         if (!accountIdsInGroup.includes(acc.id)) accountIdsInGroup.push(acc.id);
-        if (acc.id !== b.account_id && acc.password !== newPw) {
-          await patchDatabase("accounts", acc.id, { password: newPw });
-          acc.password = newPw;
-          updatedScreensCount++;
+        if (acc.id !== b.account_id) {
+          const otherAccPayload = {};
+          if (newPw && acc.password !== newPw) otherAccPayload.password = newPw;
+          if (otpChanged && (acc.supplier_url || "") !== newOtp) otherAccPayload.supplier_url = newOtp || null;
+
+          if (Object.keys(otherAccPayload).length > 0) {
+            await patchDatabase("accounts", acc.id, otherAccPayload);
+            if (otherAccPayload.password !== undefined) acc.password = otherAccPayload.password;
+            if (otherAccPayload.supplier_url !== undefined) acc.supplier_url = otherAccPayload.supplier_url;
+            updatedScreensCount++;
+          }
         }
       }
     }
@@ -7040,7 +7049,7 @@ async function executeConfirmEditCreds() {
       device_type: deviceDisplay
     };
     if (newCustomerName) bindingPayload.customer_name = newCustomerName;
-    if (newOtp) bindingPayload.supplier_url = newOtp;
+    if (otpChanged || newOtp) bindingPayload.supplier_url = newOtp || null;
 
     await patchDatabase("customer_bindings", b.id, bindingPayload);
 
@@ -7048,12 +7057,13 @@ async function executeConfirmEditCreds() {
     if (newCustomerName) b.customer_name = newCustomerName;
     b.raw_account_data = updatedRaw;
     b.device_type = deviceDisplay;
-    if (newOtp) b.supplier_url = newOtp;
+    if (otpChanged || newOtp) b.supplier_url = newOtp || null;
     b._details = null;
 
-    // 3.1 Sync new password into raw_account_data of other active bindings in the same account
-    if (newPw && (accountIdsInGroup.length > 0 || (targetEmail && targetEmail !== "-"))) {
+    // 3.1 Sync new password & OTP URL into other active bindings in the same account
+    if ((newPw || otpChanged) && (accountIdsInGroup.length > 0 || (targetEmail && targetEmail !== "-"))) {
       const pwLineRegex = /((?:รหัสผ่าน|พาส|พาสเวิร์ด|password|pass)[:\s\t\-]+)([^\s\n\r]+)/i;
+      const otpLineRegex = /((?:เว็บรับ\s*OTP|ลิงก์\s*OTP|otp\s*url|otp\s*link|otp)[:\s\t\-]+)([^\n\r]+)/i;
       for (const otherB of rawBindings) {
         if (otherB.id === b.id || otherB.reverted) continue;
         const sameAccId = otherB.account_id && accountIdsInGroup.includes(otherB.account_id);
@@ -7067,13 +7077,47 @@ async function executeConfirmEditCreds() {
         if (!sameAccId && !sameEmail) continue;
 
         otherB._details = null;
-        if (otherB.raw_account_data && pwLineRegex.test(otherB.raw_account_data)) {
-          const currentMatch = otherB.raw_account_data.match(pwLineRegex);
+        const otherBindingPayload = {};
+        let updatedOtherRaw = otherB.raw_account_data || "";
+        let rawChanged = false;
+
+        if (newPw && updatedOtherRaw && pwLineRegex.test(updatedOtherRaw)) {
+          const currentMatch = updatedOtherRaw.match(pwLineRegex);
           if (currentMatch && currentMatch[2] !== newPw) {
-            const updatedOtherRaw = otherB.raw_account_data.replace(pwLineRegex, `$1${newPw}`);
-            await patchDatabase("customer_bindings", otherB.id, { raw_account_data: updatedOtherRaw });
-            otherB.raw_account_data = updatedOtherRaw;
+            updatedOtherRaw = updatedOtherRaw.replace(pwLineRegex, `$1${newPw}`);
+            rawChanged = true;
           }
+        }
+
+        if (otpChanged) {
+          if ((otherB.supplier_url || "") !== newOtp) {
+            otherBindingPayload.supplier_url = newOtp || null;
+          }
+          if (newOtp) {
+            if (updatedOtherRaw && otpLineRegex.test(updatedOtherRaw)) {
+              const otpMatch = updatedOtherRaw.match(otpLineRegex);
+              if (otpMatch && otpMatch[2].trim() !== newOtp) {
+                updatedOtherRaw = updatedOtherRaw.replace(otpLineRegex, `$1${newOtp}`);
+                rawChanged = true;
+              }
+            } else if (updatedOtherRaw) {
+              updatedOtherRaw = `${updatedOtherRaw.trimEnd()}\nเว็บรับ OTP: ${newOtp}`;
+              rawChanged = true;
+            }
+          } else if (updatedOtherRaw && otpLineRegex.test(updatedOtherRaw)) {
+            updatedOtherRaw = updatedOtherRaw
+              .replace(/\n?(?:เว็บรับ\s*OTP|ลิงก์\s*OTP|otp\s*url|otp\s*link|otp)[:\s\t\-]+[^\n\r]*/gi, "")
+              .trim();
+            rawChanged = true;
+          }
+        }
+
+        if (rawChanged) otherBindingPayload.raw_account_data = updatedOtherRaw;
+
+        if (Object.keys(otherBindingPayload).length > 0) {
+          await patchDatabase("customer_bindings", otherB.id, otherBindingPayload);
+          if (otherBindingPayload.raw_account_data !== undefined) otherB.raw_account_data = otherBindingPayload.raw_account_data;
+          if (otherBindingPayload.supplier_url !== undefined) otherB.supplier_url = otherBindingPayload.supplier_url;
         }
       }
     }
