@@ -486,6 +486,7 @@ function initUIEventListeners() {
     daysInputEl.addEventListener("input", (e) => {
       updateQuickDayChips(e.target.value);
       syncSendBindExpiryFromDays(e.target.value);
+      syncSendBindPackageForDaysAndDevice(e.target.value, document.getElementById("send-bind-device")?.value);
     });
   }
 
@@ -496,6 +497,7 @@ function initUIEventListeners() {
       if (daysInputEl) daysInputEl.value = d;
       updateQuickDayChips(d);
       syncSendBindExpiryFromDays(d);
+      syncSendBindPackageForDaysAndDevice(d, document.getElementById("send-bind-device")?.value);
     });
   });
 
@@ -516,6 +518,7 @@ function initUIEventListeners() {
             const computedDays = Math.max(1, Math.round((targetMid.getTime() - todayMid.getTime()) / 86400000) + 1);
             if (daysInputEl) daysInputEl.value = computedDays;
             updateQuickDayChips(computedDays);
+            syncSendBindPackageForDaysAndDevice(computedDays, document.getElementById("send-bind-device")?.value);
           }
         }
       });
@@ -543,6 +546,7 @@ function initUIEventListeners() {
   if (deviceSelect) {
     deviceSelect.addEventListener("change", () => {
       updateSendBindDeviceUI(deviceSelect.value);
+      syncSendBindPackageForDaysAndDevice(document.getElementById("send-bind-days")?.value, deviceSelect.value);
     });
   }
 
@@ -8274,6 +8278,7 @@ function openSendBindModal(screenDataset, btnEl = null) {
     expiry,
     screenId,
     pkgName,
+    basePkgName: pkgName,
     deviceType,
     targetAcc,
     btnEl
@@ -8318,7 +8323,7 @@ function openSendBindModal(screenDataset, btnEl = null) {
       ${pkgName ? `
         <div class="detail-row">
           <span>📦 แพ็กเกจ:</span>
-          <span style="color: #cbd5e1; font-weight: 600;">${escapeHtml(pkgName)}</span>
+          <span id="send-bind-preview-pkg-name" style="color: #cbd5e1; font-weight: 600;">${escapeHtml(pkgName)}</span>
         </div>
       ` : ''}
     </div>
@@ -8378,6 +8383,9 @@ function openSendBindModal(screenDataset, btnEl = null) {
     }
     deviceSelect.value = targetDevice;
     updateSendBindDeviceUI(targetDevice);
+    syncSendBindPackageForDaysAndDevice(defaultDays, targetDevice, { updatePrice: false });
+  } else {
+    syncSendBindPackageForDaysAndDevice(defaultDays, deviceType, { updatePrice: false });
   }
 
   // Reset confirm button state
@@ -8504,6 +8512,103 @@ function syncSendBindExpiryFromDays(daysVal) {
   if (expInput) expInput.value = localVal;
   if (expText) expText.textContent = formatThaiDateTime(expiryDateObj);
   return expiryDateObj;
+}
+
+function resolvePackageForDaysAndDevice(appId, appName, basePkgName, daysVal, deviceVal) {
+  const days = Math.max(1, parseInt(daysVal, 10) || 30);
+  const baseName = (basePkgName || "").trim();
+  const appLower = (appName || "").trim().toLowerCase();
+  const devLower = (deviceVal || "").toLowerCase();
+  const baseLower = baseName.toLowerCase();
+
+  // Determine device category (TV/PC vs Mobile/Tablet)
+  const isTvDevice = /tv|ทีวี|คอม|pc|laptop/.test(devLower) || (!devLower && /ทีวี|tv|คอม/.test(baseLower));
+  const isMobileDevice = !isTvDevice && (/มือถือ|แท็บ|tablet|mobile|ipad|ไอแพด/.test(devLower) || /มือถือ|แท็บ|tablet|mobile|ipad/.test(baseLower));
+
+  // Idea 2: Match real package in rawPackages by same app + days + device category
+  if (Array.isArray(rawPackages) && rawPackages.length > 0) {
+    const appPackages = rawPackages.filter(p => {
+      if (appId && p.app_id === appId) return true;
+      if (appLower && Array.isArray(rawApps)) {
+        const pApp = rawApps.find(a => a.id === p.app_id);
+        const pAppName = (pApp?.name || "").toLowerCase();
+        const pAppDisp = (pApp?.display_name || "").toLowerCase();
+        return pAppName === appLower || pAppDisp === appLower;
+      }
+      return false;
+    });
+
+    const dayMatches = appPackages.filter(p => {
+      const pDays = p.days || getPackageDays(p.name, p.app_id);
+      return Number(pDays) === days;
+    });
+
+    if (dayMatches.length > 0) {
+      let bestMatch = dayMatches.find(p => {
+        const n = (p.name || "").toLowerCase();
+        if (isTvDevice) return /ทีวี|tv|คอม|pc/.test(n);
+        if (isMobileDevice) return /มือถือ|แท็บ|tablet|mobile|ipad/.test(n);
+        return false;
+      });
+      if (!bestMatch && dayMatches.length === 1) {
+        bestMatch = dayMatches[0];
+      }
+      if (bestMatch) {
+        return {
+          pkgName: bestMatch.name,
+          price: bestMatch.price,
+          matchedPkg: bestMatch
+        };
+      }
+    }
+  }
+
+  // Idea 1 fallback: Replace "X วัน" in basePkgName with selected days
+  if (baseName) {
+    if (/\d+\s*วัน/.test(baseName)) {
+      return {
+        pkgName: baseName.replace(/\d+\s*วัน/, `${days} วัน`),
+        price: null,
+        matchedPkg: null
+      };
+    }
+    const baseDays = getPackageDays(baseName, appId);
+    if (baseDays && baseDays !== days) {
+      return {
+        pkgName: `${baseName} (${days} วัน)`,
+        price: null,
+        matchedPkg: null
+      };
+    }
+    return { pkgName: baseName, price: null, matchedPkg: null };
+  }
+
+  return { pkgName: `แพ็กเกจ ${days} วัน`, price: null, matchedPkg: null };
+}
+
+function syncSendBindPackageForDaysAndDevice(daysVal, deviceVal, options = {}) {
+  if (!currentSendBindContext) return;
+  const { updatePrice = true } = options;
+  const basePkg = currentSendBindContext.basePkgName ?? currentSendBindContext.pkgName;
+  const resolved = resolvePackageForDaysAndDevice(
+    currentSendBindContext.appId,
+    currentSendBindContext.appName,
+    basePkg,
+    daysVal,
+    deviceVal
+  );
+
+  currentSendBindContext.pkgName = resolved.pkgName;
+
+  const previewPkgEl = document.getElementById("send-bind-preview-pkg-name");
+  if (previewPkgEl) {
+    previewPkgEl.textContent = resolved.pkgName;
+  }
+
+  if (updatePrice && resolved.price !== null && resolved.price !== undefined) {
+    const priceInput = document.getElementById("send-bind-price");
+    if (priceInput) priceInput.value = resolved.price;
+  }
 }
 
 function getSendBindResolvedExpiryDate(days) {
@@ -8665,6 +8770,7 @@ async function executeConfirmSendBind() {
   const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
   const price = parseFloat(document.getElementById("send-bind-price").value) || 0;
   const device = document.getElementById("send-bind-device").value || "มือถือ/แท็บเล็ต/PC/iPad";
+  syncSendBindPackageForDaysAndDevice(days, device, { updatePrice: false });
 
   const confirmBtn = document.getElementById("btn-confirm-send-bind");
   if (confirmBtn) {
@@ -8757,6 +8863,7 @@ async function executeSendBindCopyOnly() {
   const customerName = (nameInput.value || "").trim().toUpperCase() || "ลูกค้า";
   const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
   const device = document.getElementById("send-bind-device").value || "มือถือ/แท็บเล็ต/PC/iPad";
+  syncSendBindPackageForDaysAndDevice(days, device, { updatePrice: false });
 
   const expiryDateObj = getSendBindResolvedExpiryDate(days);
 
