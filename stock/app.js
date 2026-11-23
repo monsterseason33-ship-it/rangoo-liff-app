@@ -7712,17 +7712,12 @@ async function patchDatabase(tableName, id, payload) {
   });
 
   if (!res.ok && injectedUpdatedAt) {
-    const errText = await res.text();
-    if (/updated_at|no such column|Could not find/i.test(errText)) {
-      accountsSupportsUpdatedAt = false;
-      res = await fetch(url, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify(payload)
-      });
-    } else {
-      throw new Error(errText || `HTTP ${res.status}`);
-    }
+    accountsSupportsUpdatedAt = false;
+    res = await fetch(url, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(payload)
+    });
   }
 
   if (!res.ok) {
