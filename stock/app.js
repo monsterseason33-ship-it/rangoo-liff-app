@@ -1656,7 +1656,25 @@ function renderStockFeed() {
             </div>
           </div>
 
-          <!-- Screens Slot List -->
+          <!-- Screens Slot List (Hidden with CTA when package is unassigned) -->
+          ${!group.pkgName && !isAccountBroken ? `
+          <div class="screens-section screens-unassigned-box">
+            <div class="unassigned-box-header">
+              <span class="unassigned-box-icon">⏳</span>
+              <div class="unassigned-box-text">
+                <div class="unassigned-box-title">รอกำหนดประเภทแพ็กเกจ</div>
+                <div class="unassigned-box-sub">ซ่อนจอและปุ่มส่งจอไว้ชั่วคราว (มี ${sortedScreens.length} จอในระบบ) — เลือกแพ็กเกจเพื่อเปิดขาย</div>
+              </div>
+            </div>
+            <button type="button"
+              class="btn-open-pkg-picker btn-assign-pkg-cta"
+              data-group-key="${escapeHtml(groupKey)}"
+              data-email="${escapeHtml(acc.email)}">
+              <span>📦</span>
+              <span>เลือกแพ็กเกจเพื่อเปิดใช้งาน</span>
+            </button>
+          </div>
+          ` : `
           <div class="screens-section">
             <div class="screens-title">
               <span class="live-pulse-dot"></span>
@@ -1721,6 +1739,7 @@ function renderStockFeed() {
               }).join("")}
             </div>
           </div>
+          `}
 
           <!-- Account Action Buttons (Edit Account & Copy Script & Delete Account) -->
           <div class="acc-actions-grid" style="display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 6px; margin-top: 4px;">
@@ -1991,6 +2010,7 @@ window.copyAllStockScript = async function() {
   const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
   const availableAccounts = allAccounts.filter(a => {
     if (a.status !== "available") return false;
+    if (!a.package_id && !(a.package_name || "").trim()) return false;
     if (a.expiry_date) {
       const expDate = new Date(a.expiry_date);
       if (!isNaN(expDate.getTime()) && (expDate.getTime() - now.getTime()) <= MS_IN_24_HOURS) {
