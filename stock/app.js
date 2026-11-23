@@ -6193,21 +6193,28 @@ function buildSwapAccountMeta(acc, b) {
   const expDate = acc.expiry_date ? new Date(acc.expiry_date) : null;
   const isExpValid = expDate && !isNaN(expDate.getTime());
   let diffDays = null;
+  let lessThanCustDays = 0;
+  let expDateShort = "";
   let expLabel = "ยังไม่ระบุวันหมดอายุ";
   let expColor = "#94a3b8";
+  let expTone = "muted"; // "muted" | "healthy" | "warning" | "danger"
 
   if (isExpValid) {
     diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    const dateShort = formatDateThai(expDate);
+    expDateShort = formatDateThai(expDate);
     if (diffDays <= 0) {
-      expLabel = `หมดอายุแล้ว (${dateShort})`;
+      expLabel = `หมดอายุแล้ว (${expDateShort})`;
       expColor = "#f87171";
+      expTone = "danger";
     } else if (custExp && !isNaN(custExp.getTime()) && expDate < custExp) {
-      expLabel = `${dateShort} (เหลือ ${diffDays} วัน • น้อยกว่าลูกค้า)`;
+      lessThanCustDays = Math.max(1, Math.ceil((custExp.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24)));
+      expLabel = `${expDateShort} (เหลือ ${diffDays} วัน • น้อยกว่าลูกค้า ${lessThanCustDays} วัน)`;
       expColor = "#fbbf24";
+      expTone = "warning";
     } else {
-      expLabel = `${dateShort} (เหลือ ${diffDays} วัน)`;
+      expLabel = `${expDateShort} (เหลือ ${diffDays} วัน)`;
       expColor = diffDays <= 3 ? "#fbbf24" : "#34d399";
+      expTone = diffDays <= 3 ? "warning" : "healthy";
     }
   }
 
@@ -6220,9 +6227,34 @@ function buildSwapAccountMeta(acc, b) {
     isSamePkg,
     isExpired: diffDays !== null && diffDays <= 0,
     diffDays: diffDays ?? 9999,
+    lessThanCustDays,
+    expDateShort,
+    expTone,
     expLabel,
     expColor
   };
+}
+
+function buildSwapExpiryPillsHtml(item) {
+  const { isExpired, diffDays, lessThanCustDays, expDateShort, expTone, expLabel } = item;
+  if (!expDateShort) {
+    return `<span class="swap-exp-pill tone-muted">⏳ ${escapeHtml(expLabel)}</span>`;
+  }
+  if (isExpired) {
+    return `<span class="swap-exp-pill tone-danger">⚠️ หมดอายุแล้ว (${escapeHtml(expDateShort)})</span>`;
+  }
+  return `
+    <div class="swap-opt-exp-group">
+      <span class="swap-exp-pill tone-${expTone}">
+        <span>📅 ${escapeHtml(expDateShort)}</span>
+        <span class="swap-exp-dot">•</span>
+        <span>เหลือ ${diffDays} วัน</span>
+      </span>
+      ${lessThanCustDays > 0
+        ? `<span class="swap-exp-warn-pill" title="วันหมดอายุบัญชีนี้น้อยกว่าวันหมดอายุของลูกค้า ${lessThanCustDays} วัน">⚠️ น้อยกว่าลูกค้า ${lessThanCustDays} วัน</span>`
+        : ""}
+    </div>
+  `;
 }
 
 function updateSwapTriggerDisplay(selectedId) {
@@ -6255,7 +6287,7 @@ function updateSwapTriggerDisplay(selectedId) {
     </div>
     <div class="swap-opt-bot">
       <span class="swap-opt-pkg">📦 ${escapeHtml(pkgName || "ไม่ระบุแพ็กเกจ")}</span>
-      <span class="swap-opt-exp" style="color: ${expColor};">⏳ ${escapeHtml(expLabel)}</span>
+      ${buildSwapExpiryPillsHtml(item)}
     </div>
   `;
 }
@@ -6313,7 +6345,7 @@ function renderSwapCustomOptions(filterText = "") {
       </div>
       <div class="swap-opt-bot">
         <span class="swap-opt-pkg">📦 ${escapeHtml(pkgName || "ไม่ระบุแพ็กเกจ")}</span>
-        <span class="swap-opt-exp" style="color: ${expColor};">⏳ ${escapeHtml(expLabel)}</span>
+        ${buildSwapExpiryPillsHtml(item)}
       </div>
     `;
 
