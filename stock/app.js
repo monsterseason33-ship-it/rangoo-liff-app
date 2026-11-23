@@ -1606,6 +1606,7 @@ function renderStockFeed() {
                 <span>${escapeHtml(expiryDisplay)}</span>
               </span>
             </div>
+            ${getMasterAccountUpdatedHtml(acc, "margin-top: 2px;")}
 
             <!-- Package row -->
             <div class="acc-pkg-row">
@@ -2623,6 +2624,28 @@ function formatThaiDateTime(dateOrStr) {
   const y = d.getFullYear() + 543;
   const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return `📅 ${day} ${m} ${y} เวลา ${time} น.`;
+}
+
+function getMasterAccountUpdatedText(acc) {
+  if (!acc) return "";
+  const ts = acc.updated_at || acc.created_at;
+  if (!ts) return "";
+  const d = typeof ts === "string" ? new Date(ts) : ts;
+  if (!d || isNaN(d.getTime())) return "";
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const pad = n => String(n).padStart(2, '0');
+  const day = pad(d.getDate());
+  const m = thaiMonths[d.getMonth()];
+  const y = d.getFullYear() + 543;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const prefix = acc.updated_at ? "แก้ไขล่าสุด" : "สร้างเมื่อ";
+  return `🕒 ${prefix}: ${day}/${m}/${y} ${time} น.`;
+}
+
+function getMasterAccountUpdatedHtml(acc, extraStyle = "") {
+  const label = getMasterAccountUpdatedText(acc);
+  if (!label) return "";
+  return `<div class="prem-master-updated-meta" style="font-size: 10px; color: #94a3b8; opacity: 0.9; line-height: 1.3; ${extraStyle}">${escapeHtml(label)}</div>`;
 }
 
 function updateExpiryText(dateObj) {
@@ -5414,6 +5437,7 @@ function createBindingCardElement(b, now, memberIndex = -1, totalMembers = 1, co
             </button>
           </div>
         </div>
+        ${getMasterAccountUpdatedHtml(masterAcc, "margin-top: 3px; padding-left: 4px;")}
         ${diffCalloutHtml}
       </div>
     `;
@@ -6731,6 +6755,7 @@ async function handleEditMasterExpiry(bindingId, accountId) {
 
         if (targetAccounts.length === 0) targetAccounts.push(masterAcc);
 
+        const nowIso = new Date().toISOString();
         if (!finalDate) {
           // Case: Clear date
           showToast("⏳ กำลังล้างวันหมดอายุบัญชีหลัก...");
@@ -6739,8 +6764,10 @@ async function handleEditMasterExpiry(bindingId, accountId) {
               expiry_date: null
             });
             acc.expiry_date = null;
+            acc.updated_at = nowIso;
           }
           masterAcc.expiry_date = null;
+          masterAcc.updated_at = nowIso;
           showToast(`🟢 ล้างวันหมดอายุบัญชีหลัก (${targetAccounts.length} จอ) เรียบร้อยแล้ว`);
         } else {
           // Case: Valid finalDate chosen
@@ -6752,8 +6779,10 @@ async function handleEditMasterExpiry(bindingId, accountId) {
               expiry_date: isoStr
             });
             acc.expiry_date = isoStr;
+            acc.updated_at = nowIso;
           }
           masterAcc.expiry_date = isoStr;
+          masterAcc.updated_at = nowIso;
 
           showToast(`📅 อัปเดตวันหมดอายุบัญชีหลัก (${targetAccounts.length} จอ) เป็น ${formatDateThai(finalDate)} สำเร็จ!`);
         }
@@ -7026,6 +7055,14 @@ function openEditStockAccountModal(groupKey, emailKey, targetAccountId = null) {
         if (expText) expText.textContent = "📅 คลิกเลือกวันเวลา...";
       }
     }
+    let updatedMetaEl = document.getElementById("edit-creds-updated-at");
+    if (!updatedMetaEl) {
+      updatedMetaEl = document.createElement("div");
+      updatedMetaEl.id = "edit-creds-updated-at";
+      updatedMetaEl.style.cssText = "font-size: 10px; color: #94a3b8; margin-top: 4px;";
+      expiryGroup.appendChild(updatedMetaEl);
+    }
+    updatedMetaEl.textContent = getMasterAccountUpdatedText(acc);
   }
 
   const pwInput = document.getElementById("edit-creds-password");
@@ -7638,6 +7675,8 @@ async function insertDatabase(tableName, payload) {
   return res.json().catch(() => ({}));
 }
 
+let accountsSupportsUpdatedAt = true;
+
 // ----------------------------------------------------------------------------
 // Universal Database Patch Helper (Cloudflare D1 & Supabase Dual Compatible)
 // ----------------------------------------------------------------------------
@@ -7659,11 +7698,32 @@ async function patchDatabase(tableName, id, payload) {
     };
   }
 
-  const res = await fetch(url, {
+  let effectivePayload = payload;
+  let injectedUpdatedAt = false;
+  if (tableName === "accounts" && accountsSupportsUpdatedAt && payload && typeof payload === "object" && !("updated_at" in payload)) {
+    effectivePayload = { ...payload, updated_at: new Date().toISOString() };
+    injectedUpdatedAt = true;
+  }
+
+  let res = await fetch(url, {
     method: "PATCH",
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify(effectivePayload)
   });
+
+  if (!res.ok && injectedUpdatedAt) {
+    const errText = await res.text();
+    if (/updated_at|no such column|Could not find/i.test(errText)) {
+      accountsSupportsUpdatedAt = false;
+      res = await fetch(url, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(payload)
+      });
+    } else {
+      throw new Error(errText || `HTTP ${res.status}`);
+    }
+  }
 
   if (!res.ok) {
     const err = await res.text();
@@ -10773,14 +10833,17 @@ function openResolveBrokenModal(email, appId) {
           <div style="font-size: 11px; color: #94a3b8;">
             <span>📅 วันหมดอายุเดิม:</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 11px; color: #34d399; font-weight: 600;">${expiryDisplay}</span>
-            ${oldPassword ? `
-              <div style="display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px;">
-                <span style="font-size: 10px; color: #94a3b8;">🔑 รหัสเดิม:</span>
-                <span style="font-size: 10.5px; font-family: monospace; color: #cbd5e1;">${escapeHtml(oldPassword)}</span>
-              </div>
-            ` : ''}
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 11px; color: #34d399; font-weight: 600;">${expiryDisplay}</span>
+              ${oldPassword ? `
+                <div style="display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px;">
+                  <span style="font-size: 10px; color: #94a3b8;">🔑 รหัสเดิม:</span>
+                  <span style="font-size: 10.5px; font-family: monospace; color: #cbd5e1;">${escapeHtml(oldPassword)}</span>
+                </div>
+              ` : ''}
+            </div>
+            ${getMasterAccountUpdatedHtml(firstAcc, "font-size: 9.5px;")}
           </div>
         </div>
 
