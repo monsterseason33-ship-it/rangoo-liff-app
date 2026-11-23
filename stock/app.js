@@ -7606,28 +7606,59 @@ async function copyBindingHandoverScript(bindingId, btnElement = null) {
   const linkedAcc = b.account_id ? allAccountsList.find(a => a.id === b.account_id) : null;
   const details = extractBindingDetails(b, linkedAcc);
   const expStr = b.expiry_date ? formatDateThai(new Date(b.expiry_date)) : "-";
-  const webappUrl = `https://rangoo-liff-app.vercel.app/c/?c=${encodeURIComponent(b.customer_name || '')}`;
 
-  let script = `✨ *ข้อมูลการใช้งาน ${b.app_name.toUpperCase()}*\n`;
+  const appName = b.app_name || (linkedAcc ? linkedAcc.app_name : "") || "App";
+  const cleanId = (details.displayId && details.displayId !== "-" && details.displayId !== "undefined")
+    ? String(details.displayId).trim().replace(/^#/, '')
+    : "";
+  const headerTitle = cleanId
+    ? `✨ *ข้อมูลการใช้งาน ${appName.toUpperCase()}* #${cleanId}`
+    : `✨ *ข้อมูลการใช้งาน ${appName.toUpperCase()}*`;
+
+  const appObj = (rawApps && rawApps.length > 0)
+    ? (rawApps.find(a => linkedAcc && a.id === linkedAcc.app_id) ||
+       rawApps.find(a => (a.name || '').toLowerCase() === appName.toLowerCase()) ||
+       rawApps.find(a => (a.display_name || '').toLowerCase() === appName.toLowerCase()))
+    : null;
+
+  const showProfile = appObj ? (appObj.show_profile !== false && appObj.show_profile !== 0 && appObj.show_profile !== "0") : true;
+  const showPin = appObj ? (appObj.show_pin !== false && appObj.show_pin !== 0 && appObj.show_pin !== "0") : true;
+
+  const isNetflix = appName.toLowerCase().includes("netflix");
+  const rawPwd = details.password || '-';
+  const isWrongPassword = isNetflix && (
+    (linkedAcc && linkedAcc.problemType === "wrong_password") ||
+    (typeof rawPwd === "string" && (rawPwd.includes("OTP") || rawPwd.includes("แอดมิน")))
+  );
+  const passwordDisplay = isWrongPassword ? "เข้าระบบแบบ OTP ได้จากแอดมิน" : rawPwd;
+
+  let script = `${headerTitle}\n`;
   script += `[${b.package_name || 'แพ็กเกจพรีเมียม'}]\n`;
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
   script += `👤 คุณ: *${b.customer_name}*\n`;
   script += `📧 อีเมล: ${details.email || '-'}\n`;
-  script += `🔑 รหัสผ่าน: ${details.password || '-'}\n`;
-  script += `👤 โปรไฟล์/จอ: ${details.profileName || 'จอที่กำหนด'}\n`;
-  if (details.pinCode) {
+  script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
+  if (cleanId) {
+    script += `🆔 ID จอ: #${cleanId}\n`;
+  }
+  if (showProfile) {
+    script += `👤 โปรไฟล์/จอ: ${details.profileName || 'จอที่กำหนด'}\n`;
+  }
+  if (showPin && details.pinCode) {
     script += `🔢 รหัส PIN: ${details.pinCode}\n`;
   }
   script += `📱 อุปกรณ์: ${details.deviceType || 'มือถือ / PC'}\n`;
   if (expStr !== "-") {
     script += `📅 วันหมดอายุ: ${expStr}\n`;
   }
-  if (details.otpUrl) {
-    script += `🌐 ลิงก์เว็บรับ OTP: ${details.otpUrl}\n`;
+  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+
+  const deliverySections = getAppDeliverySegments(appObj);
+  if (deliverySections.length > 0) {
+    script += `\n${deliverySections.join("\n\n")}\n`;
+    script += `━━━━━━━━━━━━━━━━━━━━━\n`;
   }
-  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  script += `📱 ตรวจสอบสิทธิ์ & OTP ใน WebApp:\n${webappUrl}\n`;
-  script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+
   script += `🙏 ขอบคุณที่ใช้บริการครับ ✨`;
 
   await copyToClipboard(script);
