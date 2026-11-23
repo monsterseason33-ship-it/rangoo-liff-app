@@ -8551,15 +8551,42 @@ function resolvePackageForDaysAndDevice(appId, appName, basePkgName, daysVal, de
     });
 
     if (dayMatches.length > 0) {
-      let bestMatch = dayMatches.find(p => {
+      // Score each candidate by specific device match + tier similarity with basePkgName (supports Netflix, Disney+, etc.)
+      const baseIsNoConflict = /ไม่ชน/.test(baseLower);
+      const baseIsConflict = /จอชน/.test(baseLower) && !baseIsNoConflict;
+
+      const isSpecificIpad = /ไอแพด|ipad/.test(devLower) && !/มือถือ/.test(devLower);
+      const isSpecificPc = /คอมพิวเตอร์/.test(devLower) || (/คอม|\bpc\b/.test(devLower) && !/มือถือ|ทีวี|tv/.test(devLower));
+      const isSpecificSmartTv = /สมาร์ททีวี/.test(devLower) || (/ทีวี|tv/.test(devLower) && !/มือถือ|คอม|\bpc\b/.test(devLower));
+      const isSpecificMobile = /^มือถือ$/.test(devLower.trim());
+
+      const scoreCandidate = (p) => {
         const n = (p.name || "").toLowerCase();
-        if (isTvDevice) return /ทีวี|tv|คอม|pc/.test(n);
-        if (isMobileDevice) return /มือถือ|แท็บ|tablet|mobile|ipad/.test(n);
-        return false;
-      });
-      if (!bestMatch && dayMatches.length === 1) {
-        bestMatch = dayMatches[0];
-      }
+        let score = 0;
+
+        // Specific device match (Disney+ 4-device separation)
+        if (isSpecificIpad && /ไอแพด|ipad|แท็บ/.test(n)) score += 20;
+        else if (isSpecificPc && /คอมพิวเตอร์|คอม|\bpc\b/.test(n)) score += 20;
+        else if (isSpecificSmartTv && /สมาร์ททีวี|ทีวี|\btv\b/.test(n)) score += 20;
+        else if (isSpecificMobile && /มือถือ/.test(n)) score += 20;
+
+        // Broad device category match (Netflix / standard apps)
+        if (isTvDevice && /ทีวี|\btv\b|คอม|\bpc\b/.test(n) && !/มือถือ/.test(n)) score += 10;
+        else if (isTvDevice && /ทีวี|\btv\b|คอม|\bpc\b/.test(n)) score += 6;
+        else if (isMobileDevice && /มือถือ|แท็บ|tablet|mobile|ipad|ไอแพด/.test(n)) score += 10;
+
+        // Preserve tier (e.g. ไม่ชน vs จอชน for Disney+)
+        if (baseIsNoConflict && /ไม่ชน/.test(n)) score += 5;
+        if (baseIsConflict && /จอชน/.test(n) && !/ไม่ชน/.test(n)) score += 5;
+
+        return score;
+      };
+
+      const scored = dayMatches
+        .map(p => ({ p, score: scoreCandidate(p) }))
+        .sort((a, b) => b.score - a.score);
+
+      let bestMatch = scored[0].score > 0 ? scored[0].p : (dayMatches.length === 1 ? dayMatches[0] : null);
       if (bestMatch) {
         return {
           pkgName: bestMatch.name,
