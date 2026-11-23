@@ -443,7 +443,14 @@ function initUIEventListeners() {
     pkgListContainer.addEventListener("click", (e) => {
       const card = e.target.closest(".pkg-picker-card");
       if (card && card.dataset.pkgId) {
-        const pkgId = card.dataset.pkgId;
+        const rawPkgId = card.dataset.pkgId;
+        if (rawPkgId === "__UNASSIGNED__") {
+          if (confirm(`คุณต้องการปรับเป็น "รอกำหนดประเภทแพ็กเกจ" (ล้างแพ็กเกจออก โดยคงจำนวนจอเดิมไว้) ใช่หรือไม่?`)) {
+            applyPackageChange(null, "รอกำหนดประเภทแพ็กเกจ", null);
+          }
+          return;
+        }
+        const pkgId = rawPkgId;
         const pkgName = card.dataset.pkgName;
         const pkgScreens = parseInt(card.dataset.pkgScreens, 10) || 1;
 
@@ -7936,12 +7943,31 @@ function openChangePackageModal(groupKey, specificEmail = null) {
 
   // Filter packages for this app
   const appPkgs = rawPackages.filter(p => p.app_id === group.appId);
+  const isCurrentlyUnassigned = !group.pkgName;
+  const unassignedCardHtml = `
+    <div class="pkg-picker-card ${isCurrentlyUnassigned ? 'current-active' : ''}" 
+         data-pkg-id="__UNASSIGNED__" 
+         data-pkg-name="รอกำหนดประเภทแพ็กเกจ" 
+         data-pkg-screens="0"
+         style="border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.06);">
+      <div class="pkg-picker-top">
+        <span class="pkg-picker-name" style="color: #fbbf24;">⏳ รอกำหนดประเภทแพ็กเกจ (ยังไม่กำหนด)</span>
+        ${isCurrentlyUnassigned ? `<span class="pkg-current-badge">✓ ใช้อยู่</span>` : `<span class="pkg-action-hint" style="color: #fbbf24;">เลือก ➔</span>`}
+      </div>
+      <div class="pkg-picker-meta-row">
+        <span class="pkg-meta-badge" style="color: #cbd5e1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);">
+          <span>🔓</span> <span>ล้างแพ็กเกจออก • คงจำนวนจอเดิมไว้</span>
+        </span>
+      </div>
+    </div>
+  `;
 
   if (appPkgs.length === 0) {
     listContainer.innerHTML = `
-      <div style="text-align: center; padding: 24px 12px; color: var(--text-dim); font-size: 12.5px;">
+      <div style="text-align: center; padding: 14px 12px; color: var(--text-dim); font-size: 12.5px;">
         ⚠️ ไม่พบรายการประเภทแพ็กเกจสำหรับแอป ${escapeHtml(group.appName)} ในระบบ
       </div>
+      ${unassignedCardHtml}
     `;
   } else {
     listContainer.innerHTML = appPkgs.map(pkg => {
@@ -7972,7 +7998,7 @@ function openChangePackageModal(groupKey, specificEmail = null) {
           </div>
         </div>
       `;
-    }).join("");
+    }).join("") + unassignedCardHtml;
   }
 
   modal.style.display = "flex";
@@ -7995,14 +8021,19 @@ async function applyPackageChange(targetPkgId, targetPkgName, targetScreensCount
 
   closeChangePackageModal();
   haptic();
-  showToast(`⏳ กำลังเปลี่ยนแพ็กเกจเป็น "${targetPkgName}" (${targetScreensCount} จอ)...`);
+  const isUnassigning = targetPkgId === null || targetScreensCount === null;
+  showToast(isUnassigning
+    ? `⏳ กำลังปรับเป็น "รอกำหนดประเภทแพ็กเกจ"...`
+    : `⏳ กำลังเปลี่ยนแพ็กเกจเป็น "${targetPkgName}" (${targetScreensCount} จอ)...`);
 
   try {
     for (const email of emailsToUpdate) {
       await updateSingleAccountPackageAndScreens(group.appId, email, targetPkgId, targetPkgName, targetScreensCount);
     }
 
-    showToast(`🟢 เปลี่ยนแพ็กเกจเป็น "${targetPkgName}" (${targetScreensCount} จอ) เรียบร้อย! ✨`);
+    showToast(isUnassigning
+      ? `🟢 ปรับเป็น "รอกำหนดประเภทแพ็กเกจ" เรียบร้อย! ✨`
+      : `🟢 เปลี่ยนแพ็กเกจเป็น "${targetPkgName}" (${targetScreensCount} จอ) เรียบร้อย! ✨`);
     await loadData(true);
     selectChip(group.appId);
   } catch (err) {
@@ -8032,12 +8063,17 @@ async function updateSingleAccountPackageAndScreens(appId, email, targetPkgId, t
 
   // 2. Update package_id on all existing records of this account
   for (const prof of accountProfiles) {
-    if (prof.package_id !== targetPkgId) {
+    if ((prof.package_id || null) !== (targetPkgId || null)) {
       await patchDatabase("accounts", prof.id, {
         package_id: targetPkgId
       });
       prof.package_id = targetPkgId;
     }
+  }
+
+  // When unassigning to "รอกำหนดประเภทแพ็กเกจ", keep existing screens untouched
+  if (targetPkgId === null || !targetScreensCount || targetScreensCount <= 0) {
+    return;
   }
 
   // 3. Screen count adjustments matching targetScreensCount
