@@ -847,12 +847,29 @@
       </div>
 
       <!-- Quick Day Chips -->
-      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
         <button type="button" class="btn-quick-day-chip" data-days="7">7 วัน</button>
         <button type="button" class="btn-quick-day-chip active" data-days="30">30 วัน</button>
         <button type="button" class="btn-quick-day-chip" data-days="60">60 วัน</button>
         <button type="button" class="btn-quick-day-chip" data-days="90">90 วัน</button>
         <button type="button" class="btn-quick-day-chip" data-days="365">365 วัน (1 ปี)</button>
+      </div>
+
+      <!-- Calendar Expiry Picker (Synced 2-way with Days) -->
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label style="font-size: 11.5px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; display: block;">
+          📅 วันเวลาหมดอายุ (ตรวจสอบ / เลือกจากปฏิทิน)
+        </label>
+        <div style="position: relative;" class="acc-expiry-input-wrapper">
+          <div id="send-bind-expiry-trigger" class="prem-input" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+            <span id="send-bind-expiry-text" style="color: #38bdf8; font-weight: 600;">📅 คลิกเลือกวันเวลา...</span>
+            <span class="expiry-cal-btn" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 6px; color: #38bdf8;">
+              <span>📅</span>
+              <span>เลือกวัน</span>
+            </span>
+          </div>
+          <input type="datetime-local" id="send-bind-expiry" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; z-index: -1;">
+        </div>
       </div>
 
       <!-- Device selection (Customized for all mobile screen sizes) -->

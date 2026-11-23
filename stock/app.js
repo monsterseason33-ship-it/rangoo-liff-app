@@ -262,7 +262,7 @@ function initUIEventListeners() {
   document.body.addEventListener("click", (e) => {
     const calBtn = e.target.closest(".expiry-cal-btn");
     if (calBtn) {
-      const trigger = calBtn.closest("#acc-expiry-trigger, #edit-creds-expiry-trigger, #batch-master-expiry-trigger, .multi-acc-expiry-trigger");
+      const trigger = calBtn.closest("#acc-expiry-trigger, #edit-creds-expiry-trigger, #batch-master-expiry-trigger, #send-bind-expiry-trigger, .multi-acc-expiry-trigger");
       if (trigger) return; // Managed by specific trigger listener
       const wrapper = calBtn.closest(".acc-expiry-input-wrapper");
       if (wrapper) {
@@ -485,6 +485,7 @@ function initUIEventListeners() {
   if (daysInputEl) {
     daysInputEl.addEventListener("input", (e) => {
       updateQuickDayChips(e.target.value);
+      syncSendBindExpiryFromDays(e.target.value);
     });
   }
 
@@ -494,8 +495,32 @@ function initUIEventListeners() {
       const d = chip.dataset.days;
       if (daysInputEl) daysInputEl.value = d;
       updateQuickDayChips(d);
+      syncSendBindExpiryFromDays(d);
     });
   });
+
+  const sendBindExpTrigger = document.getElementById("send-bind-expiry-trigger");
+  if (sendBindExpTrigger) {
+    sendBindExpTrigger.addEventListener("click", () => {
+      const expInput = document.getElementById("send-bind-expiry");
+      const expText = document.getElementById("send-bind-expiry-text");
+      openThaiDatePicker({
+        inputEl: expInput,
+        textEl: expText,
+        title: "📆 เลือกวันหมดอายุลูกค้า (พ.ศ.)",
+        onConfirm: (_valStr, finalDate) => {
+          if (finalDate && !isNaN(finalDate.getTime())) {
+            const todayMid = new Date();
+            todayMid.setHours(0, 0, 0, 0);
+            const targetMid = new Date(finalDate.getFullYear(), finalDate.getMonth(), finalDate.getDate());
+            const computedDays = Math.max(1, Math.round((targetMid.getTime() - todayMid.getTime()) / 86400000) + 1);
+            if (daysInputEl) daysInputEl.value = computedDays;
+            updateQuickDayChips(computedDays);
+          }
+        }
+      });
+    });
+  }
 
   // Device Selection Chips for Send-Bind Modal (event delegation for dynamic Disney+ / standard options)
   const sendBindChipsContainer = document.getElementById("send-bind-device-chips");
@@ -8315,10 +8340,11 @@ function openSendBindModal(screenDataset, btnEl = null) {
     } catch (e) {}
   }, 100);
 
-  // Set default days
+  // Set default days & sync calendar expiry preview
   const defaultDays = getPackageDays(pkgName, appId) || 30;
   daysInput.value = defaultDays;
   updateQuickDayChips(defaultDays);
+  syncSendBindExpiryFromDays(defaultDays);
 
   // Set price
   let defaultPrice = 0;
@@ -8462,6 +8488,34 @@ function renderDeviceChipsForContainer(containerId, selectEl, isDisney, withChec
       `<option value="${escapeHtml(opt.value)}"${idx === 0 ? " selected" : ""}>${escapeHtml(opt.value)}</option>`
     ).join("");
   }
+}
+
+function syncSendBindExpiryFromDays(daysVal) {
+  const days = parseInt(daysVal, 10) || 30;
+  const expiryDateObj = new Date();
+  expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
+  expiryDateObj.setHours(23, 59, 0, 0);
+
+  const pad = n => String(n).padStart(2, '0');
+  const localVal = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T23:59`;
+
+  const expInput = document.getElementById("send-bind-expiry");
+  const expText = document.getElementById("send-bind-expiry-text");
+  if (expInput) expInput.value = localVal;
+  if (expText) expText.textContent = formatThaiDateTime(expiryDateObj);
+  return expiryDateObj;
+}
+
+function getSendBindResolvedExpiryDate(days) {
+  const expInput = document.getElementById("send-bind-expiry");
+  if (expInput && expInput.value) {
+    const parsed = new Date(expInput.value);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  const fallback = new Date();
+  fallback.setDate(fallback.getDate() + Math.max(0, days - 1));
+  fallback.setHours(23, 59, 0, 0);
+  return fallback;
 }
 
 function updateSendBindDeviceUI(val) {
@@ -8619,15 +8673,13 @@ async function executeConfirmSendBind() {
   }
 
   try {
-    const expiryDateObj = new Date();
-    expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
-    expiryDateObj.setHours(23, 59, 0, 0);
+    const expiryDateObj = getSendBindResolvedExpiryDate(days);
 
     const pad = (num) => String(num).padStart(2, '0');
     const offsetHours = Math.abs(Math.floor(expiryDateObj.getTimezoneOffset() / 60));
     const offsetMinutes = Math.abs(expiryDateObj.getTimezoneOffset() % 60);
     const offsetSign = expiryDateObj.getTimezoneOffset() <= 0 ? "+" : "-";
-    const formattedExpiry = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T23:59:00${offsetSign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
+    const formattedExpiry = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T${pad(expiryDateObj.getHours())}:${pad(expiryDateObj.getMinutes())}:00${offsetSign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
 
     const rawAccountData = `📧 อีเมล: ${currentSendBindContext.email}\n🔑 รหัสผ่าน: ${currentSendBindContext.password}` +
       `${currentSendBindContext.screenName ? `\n👤 โปรไฟล์: ${currentSendBindContext.screenName}` : ''}` +
@@ -8706,9 +8758,7 @@ async function executeSendBindCopyOnly() {
   const days = parseInt(document.getElementById("send-bind-days").value, 10) || 30;
   const device = document.getElementById("send-bind-device").value || "มือถือ/แท็บเล็ต/PC/iPad";
 
-  const expiryDateObj = new Date();
-  expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
-  expiryDateObj.setHours(23, 59, 0, 0);
+  const expiryDateObj = getSendBindResolvedExpiryDate(days);
 
   const deliveryScript = buildUnifiedHandoverText(customerName, currentSendBindContext, days, expiryDateObj, device);
   await copyToClipboard(deliveryScript);
@@ -11835,15 +11885,13 @@ async function executeConfirmSmartFetch(copyOnly = false) {
   }
 
   try {
-    const expiryDateObj = new Date();
-    expiryDateObj.setDate(expiryDateObj.getDate() + Math.max(0, days - 1));
-    expiryDateObj.setHours(23, 59, 0, 0);
+    const expiryDateObj = getSendBindResolvedExpiryDate(days);
 
     const pad = (num) => String(num).padStart(2, '0');
     const offsetHours = Math.abs(Math.floor(expiryDateObj.getTimezoneOffset() / 60));
     const offsetMinutes = Math.abs(expiryDateObj.getTimezoneOffset() % 60);
     const offsetSign = expiryDateObj.getTimezoneOffset() <= 0 ? "+" : "-";
-    const formattedExpiry = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T23:59:00${offsetSign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
+    const formattedExpiry = `${expiryDateObj.getFullYear()}-${pad(expiryDateObj.getMonth() + 1)}-${pad(expiryDateObj.getDate())}T${pad(expiryDateObj.getHours())}:${pad(expiryDateObj.getMinutes())}:00${offsetSign}${pad(offsetHours)}:${pad(offsetMinutes)}`;
 
     const rawAccountData = `📧 อีเมล: ${candidate.email}\n🔑 รหัสผ่าน: ${candidate.password}` +
       `${candidate.profile_name ? `\n👤 โปรไฟล์: ${candidate.profile_name}` : ''}` +
