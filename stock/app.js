@@ -8521,9 +8521,16 @@ function resolvePackageForDaysAndDevice(appId, appName, basePkgName, daysVal, de
   const devLower = (deviceVal || "").toLowerCase();
   const baseLower = baseName.toLowerCase();
 
-  // Determine device category (TV/PC vs Mobile/Tablet)
-  const isTvDevice = /tv|ทีวี|คอม|pc|laptop/.test(devLower) || (!devLower && /ทีวี|tv|คอม/.test(baseLower));
-  const isMobileDevice = !isTvDevice && (/มือถือ|แท็บ|tablet|mobile|ipad|ไอแพด/.test(devLower) || /มือถือ|แท็บ|tablet|mobile|ipad/.test(baseLower));
+  // Determine device category (check Mobile/Tablet before TV/PC so "มือถือ/แท็บเล็ต/PC/iPad" isn't treated as TV/PC)
+  const isAllDevices = /ทุกอุปกรณ์|all/.test(devLower);
+  const isMobileDevice = !isAllDevices && (
+    /มือถือ|แท็บ|tablet|mobile|ipad|ไอแพด/.test(devLower) ||
+    (!devLower && /มือถือ|แท็บ|tablet|mobile|ipad/.test(baseLower))
+  );
+  const isTvDevice = !isAllDevices && !isMobileDevice && (
+    /tv|ทีวี|คอม|pc|laptop/.test(devLower) ||
+    (!devLower && /ทีวี|tv|คอม/.test(baseLower))
+  );
 
   // Idea 2: Match real package in rawPackages by same app + days + device category
   if (Array.isArray(rawPackages) && rawPackages.length > 0) {
