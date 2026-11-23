@@ -6432,18 +6432,8 @@ async function executeConfirmSwap() {
       raw_account_data: newRawData
     });
 
-    // 4. Generate handover script & copy
-    const handoverText = `🔄 แจ้งเปลี่ยนบัญชีใหม่ (เคลมจอ) ${b.app_name}\n` +
-      `━━━━━━━━━━━━━━━━━━\n` +
-      `👤 คุณ ${b.customer_name}\n` +
-      `⏳ วันหมดอายุคงเดิม: ${formatDateThai(b.expiry_date ? new Date(b.expiry_date) : new Date())}\n` +
-      `━━━━━━━━━━━━━━━━━━\n` +
-      `📧 อีเมล: ${newAcc.email}\n` +
-      `🔑 รหัสผ่าน: ${newAcc.password}\n` +
-      `👤 โปรไฟล์/จอ: ${newAcc.profile_name || 'จอที่กำหนด'}\n` +
-      (newAcc.pin_code ? `🔢 รหัส PIN: ${newAcc.pin_code}\n` : '') +
-      `━━━━━━━━━━━━━━━━━━\n` +
-      `🙏 ขออภัยในความไม่สะดวกด้วยนะครับ เข้าใช้งานได้ทันทีครับ ✨`;
+    // 4. Generate handover script & copy (matching app rules + screen ID from buildUnifiedHandoverText)
+    const handoverText = buildSwapHandoverText(b, newAcc);
 
     await copyToClipboard(handoverText);
     closeSwapModal();
@@ -6458,6 +6448,71 @@ async function executeConfirmSwap() {
       confirmBtn.textContent = "🔄 ยืนยันเคลมจอ & สลับบัญชี";
     }
   }
+}
+
+function buildSwapHandoverText(b, newAcc) {
+  const appName = b.app_name || newAcc.app_name || "App";
+  const cleanId = (newAcc.display_id && newAcc.display_id !== "-" && newAcc.display_id !== "undefined")
+    ? String(newAcc.display_id).trim().replace(/^#/, '')
+    : "";
+  const headerTitle = cleanId
+    ? `🔄 แจ้งเปลี่ยนบัญชีใหม่ (เคลมจอ) ${appName} #${cleanId}`
+    : `🔄 แจ้งเปลี่ยนบัญชีใหม่ (เคลมจอ) ${appName}`;
+
+  const pkgObj = newAcc.package_id ? rawPackages.find(p => p.id === newAcc.package_id) : null;
+  const pkgName = (b.package_name || (pkgObj ? pkgObj.name : "") || "").trim();
+
+  const appObj = (rawApps && rawApps.length > 0)
+    ? (rawApps.find(a => a.id === newAcc.app_id) ||
+       rawApps.find(a => (a.name || '').toLowerCase() === appName.toLowerCase()) ||
+       rawApps.find(a => (a.display_name || '').toLowerCase() === appName.toLowerCase()))
+    : null;
+
+  const showProfile = appObj ? (appObj.show_profile !== false && appObj.show_profile !== 0 && appObj.show_profile !== "0") : true;
+  const showPin = appObj ? (appObj.show_pin !== false && appObj.show_pin !== 0 && appObj.show_pin !== "0") : true;
+
+  const isNetflix = appName.toLowerCase().includes("netflix");
+  const isWrongPassword = isNetflix && (
+    newAcc.problemType === "wrong_password" ||
+    (typeof newAcc.password === "string" && (newAcc.password.includes("OTP") || newAcc.password.includes("แอดมิน")))
+  );
+  const passwordDisplay = isWrongPassword ? "เข้าระบบแบบ OTP ได้จากแอดมิน" : (newAcc.password || "-");
+
+  const cleanScreenName = (newAcc.profile_name || "จอที่กำหนด").trim();
+  const formattedProfile = cleanScreenName.startsWith("🟢") ? cleanScreenName : `🟢 ${cleanScreenName}`;
+  const pinDisplay = (newAcc.pin_code && newAcc.pin_code !== "-" && newAcc.pin_code !== "undefined")
+    ? `PIN: ${newAcc.pin_code}`
+    : "ไม่มี PIN";
+
+  let script = `${headerTitle}\n`;
+  if (pkgName) {
+    script += `[${pkgName}]\n`;
+  }
+  script += `━━━━━━━━━━━━━━━━━━\n`;
+  script += `👤 คุณ ${b.customer_name}\n`;
+  script += `⏳ วันหมดอายุคงเดิม: ${formatDateThai(b.expiry_date ? new Date(b.expiry_date) : new Date())}\n`;
+  script += `━━━━━━━━━━━━━━━━━━\n`;
+  script += `📧 อีเมล: ${newAcc.email || "-"}\n`;
+  script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
+  if (cleanId) {
+    script += `🆔 ID จอ: #${cleanId}\n`;
+  }
+  if (showProfile) {
+    script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
+  }
+  if (showPin) {
+    script += `🔢 ${pinDisplay}\n`;
+  }
+  script += `━━━━━━━━━━━━━━━━━━\n`;
+
+  const deliverySections = getAppDeliverySegments(appObj);
+  if (deliverySections.length > 0) {
+    script += `\n${deliverySections.join("\n\n")}\n`;
+    script += `━━━━━━━━━━━━━━━━━━\n`;
+  }
+
+  script += `🙏 ขออภัยในความไม่สะดวกด้วยนะครับ เข้าใช้งานได้ทันทีครับ ✨`;
+  return script;
 }
 
 function isExemptApp(appOrBind) {
