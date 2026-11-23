@@ -180,11 +180,40 @@
       </div>
 
       <!-- App Selection -->
-      <div class="prem-form-group" style="margin-bottom: 8px;">
+      <div class="prem-form-group" style="margin-bottom: 10px;">
         <label class="prem-label">🎬 แอปพลิเคชัน</label>
-        <select id="acc-app-select" class="prem-select">
+        <select id="acc-app-select" class="prem-select acc-app-select-native" aria-hidden="true" tabindex="-1">
           <option value="">-- เลือกแอป --</option>
         </select>
+
+        <div id="acc-app-custom-select" class="acc-app-custom-select">
+          <button type="button" id="acc-app-select-trigger" class="acc-app-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+            <div id="acc-app-trigger-content" class="acc-app-trigger-content">
+              <span class="acc-app-trigger-placeholder">-- เลือกแอปพลิเคชัน --</span>
+            </div>
+            <span class="acc-app-trigger-chevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
+          </button>
+
+          <!-- 1-Tap Quick App Switcher Pills -->
+          <div id="acc-app-quick-pills" class="acc-app-quick-pills" aria-label="เลือกแอปด่วน"></div>
+
+          <!-- Searchable Modern App Dropdown -->
+          <div id="acc-app-select-dropdown" class="acc-app-select-dropdown" role="listbox" aria-label="รายการแอปพลิเคชัน">
+            <div class="acc-app-dropdown-toolbar">
+              <div class="acc-app-search-wrap">
+                <span class="acc-app-search-icon">🔍</span>
+                <input type="text" id="acc-app-select-search" class="acc-app-search-input" placeholder="ค้นหาชื่อแอป..." autocomplete="off">
+                <button type="button" id="acc-app-search-clear" class="acc-app-search-clear" title="ล้างคำค้นหา" style="display: none;">✕</button>
+              </div>
+              <span id="acc-app-select-count" class="acc-app-select-count">0 แอป</span>
+            </div>
+            <div id="acc-app-options-grid" class="acc-app-options-grid"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Multiple Accounts Editor Container (Visible when multi-accounts detected or added) -->

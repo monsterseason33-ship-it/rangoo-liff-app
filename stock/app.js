@@ -2237,7 +2237,220 @@ function populateStockFormApps() {
     appSelect.value = netflix ? netflix.id : rawApps[0].id;
   }
 
+  syncAccAppCustomSelect();
   updateStockFormPackages();
+}
+
+let accAppCustomSelectInitialized = false;
+
+function initAccAppCustomSelect() {
+  if (accAppCustomSelectInitialized) return;
+  const container = document.getElementById("acc-app-custom-select");
+  const trigger = document.getElementById("acc-app-select-trigger");
+  const searchInput = document.getElementById("acc-app-select-search");
+  const clearBtn = document.getElementById("acc-app-search-clear");
+  if (!container || !trigger) return;
+
+  accAppCustomSelectInitialized = true;
+
+  const setOpen = (isOpen) => {
+    container.classList.toggle("open", isOpen);
+    trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    if (isOpen && searchInput) {
+      setTimeout(() => searchInput.focus(), 60);
+    }
+  };
+
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    haptic();
+    setOpen(!container.classList.contains("open"));
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      if (clearBtn) clearBtn.style.display = searchInput.value ? "flex" : "none";
+      renderAccAppCustomOptions(searchInput.value);
+    });
+    searchInput.addEventListener("click", (e) => e.stopPropagation());
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        trigger.focus();
+      }
+    });
+  }
+
+  if (clearBtn && searchInput) {
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      searchInput.value = "";
+      clearBtn.style.display = "none";
+      renderAccAppCustomOptions("");
+      searchInput.focus();
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (container.classList.contains("open") && !container.contains(e.target)) {
+      setOpen(false);
+    }
+  });
+}
+
+function selectAccAppById(appId) {
+  const appSelect = document.getElementById("acc-app-select");
+  const container = document.getElementById("acc-app-custom-select");
+  const trigger = document.getElementById("acc-app-select-trigger");
+  if (!appSelect) return;
+
+  haptic();
+  const changed = appSelect.value !== appId;
+  appSelect.value = appId;
+  syncAccAppCustomSelect();
+
+  if (changed) {
+    appSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  if (container && container.classList.contains("open")) {
+    container.classList.remove("open");
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+  }
+}
+
+function syncAccAppCustomSelect() {
+  const appSelect = document.getElementById("acc-app-select");
+  const trigger = document.getElementById("acc-app-select-trigger");
+  const triggerContent = document.getElementById("acc-app-trigger-content");
+  const searchInput = document.getElementById("acc-app-select-search");
+  if (!appSelect || !trigger || !triggerContent) return;
+
+  const selectedId = appSelect.value;
+  const selectedApp = rawApps.find(a => a.id === selectedId);
+
+  if (selectedApp) {
+    const label = selectedApp.display_name || selectedApp.name || "แอป";
+    const theme = getAppTheme(selectedApp.name || label);
+    const pkgCount = rawPackages.filter(p => p.app_id === selectedApp.id).length;
+
+    trigger.style.setProperty("--app-color", theme.color);
+    trigger.style.setProperty("--app-gradient", theme.gradient);
+    trigger.style.setProperty("--app-border", theme.border);
+
+    triggerContent.innerHTML = `
+      <span class="acc-app-trigger-badge">${theme.icon || "🎬"}</span>
+      <div class="acc-app-trigger-info">
+        <span class="acc-app-trigger-name">${escapeHtml(label)}</span>
+        <span class="acc-app-trigger-meta">${pkgCount} แพ็กเกจ</span>
+      </div>
+    `;
+  } else {
+    trigger.style.removeProperty("--app-color");
+    trigger.style.removeProperty("--app-gradient");
+    trigger.style.removeProperty("--app-border");
+    triggerContent.innerHTML = `<span class="acc-app-trigger-placeholder">-- เลือกแอปพลิเคชัน --</span>`;
+  }
+
+  renderAccAppQuickPills();
+  renderAccAppCustomOptions(searchInput ? searchInput.value : "");
+}
+
+function renderAccAppQuickPills() {
+  const pillsWrap = document.getElementById("acc-app-quick-pills");
+  const appSelect = document.getElementById("acc-app-select");
+  if (!pillsWrap || !appSelect) return;
+
+  const selectedId = appSelect.value;
+  if (!rawApps || rawApps.length === 0) {
+    pillsWrap.innerHTML = "";
+    return;
+  }
+
+  pillsWrap.innerHTML = rawApps.map(app => {
+    const label = app.display_name || app.name || "แอป";
+    const theme = getAppTheme(app.name || label);
+    const isActive = app.id === selectedId;
+    return `
+      <button type="button"
+        class="acc-app-quick-pill${isActive ? " active" : ""}"
+        data-app-id="${escapeHtml(app.id)}"
+        style="--app-color:${theme.color};--app-gradient:${theme.gradient};--app-border:${theme.border};"
+        title="${escapeHtml(label)}">
+        <span class="acc-app-quick-pill-icon">${theme.icon || "🎬"}</span>
+        <span>${escapeHtml(label)}</span>
+      </button>
+    `;
+  }).join("");
+
+  pillsWrap.querySelectorAll(".acc-app-quick-pill").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectAccAppById(btn.getAttribute("data-app-id") || "");
+    });
+  });
+
+  const activePill = pillsWrap.querySelector(".acc-app-quick-pill.active");
+  if (activePill && typeof activePill.scrollIntoView === "function") {
+    activePill.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }
+}
+
+function renderAccAppCustomOptions(filterText = "") {
+  const grid = document.getElementById("acc-app-options-grid");
+  const countEl = document.getElementById("acc-app-select-count");
+  const appSelect = document.getElementById("acc-app-select");
+  if (!grid || !appSelect) return;
+
+  const selectedId = appSelect.value;
+  const query = (filterText || "").trim().toLowerCase();
+
+  const filtered = rawApps.filter(app => {
+    if (!query) return true;
+    const name = (app.name || "").toLowerCase();
+    const display = (app.display_name || "").toLowerCase();
+    const theme = getAppTheme(app.name || app.display_name || "");
+    return name.includes(query) || display.includes(query) || (theme.tag || "").toLowerCase().includes(query);
+  });
+
+  if (countEl) {
+    countEl.textContent = `${filtered.length} แอป`;
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="acc-app-options-empty">ไม่พบแอปที่ตรงกับ "${escapeHtml(filterText)}"</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(app => {
+    const label = app.display_name || app.name || "แอป";
+    const theme = getAppTheme(app.name || label);
+    const pkgCount = rawPackages.filter(p => p.app_id === app.id).length;
+    const isSelected = app.id === selectedId;
+
+    return `
+      <button type="button"
+        class="acc-app-option-card${isSelected ? " selected" : ""}"
+        role="option"
+        aria-selected="${isSelected ? "true" : "false"}"
+        data-app-id="${escapeHtml(app.id)}"
+        style="--app-color:${theme.color};--app-gradient:${theme.gradient};--app-border:${theme.border};">
+        <span class="acc-app-option-icon">${theme.icon || "🎬"}</span>
+        <span class="acc-app-option-body">
+          <span class="acc-app-option-name">${escapeHtml(label)}</span>
+          <span class="acc-app-option-sub">${pkgCount} แพ็กเกจ</span>
+        </span>
+        ${isSelected ? `<span class="acc-app-option-check">✓</span>` : ""}
+      </button>
+    `;
+  }).join("");
+
+  grid.querySelectorAll(".acc-app-option-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectAccAppById(card.getAttribute("data-app-id") || "");
+    });
+  });
 }
 
 function updateStockFormPackages() {
@@ -2834,6 +3047,7 @@ function handleQuickPaste() {
       const appSelect = document.getElementById("acc-app-select");
       if (appSelect && appSelect.value !== app.id) {
         appSelect.value = app.id;
+        syncAccAppCustomSelect();
         updateStockFormPackages();
       }
       break;
@@ -4451,10 +4665,12 @@ function initStockFormEventListeners() {
     quickPaste.addEventListener("change", handleQuickPaste);
   }
 
-  // App select change
+  // App select change & custom select init
+  initAccAppCustomSelect();
   const appSelect = document.getElementById("acc-app-select");
   if (appSelect) {
     appSelect.addEventListener("change", () => {
+      syncAccAppCustomSelect();
       updateStockFormPackages();
       if (parsedBatchAccounts && parsedBatchAccounts.length > 0) {
         renderMultiAccountEditor();
