@@ -1469,16 +1469,43 @@ function renderStockFeed() {
       if (!hasBroken) return false;
     }
 
-    // 3. Search query
+    // 3. Search query (supports app, package, email, PIN, and #display_id)
     if (searchQuery) {
-      const matchApp = group.appName.toLowerCase().includes(searchQuery);
-      const matchPkg = group.pkgName.toLowerCase().includes(searchQuery);
-      const matchEmail = Object.keys(group.accountsByEmail).some(e => e.toLowerCase().includes(searchQuery));
-      if (!matchApp && !matchPkg && !matchEmail) return false;
+      const cleanStockIdQ = searchQuery.replace(/^#/, "").trim();
+      const isExplicitIdSearch = searchQuery.startsWith("#") && cleanStockIdQ.length > 0;
+      const matchScreenId = cleanStockIdQ ? Object.values(group.accountsByEmail).some(acc =>
+        (acc.screens || []).some(s => s.display_id && String(s.display_id).toLowerCase().includes(cleanStockIdQ))
+      ) : false;
+
+      if (isExplicitIdSearch) {
+        if (!matchScreenId) return false;
+      } else {
+        const matchApp = group.appName.toLowerCase().includes(searchQuery);
+        const matchPkg = group.pkgName.toLowerCase().includes(searchQuery);
+        const matchEmail = Object.keys(group.accountsByEmail).some(e => e.toLowerCase().includes(searchQuery));
+        const matchPin = Object.values(group.accountsByEmail).some(acc =>
+          (acc.screens || []).some(s => s.pin_code && String(s.pin_code).toLowerCase().includes(searchQuery))
+        );
+        if (!matchApp && !matchPkg && !matchEmail && !matchScreenId && !matchPin) return false;
+      }
     }
 
     return true;
   });
+
+  if (searchQuery) {
+    const cleanStockIdQ = searchQuery.replace(/^#/, "").trim();
+    const getGroupSearchRank = (group) => {
+      if (!cleanStockIdQ) return 0;
+      const allScreens = Object.values(group.accountsByEmail).flatMap(acc => acc.screens || []);
+      if (allScreens.some(s => String(s.display_id || "").toLowerCase() === cleanStockIdQ)) return 1000;
+      if (Object.keys(group.accountsByEmail).some(e => e.toLowerCase() === searchQuery)) return 800;
+      if (allScreens.some(s => String(s.display_id || "").toLowerCase().startsWith(cleanStockIdQ))) return 600;
+      if (allScreens.some(s => String(s.pin_code || "").toLowerCase() === cleanStockIdQ)) return 400;
+      return 100;
+    };
+    filteredGroups.sort(([, gA], [, gB]) => getGroupSearchRank(gB) - getGroupSearchRank(gA));
+  }
 
   if (filteredGroups.length === 0) {
     let emptyTitle = "ไม่พบสต็อกพร้อมขาย";
@@ -5140,12 +5167,19 @@ function preprocessBindings() {
       details.displayId || ""
     ].join(" ").toLowerCase();
 
-    // Group key for feed clustering
+    // Group key for feed clustering & O(1) search relevance fields
     const app = (b.app_name || "").trim().toLowerCase();
     const accId = b.account_id || "";
     const displayId = details.displayId ? String(details.displayId).trim().toLowerCase() : "";
     const profileName = details.profileName ? String(details.profileName).trim().toLowerCase() : "";
     const email = details.email ? String(details.email).trim().toLowerCase() : "";
+    const pinLower = details.pinCode ? String(details.pinCode).trim().toLowerCase() : "";
+    const custLower = (b.customer_name || "").trim().toLowerCase();
+
+    b._displayIdLower = displayId;
+    b._emailLower = email;
+    b._pinLower = pinLower;
+    b._custLower = custLower;
 
     if (accId) {
       b._groupKey = `${app}:::acc_${accId}:::${profileName || displayId || 'single'}`;
@@ -5723,13 +5757,50 @@ function renderBindingsFeed() {
       if (!b._isReverted) return false;
     }
 
-    // 2. Query Search (Fast precomputed string search)
+    // 2. Query Search (Fast precomputed string search + explicit #id support)
     if (!query) return true;
+    const cleanIdQuery = query.replace(/^#/, "").trim();
+    if (query.startsWith("#") && cleanIdQuery.length > 0) {
+      return Boolean(b._displayIdLower && b._displayIdLower.includes(cleanIdQuery));
+    }
     return b._searchStr ? b._searchStr.includes(query) : true;
   });
 
-  // Sort logic for Expiry Tracker
-  if (bindingFilter === "cust-expired-master-active" || bindingFilter === "master-expiring-before-cust") {
+  const cleanSearchId = query ? query.replace(/^#/, "").trim() : "";
+  const getBindingSearchRelevance = (b) => {
+    if (!query) return 0;
+    const disp = b._displayIdLower || "";
+    const cust = b._custLower || "";
+    const em = b._emailLower || "";
+    const pin = b._pinLower || "";
+
+    if (cleanSearchId && disp === cleanSearchId) return 1000;
+    if (cust === query || em === query) return 850;
+    if (cleanSearchId && disp && disp.startsWith(cleanSearchId)) return 650;
+    if (cleanSearchId && pin === cleanSearchId) return 450;
+    if (cust.startsWith(query) || em.startsWith(query)) return 250;
+    return 100;
+  };
+
+  // Sort logic: Search Relevance Priority FIRST (exact #display_id at #1), then Expiry Tracker / Created Date
+  if (query && filtered.length > 1) {
+    filtered.sort((a, b) => {
+      const scoreDiff = getBindingSearchRelevance(b) - getBindingSearchRelevance(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      if (bindingFilter === "cust-expired-master-active" || bindingFilter === "master-expiring-before-cust") {
+        const diffA = getExpiryDiffMs(a);
+        const diffB = getExpiryDiffMs(b);
+        if (diffB !== diffA) return diffB - diffA;
+        return new Date(a.expiry_date || 0) - new Date(b.expiry_date || 0);
+      }
+      if (bindingFilter === "expired" || bindingFilter === "today" || bindingFilter === "expiring") {
+        return new Date(a.expiry_date || 0) - new Date(b.expiry_date || 0);
+      }
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
+  } else if (bindingFilter === "cust-expired-master-active" || bindingFilter === "master-expiring-before-cust") {
     filtered.sort((a, b) => {
       const diffA = getExpiryDiffMs(a);
       const diffB = getExpiryDiffMs(b);
@@ -5838,8 +5909,16 @@ function renderBindingsFeed() {
       `;
 
       const membersList = cluster.querySelector(".binding-shared-members-list");
-      g.items.forEach((item, idx) => {
-        const card = createBindingCardElement(item, now, idx, g.items.length, []);
+      const sortedClusterItems = [...g.items].sort((a, b) => {
+        const aActive = (!a._isReverted && !a._isExpired) ? 1 : 0;
+        const bActive = (!b._isReverted && !b._isExpired) ? 1 : 0;
+        if (bActive !== aActive) return bActive - aActive;
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+      sortedClusterItems.forEach((item, idx) => {
+        const card = createBindingCardElement(item, now, idx, sortedClusterItems.length, []);
         membersList.appendChild(card);
       });
 
