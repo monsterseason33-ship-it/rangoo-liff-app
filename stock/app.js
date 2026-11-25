@@ -9093,7 +9093,9 @@ function populateSendBindPackageSelector(appId, appName, initialPkgName = "", in
   const modeBadge = document.getElementById("send-bind-pkg-mode-badge");
   if (!pkgSelect) return null;
 
-  const appPackages = getSendBindAppPackages(appId, appName);
+  const appPackages = getSendBindAppPackages(appId, appName)
+    .slice()
+    .sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
   const isDisney = isDisneyAppObj(appName);
 
   if (pkgSection) {
@@ -9101,8 +9103,8 @@ function populateSendBindPackageSelector(appId, appName, initialPkgName = "", in
   }
   if (modeBadge) {
     modeBadge.textContent = isDisney
-      ? `🏰 เลือกอิสระ (${appPackages.length} แพ็กเกจ)`
-      : (appPackages.length > 0 ? `ปรับเปลี่ยนได้อิสระ (${appPackages.length})` : "กำหนดเองอิสระ");
+      ? `🏰 เลือกด่วนตามราคา (${appPackages.length} แพ็กเกจ)`
+      : (appPackages.length > 0 ? `แตะเลือกราคา (${appPackages.length})` : "กำหนดเองอิสระ");
   }
 
   let selectHtml = "";
@@ -9136,11 +9138,11 @@ function populateSendBindPackageSelector(appId, appName, initialPkgName = "", in
     if (appPackages.length > 0) {
       pkgChips.innerHTML = appPackages.map(pkg => {
         const isActive = pkg.id === activePkgId;
-        const pPrice = (pkg.price !== undefined && pkg.price !== null) ? `${pkg.price}฿` : "";
+        const pDays = pkg.days || getPackageDays(pkg.name, pkg.app_id) || 30;
+        const rawPrice = (pkg.price !== undefined && pkg.price !== null) ? pkg.price : 0;
         return `
-          <button type="button" class="btn-send-bind-pkg-chip${isActive ? " active" : ""}" data-pkg-id="${escapeHtml(pkg.id)}" title="${escapeHtml(pkg.name)}">
-            <span class="pkg-chip-name">${escapeHtml(pkg.name)}</span>
-            ${pPrice ? `<span class="pkg-chip-price">${escapeHtml(pPrice)}</span>` : ""}
+          <button type="button" class="btn-send-bind-pkg-chip${isActive ? " active" : ""}" data-pkg-id="${escapeHtml(pkg.id)}" title="${escapeHtml(pkg.name)} (${rawPrice}฿ • ${pDays} วัน)">
+            <span class="pkg-price-num">${escapeHtml(String(rawPrice))}</span><span class="pkg-price-currency">฿</span>
           </button>
         `;
       }).join("");
