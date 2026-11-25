@@ -51,11 +51,49 @@ let hasRenderedBindingsFeed = false;
 let stockFeedDirty = true;
 let bindingsFeedDirty = true;
 
+function isDisneyAppObj(appOrName) {
+  if (!appOrName) return false;
+  if (typeof appOrName === "string") return /disney|hotstar/i.test(appOrName);
+  return /disney|hotstar/i.test(appOrName.name || "") || /disney|hotstar/i.test(appOrName.display_name || "");
+}
+
+function isDisneyAccountRecord(acc) {
+  if (!acc) return false;
+  if (isDisneyAppObj(acc.app_name || "")) return true;
+  if (acc.app_id && Array.isArray(rawApps)) {
+    const appObj = rawApps.find(a => a.id === acc.app_id);
+    if (appObj && isDisneyAppObj(appObj)) return true;
+  }
+  return false;
+}
+
+function generateScreenNumberPin(index1Based = 1, profileName = "") {
+  let num = 0;
+  if (profileName) {
+    const m = String(profileName).match(/(\d+)/);
+    if (m) num = parseInt(m[1], 10);
+  }
+  if (!num || isNaN(num)) {
+    num = parseInt(index1Based, 10) || 1;
+  }
+  const digit = String(Math.abs(num) % 10);
+  return digit.repeat(4);
+}
+
 function updateAccountsMap() {
   accountsByIdMap.clear();
   if (Array.isArray(allAccountsList)) {
     allAccountsList.forEach(a => {
-      if (a && a.id) accountsByIdMap.set(a.id, a);
+      if (!a) return;
+      if (!a.app_name && a.app_id && Array.isArray(rawApps)) {
+        const appObj = rawApps.find(ap => ap.id === a.app_id);
+        if (appObj) a.app_name = appObj.display_name || appObj.name || "";
+      }
+      if (!a.package_name && a.package_id && Array.isArray(rawPackages)) {
+        const pkgObj = rawPackages.find(pk => pk.id === a.package_id);
+        if (pkgObj) a.package_name = pkgObj.name || "";
+      }
+      if (a.id) accountsByIdMap.set(a.id, a);
     });
   }
 }
@@ -485,6 +523,25 @@ function initUIEventListeners() {
     });
     nameInputEl.addEventListener("change", (e) => {
       updateCustomerNameStatusDisplay(e.target.value);
+    });
+  }
+
+  const sendBindPkgSelect = document.getElementById("send-bind-pkg-select");
+  if (sendBindPkgSelect) {
+    sendBindPkgSelect.addEventListener("change", (e) => {
+      haptic();
+      applySendBindSelectedPackage(e.target.value, { syncFields: true });
+    });
+  }
+
+  const sendBindPkgChips = document.getElementById("send-bind-pkg-chips");
+  if (sendBindPkgChips) {
+    sendBindPkgChips.addEventListener("click", (e) => {
+      const chip = e.target.closest(".btn-send-bind-pkg-chip");
+      if (!chip) return;
+      haptic();
+      const pkgId = chip.dataset.pkgId || "__CUSTOM__";
+      applySendBindSelectedPackage(pkgId, { syncFields: true });
     });
   }
 
@@ -1547,6 +1604,8 @@ function renderStockFeed() {
 
     if (validEmailKeys.length === 0) return;
 
+    const isDisneyGroup = isDisneyAppObj(group.appName);
+
     html += `
       <div class="group-card" style="--brand-color: ${theme.color}; --brand-gradient: ${theme.gradient}; --brand-border: ${theme.border};">
         <div class="group-header">
@@ -1557,7 +1616,10 @@ function renderStockFeed() {
             </div>
             ${group.pkgName ? 
               `<span class="group-pkg-name btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเปลี่ยนแพ็กเกจ & ปรับจำนวนจอ">[${escapeHtml(group.pkgName)}] <span class="pkg-edit-icon">✏️</span></span>` : 
-              `<span class="group-pkg-name unassigned btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเลือกแพ็กเกจ & ปรับจำนวนจอ">[⚠️ ยังไม่กำหนดแพ็คเกจ ▾]</span>`
+              (isDisneyGroup ?
+                `<span class="group-pkg-name disney-flex btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="แพ็กเกจอิสระ: เลือกประเภทแพ็กเกจได้ตอนส่งมอบจอ">[🏰 แพ็กเกจอิสระ • เลือกตอนส่งมอบ]</span>` :
+                `<span class="group-pkg-name unassigned btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเลือกแพ็กเกจ & ปรับจำนวนจอ">[⚠️ ยังไม่กำหนดแพ็คเกจ ▾]</span>`
+              )
             }
           </div>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -1674,17 +1736,17 @@ function renderStockFeed() {
             <!-- Package row -->
             <div class="acc-pkg-row">
               <span class="cred-label">📦 แพ็กเกจ:</span>
-              <span class="acc-pkg-chip btn-open-pkg-picker ${group.pkgName ? '' : 'unassigned'}" 
+              <span class="acc-pkg-chip btn-open-pkg-picker ${group.pkgName ? '' : (isDisneyGroup ? 'disney-flex' : 'unassigned')}" 
                     data-group-key="${escapeHtml(groupKey)}" 
                     data-email="${escapeHtml(acc.email)}" 
-                    title="คลิกเพื่อเปลี่ยนแพ็กเกจเฉพาะบัญชีนี้">
-                ${group.pkgName ? `<span>${escapeHtml(group.pkgName)}</span> <span>✏️</span>` : `<span>⚠️ ยังไม่กำหนดแพ็คเกจ ▾</span>`}
+                    title="${isDisneyGroup && !group.pkgName ? 'เลือกประเภทแพ็กเกจได้อย่างอิสระในขั้นตอนการส่งมอบจอ' : 'คลิกเพื่อเปลี่ยนแพ็กเกจเฉพาะบัญชีนี้'}">
+                ${group.pkgName ? `<span>${escapeHtml(group.pkgName)}</span> <span>✏️</span>` : (isDisneyGroup ? `<span>✨ เลือกแพ็กเกจอิสระตอนส่งมอบ</span>` : `<span>⚠️ ยังไม่กำหนดแพ็คเกจ ▾</span>`)}
               </span>
             </div>
           </div>
 
-          <!-- Screens Slot List (Hidden with CTA when package is unassigned) -->
-          ${!group.pkgName && !isAccountBroken ? `
+          <!-- Screens Slot List (Hidden with CTA when package is unassigned, EXCEPT Disney+ which uses flexible delivery packages) -->
+          ${!group.pkgName && !isDisneyGroup && !isAccountBroken ? `
           <div class="screens-section screens-unassigned-box">
             <div class="unassigned-box-header">
               <span class="unassigned-box-icon">⏳</span>
@@ -2037,7 +2099,7 @@ window.copyAllStockScript = async function() {
   const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
   const availableAccounts = allAccounts.filter(a => {
     if (a.status !== "available") return false;
-    if (!a.package_id && !(a.package_name || "").trim()) return false;
+    if (!a.package_id && !(a.package_name || "").trim() && !isDisneyAccountRecord(a)) return false;
     if (a.expiry_date) {
       const expDate = new Date(a.expiry_date);
       if (!isNaN(expDate.getTime()) && (expDate.getTime() - now.getTime()) <= MS_IN_24_HOURS) {
@@ -2540,16 +2602,20 @@ function renderAccAppCustomOptions(filterText = "") {
 function updateStockFormPackages() {
   const appSelect = document.getElementById("acc-app-select");
   const pkgSelect = document.getElementById("acc-package-select");
+  const pkgGroup = document.getElementById("acc-package-group");
+  const disneyFlexBanner = document.getElementById("acc-disney-flex-pkg-banner");
   if (!pkgSelect) return;
 
   const appId = appSelect ? appSelect.value : "";
   pkgSelect.innerHTML = `<option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>`;
 
-  // Toggle Disney Phone wrapper
+  // Toggle Disney Phone wrapper & Flexible Package Banner
   const appObj = rawApps.find(a => a.id === appId);
-  const isDisney = appObj && (appObj.name || "").toLowerCase().includes("disney");
+  const isDisney = isDisneyAppObj(appObj);
   const phoneWrapper = document.getElementById("acc-phone-wrapper");
   if (phoneWrapper) phoneWrapper.style.display = isDisney ? "block" : "none";
+  if (pkgGroup) pkgGroup.style.display = isDisney ? "none" : "block";
+  if (disneyFlexBanner) disneyFlexBanner.style.display = isDisney ? "flex" : "none";
 
   if (!appId) {
     pkgSelect.disabled = true;
@@ -2568,6 +2634,13 @@ function updateStockFormPackages() {
     pkgSelect.appendChild(opt);
   });
 
+  // Disney+ skips package selection at Add Stock & defaults to 5 screens with auto PINs (1111-5555)
+  if (isDisney) {
+    pkgSelect.value = "";
+    onStockFormPackageSelected(null);
+    return;
+  }
+
   if (filteredPkgs.length > 0) {
     pkgSelect.value = filteredPkgs[0].id;
     onStockFormPackageSelected(filteredPkgs[0]);
@@ -2583,19 +2656,25 @@ function getDefaultScreensForSelectedApp() {
     (appObj.name || "").toLowerCase().includes("netflix") ||
     (appObj.display_name || "").toLowerCase().includes("netflix")
   );
-  return isNetflix ? 5 : 1;
+  const isDisney = isDisneyAppObj(appObj);
+  return (isNetflix || isDisney) ? 5 : 1;
 }
 
 function onStockFormPackageSelected(pkg) {
-  if (!pkg) {
+  const appId = document.getElementById("acc-app-select")?.value;
+  const appObj = rawApps.find(a => a.id === appId);
+  const isDisney = isDisneyAppObj(appObj);
+
+  if (!pkg && !isDisney) {
     const pkgId = document.getElementById("acc-package-select")?.value;
     pkg = rawPackages.find(p => p.id === pkgId);
   }
-  const screensCount = pkg ? (pkg.screens || 1) : getDefaultScreensForSelectedApp();
+  const effectivePkg = isDisney ? null : pkg;
+  const screensCount = effectivePkg ? (effectivePkg.screens || 1) : getDefaultScreensForSelectedApp();
   const screensInput = document.getElementById("pkg-screens");
   if (screensInput) screensInput.value = screensCount;
 
-  const days = pkg ? (pkg.days || getPackageDays(pkg.name, pkg.app_id)) : 30;
+  const days = effectivePkg ? (effectivePkg.days || getPackageDays(effectivePkg.name, effectivePkg.app_id)) : 30;
   setDefaultExpiry(days);
   renderScreensInputs(screensCount);
 }
@@ -2604,21 +2683,38 @@ function renderScreensInputs(count) {
   const container = document.getElementById("acc-screens-container");
   if (!container) return;
 
-  const appId = document.getElementById("acc-app-select")?.value;
+  const appId = document.getElementById("acc-app-select")?.value || "";
   const appObj = rawApps.find(a => a.id === appId);
   const isNetflix = appObj && (appObj.name || "").toLowerCase().includes("netflix");
+  const isDisney = isDisneyAppObj(appObj);
 
   count = Math.max(1, Math.min(10, parseInt(count, 10) || 1));
 
+  // Preserve current screen edits if resizing within the same app
+  const sameApp = container.dataset.lastAppId === String(appId);
+  const existingRows = sameApp ? Array.from(container.querySelectorAll(".prem-screen-card")).map(card => ({
+    enabled: card.querySelector(".acc-screen-enable-checkbox")?.checked !== false,
+    device: card.querySelector(".acc-device-type-select")?.value || "",
+    name: card.querySelector(".acc-profile-input")?.value ?? null,
+    pin: card.querySelector(".acc-pin-input")?.value ?? null
+  })) : [];
+  container.dataset.lastAppId = String(appId);
+
   container.innerHTML = "";
   for (let i = 1; i <= count; i++) {
-    const isTv = isNetflix ? (i === 5 || i > 4) : false;
+    const prev = existingRows[i - 1] || null;
+    const isTv = prev && prev.device ? (prev.device === "tv") : (isNetflix ? (i === 5 || i > 4) : false);
+    const isChecked = prev ? prev.enabled : true;
+    const profNameVal = (prev && prev.name !== null) ? prev.name : `จอ ${i}`;
+    const autoSeqPin = generateScreenNumberPin(i, profNameVal);
+    const pinVal = (prev && prev.pin !== null) ? prev.pin : (isDisney ? autoSeqPin : "");
+
     const div = document.createElement("div");
     div.className = "prem-screen-card";
     div.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 6px;">
-          <input type="checkbox" class="acc-screen-enable-checkbox" checked title="เปิด/ปิด จอนี้">
+          <input type="checkbox" class="acc-screen-enable-checkbox" ${isChecked ? 'checked' : ''} title="เปิด/ปิด จอนี้">
           <span class="screen-row-badge">จอ ${i}</span>
         </div>
         <select class="acc-device-type-select prem-select-mini" style="max-width: 140px;">
@@ -2626,10 +2722,11 @@ function renderScreensInputs(count) {
           <option value="tv" ${isTv ? 'selected' : ''}>📺 สมาร์ททีวี</option>
         </select>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
-        <input type="text" class="acc-profile-input prem-input-mini" placeholder="ชื่อจอ เช่น จอ ${i}" value="จอ ${i}">
+      <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 6px; margin-top: 6px;">
+        <input type="text" class="acc-profile-input prem-input-mini" placeholder="ชื่อจอ เช่น จอ ${i}" value="${escapeHtml(profNameVal)}">
         <div style="display: flex; gap: 4px;">
-          <input type="text" class="acc-pin-input prem-input-mini" placeholder="รหัส PIN (ถ้ามี)">
+          <input type="text" class="acc-pin-input prem-input-mini" placeholder="รหัส PIN (ถ้ามี)" value="${escapeHtml(pinVal)}">
+          <button type="button" class="btn-seq-pin-mini prem-btn-icon" data-screen-idx="${i}" title="ตั้ง PIN ตามเลขจอ (${autoSeqPin})">🔢</button>
           <button type="button" class="btn-random-pin-mini prem-btn-icon" title="สุ่ม PIN">🎲</button>
         </div>
       </div>
@@ -3199,19 +3296,19 @@ function handleQuickPaste() {
   const multi = parseMultiAccountText(text);
   if (multi.length > 1) {
     const currentAppId = document.getElementById("acc-app-select")?.value;
+    const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
+    const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+    const isDisneyMulti = isDisneyAppObj(selectedApp);
     const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
-    const defaultPkg = appPackages[0] || null;
+    const defaultPkg = isDisneyMulti ? null : (appPackages[0] || null);
     const defaultPkgId = defaultPkg ? defaultPkg.id : "";
-    const defaultScreensCount = defaultPkg ? (defaultPkg.screens || 1) : 1;
+    const defaultScreensCount = isDisneyMulti ? 5 : (defaultPkg ? (defaultPkg.screens || 1) : (isNetflix ? 5 : 1));
 
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() + 30);
     defaultDate.setHours(23, 59, 0, 0);
     const pad = (n) => String(n).padStart(2, '0');
     const defaultExpiryVal = `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
-
-    const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
-    const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
 
     multiAccountEditMode = 'batch';
     batchMasterConfig.package_id = defaultPkgId;
@@ -3220,15 +3317,17 @@ function handleQuickPaste() {
     batchMasterConfig.screens_count = defaultScreensCount;
     batchMasterConfig.profiles = [];
     for (let i = 1; i <= defaultScreensCount; i++) {
-      const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-      batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+      const defaultDevice = isDisneyMulti ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
+      const defaultPin = isDisneyMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
 
     parsedBatchAccounts = multi.map(acc => {
       const profiles = [];
       for (let i = 1; i <= defaultScreensCount; i++) {
-        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-        profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+        const defaultDevice = isDisneyMulti ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
+        const defaultPin = isDisneyMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+        profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
       }
       return {
         email: acc.email,
@@ -3332,7 +3431,7 @@ function syncBatchMasterToAllAccounts() {
   });
 }
 
-function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
+function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney = false) {
   const panel = document.getElementById("multi-acc-batch-panel");
   if (!panel) return;
 
@@ -3342,7 +3441,12 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
     syncCountEl.textContent = `${syncCount} จาก ${parsedBatchAccounts.length} บัญชี`;
   }
 
-  // 1. Package Select
+  // 1. Package Select vs Disney+ Flexible Package Pill
+  const pkgGroup = document.getElementById("batch-master-package-group");
+  const disneyPkgInfo = document.getElementById("batch-master-disney-pkg-info");
+  if (pkgGroup) pkgGroup.style.display = isDisney ? "none" : "block";
+  if (disneyPkgInfo) disneyPkgInfo.style.display = isDisney ? "flex" : "none";
+
   const pkgSelect = document.getElementById("batch-master-package");
   if (pkgSelect) {
     let pkgOptions = `<option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>`;
@@ -3350,21 +3454,25 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
       pkgOptions += `<option value="${pkg.id}" ${batchMasterConfig.package_id === pkg.id ? 'selected' : ''}>${escapeHtml(pkg.name)} (${pkg.price} บาท • ${pkg.screens || 1} จอ)</option>`;
     });
     pkgSelect.innerHTML = pkgOptions;
+    if (isDisney) {
+      pkgSelect.value = "";
+      batchMasterConfig.package_id = "";
+    }
 
     pkgSelect.onchange = (e) => {
       const newPkgId = e.target.value;
       batchMasterConfig.package_id = newPkgId;
       const foundPkg = rawPackages.find(p => p.id === newPkgId);
-      const newScreensCount = foundPkg ? (foundPkg.screens || 1) : 1;
+      const newScreensCount = foundPkg ? (foundPkg.screens || 1) : (isNetflix || isDisney ? 5 : 1);
       batchMasterConfig.screens_count = newScreensCount;
 
       const newProfiles = [];
       for (let i = 1; i <= newScreensCount; i++) {
-        const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
+        const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
         const oldProf = batchMasterConfig.profiles[i - 1];
         newProfiles.push({
           name: oldProf?.name || `จอ ${i}`,
-          pin: oldProf?.pin || "",
+          pin: oldProf?.pin || (isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : ""),
           device_type: oldProf?.device_type || defaultDevice
         });
       }
@@ -3456,7 +3564,22 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix) {
   // 4. Profiles
   renderMasterBatchProfilesUI(isNetflix);
 
-  // 5. Random PINs button
+  // 5. Sequential Screen-Number PINs & Random PINs buttons
+  const seqPinBtn = document.getElementById("btn-batch-seq-pins");
+  if (seqPinBtn) {
+    seqPinBtn.onclick = (e) => {
+      e.preventDefault();
+      haptic();
+      batchMasterConfig.profiles.forEach((p, idx) => {
+        p.pin = generateScreenNumberPin(idx + 1, p.name);
+      });
+      syncBatchMasterToAllAccounts();
+      renderMasterBatchProfilesUI(isNetflix);
+      renderMultiAccountCardsOnly();
+      showToast("🔢 ตั้ง PIN ประจำจอ 4 หลัก (1111, 2222, ...) ให้ทุกจอทุกบัญชีเรียบร้อย!");
+    };
+  }
+
   const randomPinBtn = document.getElementById("btn-batch-random-pins");
   if (randomPinBtn) {
     randomPinBtn.onclick = (e) => {
@@ -3563,6 +3686,7 @@ function renderMultiAccountEditor() {
   const activeAppPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
   const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
   const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+  const isDisney = isDisneyAppObj(selectedApp);
 
   // Mode Switcher Controls
   const btnBatch = document.getElementById("btn-multi-mode-batch");
@@ -3602,8 +3726,10 @@ function renderMultiAccountEditor() {
     };
   }
 
-  // Initialize batchMasterConfig if uninitialized
-  if (batchMasterConfig.package_id === undefined && activeAppPackages.length > 0) {
+  // Initialize batchMasterConfig if uninitialized or adjust for Disney+
+  if (isDisney) {
+    batchMasterConfig.package_id = "";
+  } else if (batchMasterConfig.package_id === undefined && activeAppPackages.length > 0) {
     batchMasterConfig.package_id = activeAppPackages[0].id;
   }
   if (!batchMasterConfig.expiry_date) {
@@ -3617,18 +3743,19 @@ function renderMultiAccountEditor() {
     batchMasterConfig.status = "available";
   }
   if (!batchMasterConfig.profiles || batchMasterConfig.profiles.length === 0) {
-    const currentPkg = batchMasterConfig.package_id ? rawPackages.find(p => p.id === batchMasterConfig.package_id) : null;
-    const screensCount = currentPkg ? (currentPkg.screens || 1) : 1;
+    const currentPkg = (!isDisney && batchMasterConfig.package_id) ? rawPackages.find(p => p.id === batchMasterConfig.package_id) : null;
+    const screensCount = isDisney ? 5 : (currentPkg ? (currentPkg.screens || 1) : (isNetflix ? 5 : 1));
     batchMasterConfig.screens_count = screensCount;
     batchMasterConfig.profiles = [];
     for (let i = 1; i <= screensCount; i++) {
-      const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-      batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+      const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
+      const defaultPin = isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
   }
 
   if (multiAccountEditMode === "batch") {
-    renderMasterBatchPanelUI(activeAppPackages, isNetflix);
+    renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney);
     syncBatchMasterToAllAccounts();
   }
 
@@ -3644,9 +3771,12 @@ function renderMultiAccountCardsOnly() {
   const activeAppPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
   const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
   const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+  const isDisney = isDisneyAppObj(selectedApp);
 
   parsedBatchAccounts.forEach((acc, idx) => {
-    if (acc.package_id === undefined) {
+    if (isDisney) {
+      acc.package_id = "";
+    } else if (acc.package_id === undefined) {
       acc.package_id = batchMasterConfig.package_id !== undefined ? batchMasterConfig.package_id : (activeAppPackages[0]?.id || "");
     }
     if (!acc.expiry_date) {
@@ -3666,7 +3796,7 @@ function renderMultiAccountCardsOnly() {
     const isAlreadyInDb = !!existingDbAcc;
 
     const currentPkg = acc.package_id ? rawPackages.find(p => p.id === acc.package_id) : null;
-    const pkgName = currentPkg ? currentPkg.name : "-- ยังไม่กำหนดแพ็กเกจ --";
+    const pkgName = currentPkg ? currentPkg.name : (isDisney ? "🏰 แพ็กเกจอิสระ (เลือกตอนส่งมอบ)" : "-- ยังไม่กำหนดแพ็กเกจ --");
     const statusMap = { available: "🟢 ว่าง", used: "🟡 ใช้แล้ว", broken: "🔴 มีปัญหา" };
     const statusText = statusMap[acc.status] || acc.status;
 
@@ -3750,9 +3880,16 @@ function renderMultiAccountCardsOnly() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
           <div>
             <div class="multi-acc-field-label"><span>📦 แพ็กเกจ</span></div>
-            <select class="prem-select multi-acc-package" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
-              ${currentPkgOptions}
-            </select>
+            ${isDisney ? `
+              <div class="disney-flex-pkg-pill" style="min-height: 32px;">
+                <span style="font-size: 12px;">🏰</span>
+                <span style="font-size: 10px; font-weight: 700; color: #7dd3fc;">เลือกอิสระตอนส่งมอบจอ</span>
+              </div>
+            ` : `
+              <select class="prem-select multi-acc-package" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+                ${currentPkgOptions}
+              </select>
+            `}
           </div>
           <div>
             <div class="multi-acc-field-label"><span>📅 วันหมดอายุ</span></div>
@@ -3971,12 +4108,16 @@ function renderMultiAccountCardsOnly() {
 function renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix) {
   if (!containerEl || !acc.profiles) return;
   containerEl.innerHTML = `
-    <div style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; display: flex; justify-content: space-between;">
+    <div style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; gap: 4px; flex-wrap: wrap;">
       <span>👥 โปรไฟล์ / จอ (${acc.profiles.length} จอ)</span>
+      <div style="display: flex; gap: 4px;">
+        <button type="button" class="btn-seq-pin-multi btn-card-seq-pins" title="ตั้ง PIN ตามเลขจอ (1111, 2222, ...)">🔢 PIN ตามจอ</button>
+        <button type="button" class="btn-random-pw-multi btn-card-rand-pins" title="สุ่ม PIN 4 หลักให้ทุกจอในบัญชีนี้">🎲 สุ่ม PIN</button>
+      </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
       ${acc.profiles.map((prof, profIdx) => {
-        const defaultDevice = prof.device_type || (profIdx >= 4 ? 'tv' : 'mobile');
+        const defaultDevice = prof.device_type || (isNetflix && profIdx >= 4 ? 'tv' : 'mobile');
         return `
           <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; align-items: center; background: rgba(0, 0, 0, 0.25); padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
             <input type="text" class="prem-input card-profile-name" data-card-idx="${cardIdx}" data-prof-idx="${profIdx}" placeholder="ชื่อจอ (เช่น จอ ${profIdx + 1})" value="${escapeHtml(prof.name || '')}" style="margin-bottom:0; font-size: 10px; padding: 3px 6px; height: 24px; border-radius: 5px;">
@@ -3990,6 +4131,32 @@ function renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix) {
       }).join('')}
     </div>
   `;
+
+  const seqPinsBtn = containerEl.querySelector(".btn-card-seq-pins");
+  if (seqPinsBtn) {
+    seqPinsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      haptic();
+      acc.profiles.forEach((p, idx) => {
+        p.pin = generateScreenNumberPin(idx + 1, p.name);
+      });
+      renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix);
+      showToast(`🔢 ตั้ง PIN ประจำจอให้บัญชีที่ ${cardIdx + 1} เรียบร้อย!`);
+    });
+  }
+
+  const randPinsBtn = containerEl.querySelector(".btn-card-rand-pins");
+  if (randPinsBtn) {
+    randPinsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      haptic();
+      acc.profiles.forEach(p => {
+        p.pin = generateRandomPin();
+      });
+      renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix);
+      showToast(`🎲 สุ่ม PIN ให้บัญชีที่ ${cardIdx + 1} เรียบร้อย!`);
+    });
+  }
 
   containerEl.querySelectorAll(".card-profile-name").forEach(input => {
     input.addEventListener("input", (e) => {
@@ -4015,10 +4182,13 @@ function renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix) {
 
 function addNewMultiAccountRow() {
   const currentAppId = document.getElementById("acc-app-select")?.value;
+  const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
+  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+  const isDisney = isDisneyAppObj(selectedApp);
   const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
-  const defaultPkgId = batchMasterConfig.package_id || (appPackages[0] ? appPackages[0].id : "");
-  const defaultPkg = defaultPkgId ? rawPackages.find(p => p.id === defaultPkgId) : (appPackages[0] || null);
-  const defaultScreensCount = defaultPkg ? (defaultPkg.screens || 1) : (batchMasterConfig.screens_count || 1);
+  const defaultPkgId = isDisney ? "" : (batchMasterConfig.package_id || (appPackages[0] ? appPackages[0].id : ""));
+  const defaultPkg = (!isDisney && defaultPkgId) ? rawPackages.find(p => p.id === defaultPkgId) : (!isDisney ? (appPackages[0] || null) : null);
+  const defaultScreensCount = isDisney ? 5 : (defaultPkg ? (defaultPkg.screens || 1) : (batchMasterConfig.screens_count || (isNetflix ? 5 : 1)));
 
   const defaultExpiryVal = batchMasterConfig.expiry_date || (() => {
     const defaultDate = new Date();
@@ -4028,16 +4198,14 @@ function addNewMultiAccountRow() {
     return `${defaultDate.getFullYear()}-${pad(defaultDate.getMonth() + 1)}-${pad(defaultDate.getDate())}T23:59`;
   })();
 
-  const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
-  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
-
   const profiles = [];
   if (batchMasterConfig.profiles && batchMasterConfig.profiles.length > 0) {
     profiles.push(...JSON.parse(JSON.stringify(batchMasterConfig.profiles)));
   } else {
     for (let i = 1; i <= defaultScreensCount; i++) {
-      const defaultDevice = isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv');
-      profiles.push({ name: `จอ ${i}`, pin: "", device_type: defaultDevice });
+      const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
+      const defaultPin = isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
   }
 
@@ -4561,7 +4729,9 @@ async function submitAccountForm() {
   const email = emailInput ? emailInput.value.trim() : "";
   const password = passwordInput ? passwordInput.value.trim() : "";
   const appId = document.getElementById("acc-app-select")?.value;
-  const packageId = document.getElementById("acc-package-select")?.value || null;
+  const selectedAppObj = rawApps.find(a => a.id === appId);
+  const isDisneySelected = isDisneyAppObj(selectedAppObj);
+  const packageId = isDisneySelected ? null : (document.getElementById("acc-package-select")?.value || null);
   const status = document.getElementById("acc-status")?.value || "available";
   const expiryRaw = document.getElementById("acc-expiry")?.value;
   const otpUrl = document.getElementById("acc-otp-link")?.value.trim() || null;
@@ -4617,7 +4787,7 @@ async function submitAccountForm() {
     // Save multiple accounts from parsedBatchAccounts
     parsedBatchAccounts.forEach(acc => {
       const accExpiryISO = acc.expiry_date ? new Date(acc.expiry_date).toISOString() : expiryISO;
-      const accPkgId = (acc.package_id && acc.package_id !== "") ? acc.package_id : null;
+      const accPkgId = isDisneySelected ? null : ((acc.package_id && acc.package_id !== "") ? acc.package_id : null);
       if (acc.profiles && acc.profiles.length > 0) {
         acc.profiles.forEach((prof, profIdx) => {
           records.push({
@@ -4755,11 +4925,9 @@ function resetStockForm() {
   const phoneInput = document.getElementById("acc-phone");
   if (phoneInput) phoneInput.value = "";
 
-  const pkgSelect = document.getElementById("acc-package-select");
-  if (pkgSelect && pkgSelect.options.length > 0) {
-    pkgSelect.selectedIndex = 0;
-    onStockFormPackageSelected(null);
-  }
+  const screensContainer = document.getElementById("acc-screens-container");
+  if (screensContainer) delete screensContainer.dataset.lastAppId;
+  updateStockFormPackages();
 }
 
 function initStockFormEventListeners() {
@@ -4779,6 +4947,26 @@ function initStockFormEventListeners() {
       syncAccAppCustomSelect();
       updateStockFormPackages();
       if (parsedBatchAccounts && parsedBatchAccounts.length > 0) {
+        const newAppObj = rawApps.find(a => a.id === appSelect.value);
+        const isDisneyNew = isDisneyAppObj(newAppObj);
+        const isNetflixNew = newAppObj && (newAppObj.name || "").toLowerCase().includes("netflix");
+        const appPkgs = rawPackages.filter(p => p.app_id === appSelect.value);
+        const nextPkgId = isDisneyNew ? "" : (appPkgs[0]?.id || "");
+        const nextPkg = (!isDisneyNew && nextPkgId) ? appPkgs[0] : null;
+        const nextCount = isDisneyNew ? 5 : (nextPkg ? (nextPkg.screens || 1) : (isNetflixNew ? 5 : 1));
+
+        batchMasterConfig.package_id = nextPkgId;
+        batchMasterConfig.screens_count = nextCount;
+        batchMasterConfig.profiles = [];
+        for (let i = 1; i <= nextCount; i++) {
+          const defDev = isDisneyNew ? "mobile" : (isNetflixNew ? (i <= 4 ? "mobile" : "tv") : (i <= 3 ? "mobile" : "tv"));
+          const defPin = isDisneyNew ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+          batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defPin, device_type: defDev });
+        }
+        parsedBatchAccounts.forEach(acc => {
+          acc.package_id = nextPkgId;
+          acc.profiles = JSON.parse(JSON.stringify(batchMasterConfig.profiles));
+        });
         renderMultiAccountEditor();
       }
     });
@@ -4917,10 +5105,65 @@ function initStockFormEventListeners() {
     });
   });
 
-  // Event delegation for random PIN inside screens container
+  // Quick PIN buttons above screens container (Single-Account Mode)
+  const btnSeqPinAllForm = document.getElementById("btn-seq-pin-all-form");
+  if (btnSeqPinAllForm) {
+    btnSeqPinAllForm.addEventListener("click", () => {
+      haptic();
+      const cards = document.querySelectorAll("#acc-screens-container .prem-screen-card");
+      if (!cards.length) return;
+      const samplePins = [];
+      cards.forEach((card, idx) => {
+        const profName = card.querySelector(".acc-profile-input")?.value || `จอ ${idx + 1}`;
+        const pinInput = card.querySelector(".acc-pin-input");
+        const seqPin = generateScreenNumberPin(idx + 1, profName);
+        if (pinInput) pinInput.value = seqPin;
+        if (samplePins.length < 3) samplePins.push(seqPin);
+      });
+      showToast(`🔢 สร้าง PIN ประจำจออัตโนมัติ (${samplePins.join(", ")}${cards.length > 3 ? ", ..." : ""}) เรียบร้อย!`);
+    });
+  }
+
+  const btnRandomPinAllForm = document.getElementById("btn-random-pin-all-form");
+  if (btnRandomPinAllForm) {
+    btnRandomPinAllForm.addEventListener("click", () => {
+      haptic();
+      const pinInputs = document.querySelectorAll("#acc-screens-container .acc-pin-input");
+      if (!pinInputs.length) return;
+      pinInputs.forEach(inp => { inp.value = generateRandomPin(); });
+      showToast(`🎲 สุ่มรหัส PIN 4 หลักให้ทั้ง ${pinInputs.length} จอเรียบร้อย!`);
+    });
+  }
+
+  const btnClearPinAllForm = document.getElementById("btn-clear-pin-all-form");
+  if (btnClearPinAllForm) {
+    btnClearPinAllForm.addEventListener("click", () => {
+      haptic();
+      const pinInputs = document.querySelectorAll("#acc-screens-container .acc-pin-input");
+      pinInputs.forEach(inp => { inp.value = ""; });
+      showToast("🧹 ล้างรหัส PIN ทุกจอเรียบร้อย");
+    });
+  }
+
+  // Event delegation for per-screen sequential PIN & random PIN inside screens container
   const screensContainer = document.getElementById("acc-screens-container");
   if (screensContainer) {
     screensContainer.addEventListener("click", (e) => {
+      const seqBtn = e.target.closest(".btn-seq-pin-mini");
+      if (seqBtn) {
+        haptic();
+        const card = seqBtn.closest(".prem-screen-card");
+        const pinInput = card?.querySelector(".acc-pin-input");
+        const profInput = card?.querySelector(".acc-profile-input");
+        const screenIdx = parseInt(seqBtn.dataset.screenIdx, 10) || 1;
+        if (pinInput) {
+          const seqPin = generateScreenNumberPin(screenIdx, profInput?.value || "");
+          pinInput.value = seqPin;
+          showToast(`🔢 ตั้ง PIN ประจำจอ: ${seqPin}`);
+        }
+        return;
+      }
+
       const pinBtn = e.target.closest(".btn-random-pin-mini");
       if (pinBtn) {
         haptic();
@@ -6170,6 +6413,22 @@ function initTroubleshootingModalListeners() {
       if (input) input.value = generateRandomPassword();
     });
   }
+  const editSeqPinBtn = document.getElementById("btn-edit-seq-pin");
+  if (editSeqPinBtn) {
+    editSeqPinBtn.addEventListener("click", () => {
+      haptic();
+      const input = document.getElementById("edit-creds-pin");
+      const profInput = document.getElementById("edit-creds-profile");
+      let fallbackIdx = 1;
+      if (editCredsContext.mode === "stock" && editCredsContext.screens?.length) {
+        const foundIdx = editCredsContext.screens.findIndex(s => s.id === editCredsContext.selectedScreenId);
+        if (foundIdx >= 0) fallbackIdx = foundIdx + 1;
+      }
+      const seqPin = generateScreenNumberPin(fallbackIdx, profInput?.value || "");
+      if (input) input.value = seqPin;
+      showToast(`🔢 ตั้ง PIN ตามเลขจอ: ${seqPin}`);
+    });
+  }
   const editRandomPinBtn = document.getElementById("btn-edit-random-pin");
   if (editRandomPinBtn) {
     editRandomPinBtn.addEventListener("click", () => {
@@ -6182,6 +6441,28 @@ function initTroubleshootingModalListeners() {
     editClearPinBtn.addEventListener("click", () => {
       const input = document.getElementById("edit-creds-pin");
       if (input) input.value = "";
+    });
+  }
+
+  const seqAllPinsBtn = document.getElementById("btn-edit-seq-all-pins");
+  if (seqAllPinsBtn) {
+    seqAllPinsBtn.addEventListener("click", () => {
+      haptic();
+      if (!editCredsContext.screens || editCredsContext.screens.length === 0) return;
+      editCredsContext.screens.forEach((s, idx) => {
+        const pName = editCredsContext.screenEdits[s.id]?.profileName || s.profile_name || `จอ ${idx + 1}`;
+        const seqP = generateScreenNumberPin(idx + 1, pName);
+        editCredsContext.randomizedPinsMap[s.id] = seqP;
+        if (!editCredsContext.screenEdits[s.id]) editCredsContext.screenEdits[s.id] = {};
+        editCredsContext.screenEdits[s.id].pinCode = seqP;
+      });
+      const activeScreenId = editCredsContext.selectedScreenId;
+      const currentPinInput = document.getElementById("edit-creds-pin");
+      if (currentPinInput && activeScreenId && editCredsContext.randomizedPinsMap[activeScreenId]) {
+        currentPinInput.value = editCredsContext.randomizedPinsMap[activeScreenId];
+      }
+      renderScreenSelectOptions(editCredsContext.screens, activeScreenId);
+      showToast(`🔢 ตั้ง PIN ประจำจอ (1111, 2222, ...) ให้ทุกจอ (${editCredsContext.screens.length} จอ) เรียบร้อย!`);
     });
   }
 
@@ -8446,6 +8727,8 @@ function openSendBindModal(screenDataset, btnEl = null) {
     screenId,
     pkgName,
     basePkgName: pkgName,
+    selectedPkgId: null,
+    isExplicitPkgSelected: false,
     deviceType,
     targetAcc,
     btnEl
@@ -8487,12 +8770,10 @@ function openSendBindModal(screenDataset, btnEl = null) {
         <span>${pinTxt.includes('PIN') ? '🔒' : '🔓'}</span>
         <span class="detail-val">${escapeHtml(pinTxt)}</span>
       </div>
-      ${pkgName ? `
-        <div class="detail-row">
-          <span>📦 แพ็กเกจ:</span>
-          <span id="send-bind-preview-pkg-name" style="color: #cbd5e1; font-weight: 600;">${escapeHtml(pkgName)}</span>
-        </div>
-      ` : ''}
+      <div class="detail-row">
+        <span>📦 แพ็กเกจ:</span>
+        <span id="send-bind-preview-pkg-name" style="color: #7dd3fc; font-weight: 700;">${escapeHtml(pkgName || 'เลือกแพ็กเกจด้านล่าง')}</span>
+      </div>
     </div>
   `;
 
@@ -8512,28 +8793,14 @@ function openSendBindModal(screenDataset, btnEl = null) {
     } catch (e) {}
   }, 100);
 
-  // Set default days & sync calendar expiry preview
-  const defaultDays = getPackageDays(pkgName, appId) || 30;
-  daysInput.value = defaultDays;
-  updateQuickDayChips(defaultDays);
-  syncSendBindExpiryFromDays(defaultDays);
-
-  // Set price
-  let defaultPrice = 0;
-  if (rawPackages && rawPackages.length > 0) {
-    const pkg = rawPackages.find(p => p.name === pkgName && (!appId || p.app_id === appId)) || rawPackages.find(p => p.name === pkgName);
-    if (pkg && pkg.price) defaultPrice = pkg.price;
-  }
-  priceInput.value = defaultPrice;
-
-  // Set device (Disney+ separates every device: มือถือ | สมาร์ททีวี | ไอแพด | คอมพิวเตอร์)
-  const isDisneyApp = /disney|hotstar/i.test(appName || "");
+  // Set device first (Disney+ separates every device: มือถือ | สมาร์ททีวี | ไอแพด | คอมพิวเตอร์)
+  const isDisneyApp = isDisneyAppObj(appName);
   renderDeviceChipsForContainer("send-bind-device-chips", deviceSelect, isDisneyApp, true);
+  let targetDevice = "มือถือ/แท็บเล็ต/PC/iPad";
   if (deviceSelect) {
-    let targetDevice = "มือถือ/แท็บเล็ต/PC/iPad";
     const devLower = (deviceType || "").toLowerCase();
     const scrLower = (screenName || "").toLowerCase();
-    const isTv = devLower.includes("tv") || devLower.includes("ทีวี") || scrLower.includes("tv") || /จอ\s*5/.test(screenName || "");
+    const isTv = devLower.includes("tv") || devLower.includes("ทีวี") || scrLower.includes("tv") || (!isDisneyApp && /จอ\s*5/.test(screenName || ""));
     if (isDisneyApp) {
       if (isTv) {
         targetDevice = "สมาร์ททีวี";
@@ -8550,9 +8817,26 @@ function openSendBindModal(screenDataset, btnEl = null) {
     }
     deviceSelect.value = targetDevice;
     updateSendBindDeviceUI(targetDevice);
-    syncSendBindPackageForDaysAndDevice(defaultDays, targetDevice, { updatePrice: false });
+  }
+
+  // Populate flexible package selector & quick package pills for this app
+  const initialPkg = populateSendBindPackageSelector(appId, appName, pkgName, targetDevice);
+  if (initialPkg) {
+    applySendBindSelectedPackage(initialPkg.id, { syncFields: true });
   } else {
-    syncSendBindPackageForDaysAndDevice(defaultDays, deviceType, { updatePrice: false });
+    // Fallback when app has no preset packages or custom package string
+    const defaultDays = getPackageDays(pkgName, appId) || 30;
+    daysInput.value = defaultDays;
+    updateQuickDayChips(defaultDays);
+    syncSendBindExpiryFromDays(defaultDays);
+
+    let defaultPrice = 0;
+    if (rawPackages && rawPackages.length > 0 && pkgName) {
+      const pkg = rawPackages.find(p => p.name === pkgName && (!appId || p.app_id === appId)) || rawPackages.find(p => p.name === pkgName);
+      if (pkg && pkg.price) defaultPrice = pkg.price;
+    }
+    priceInput.value = defaultPrice;
+    syncSendBindPackageForDaysAndDevice(defaultDays, targetDevice, { updatePrice: false });
   }
 
   // Reset confirm button state
@@ -8787,9 +9071,218 @@ function resolvePackageForDaysAndDevice(appId, appName, basePkgName, daysVal, de
   return { pkgName: `แพ็กเกจ ${days} วัน`, price: null, matchedPkg: null };
 }
 
+function getSendBindAppPackages(appId, appName) {
+  if (!Array.isArray(rawPackages) || rawPackages.length === 0) return [];
+  const appLower = (appName || "").trim().toLowerCase();
+  return rawPackages.filter(p => {
+    if (appId && p.app_id === appId) return true;
+    if (appLower && Array.isArray(rawApps)) {
+      const pApp = rawApps.find(a => a.id === p.app_id);
+      const pAppName = (pApp?.name || "").toLowerCase();
+      const pAppDisp = (pApp?.display_name || "").toLowerCase();
+      return pAppName === appLower || pAppDisp === appLower;
+    }
+    return false;
+  });
+}
+
+function populateSendBindPackageSelector(appId, appName, initialPkgName = "", initialDevice = "") {
+  const pkgSection = document.getElementById("send-bind-pkg-section");
+  const pkgSelect = document.getElementById("send-bind-pkg-select");
+  const pkgChips = document.getElementById("send-bind-pkg-chips");
+  const modeBadge = document.getElementById("send-bind-pkg-mode-badge");
+  if (!pkgSelect) return null;
+
+  const appPackages = getSendBindAppPackages(appId, appName);
+  const isDisney = isDisneyAppObj(appName);
+
+  if (pkgSection) {
+    pkgSection.style.display = "block";
+  }
+  if (modeBadge) {
+    modeBadge.textContent = isDisney
+      ? `🏰 เลือกอิสระ (${appPackages.length} แพ็กเกจ)`
+      : (appPackages.length > 0 ? `ปรับเปลี่ยนได้อิสระ (${appPackages.length})` : "กำหนดเองอิสระ");
+  }
+
+  let selectHtml = "";
+  appPackages.forEach(pkg => {
+    const pDays = pkg.days || getPackageDays(pkg.name, pkg.app_id) || 30;
+    const pPrice = (pkg.price !== undefined && pkg.price !== null) ? `${pkg.price}฿` : "0฿";
+    selectHtml += `<option value="${escapeHtml(pkg.id)}">${escapeHtml(pkg.name)} (${pPrice} • ${pDays} วัน)</option>`;
+  });
+  selectHtml += `<option value="__CUSTOM__">✨ กำหนดเองอิสระ (ตามจำนวนวันและอุปกรณ์)</option>`;
+  pkgSelect.innerHTML = selectHtml;
+
+  // Determine initial selected package
+  let matchedPkg = null;
+  if (initialPkgName) {
+    matchedPkg = appPackages.find(p => (p.name || "").trim() === initialPkgName.trim()) || null;
+  } else if (appPackages.length > 0) {
+    // Unassigned stock (e.g. Disney+): pre-select best matching package for initial device, or first package
+    const devLower = (initialDevice || "").toLowerCase();
+    const wantsTv = /ทีวี|tv/.test(devLower) && !/มือถือ/.test(devLower);
+    if (wantsTv) {
+      matchedPkg = appPackages.find(p => /ทีวี|\btv\b/i.test(p.name || "") && !/มือถือ/i.test(p.name || "")) || appPackages[0];
+    } else {
+      matchedPkg = appPackages.find(p => !(/ทีวี|\btv\b/i.test(p.name || "") && !/มือถือ/i.test(p.name || ""))) || appPackages[0];
+    }
+  }
+
+  const activePkgId = matchedPkg ? matchedPkg.id : "__CUSTOM__";
+  pkgSelect.value = activePkgId;
+
+  if (pkgChips) {
+    if (appPackages.length > 0) {
+      pkgChips.innerHTML = appPackages.map(pkg => {
+        const isActive = pkg.id === activePkgId;
+        const pPrice = (pkg.price !== undefined && pkg.price !== null) ? `${pkg.price}฿` : "";
+        return `
+          <button type="button" class="btn-send-bind-pkg-chip${isActive ? " active" : ""}" data-pkg-id="${escapeHtml(pkg.id)}" title="${escapeHtml(pkg.name)}">
+            <span class="pkg-chip-name">${escapeHtml(pkg.name)}</span>
+            ${pPrice ? `<span class="pkg-chip-price">${escapeHtml(pPrice)}</span>` : ""}
+          </button>
+        `;
+      }).join("");
+    } else {
+      pkgChips.innerHTML = "";
+    }
+  }
+
+  return matchedPkg;
+}
+
+function updateSendBindPkgUI(activePkgId) {
+  const pkgSelect = document.getElementById("send-bind-pkg-select");
+  if (pkgSelect && pkgSelect.value !== activePkgId) {
+    const hasOpt = Array.from(pkgSelect.options).some(o => o.value === activePkgId);
+    pkgSelect.value = hasOpt ? activePkgId : "__CUSTOM__";
+  }
+  const pkgChips = document.getElementById("send-bind-pkg-chips");
+  if (pkgChips) {
+    pkgChips.querySelectorAll(".btn-send-bind-pkg-chip").forEach(chip => {
+      chip.classList.toggle("active", chip.dataset.pkgId === activePkgId);
+    });
+  }
+}
+
+function isPackageCompatibleWithDevice(pkgName, deviceVal, isDisney) {
+  const n = (pkgName || "").toLowerCase();
+  const d = (deviceVal || "").toLowerCase();
+  if (!n || !d) return true;
+
+  const pkgIsTvOnly = /สมาร์ททีวี|ทีวี|\btv\b/.test(n) && !/มือถือ/.test(n);
+  const pkgIsComboNonTv = /มือถือ/.test(n) && !pkgIsTvOnly;
+
+  if (isDisney) {
+    if (d === "สมาร์ททีวี") return pkgIsTvOnly || /ทุกอุปกรณ์|all/.test(n);
+    if (pkgIsTvOnly) return false;
+    if (pkgIsComboNonTv) return true; // Covers มือถือ, ไอแพด, คอมพิวเตอร์
+  } else {
+    if (/tv\s*\/\s*pc/.test(d)) return pkgIsTvOnly || /คอม|\bpc\b/.test(n) || /ทุกอุปกรณ์|all/.test(n);
+    if (pkgIsTvOnly) return false;
+  }
+  return true;
+}
+
+function applySendBindSelectedPackage(pkgId, options = {}) {
+  if (!currentSendBindContext) return;
+  const { syncFields = true } = options;
+
+  if (!pkgId || pkgId === "__CUSTOM__") {
+    currentSendBindContext.selectedPkgId = "__CUSTOM__";
+    currentSendBindContext.isExplicitPkgSelected = false;
+    updateSendBindPkgUI("__CUSTOM__");
+    const daysVal = document.getElementById("send-bind-days")?.value || 30;
+    const devVal = document.getElementById("send-bind-device")?.value || "";
+    syncSendBindPackageForDaysAndDevice(daysVal, devVal, { updatePrice: false });
+    return;
+  }
+
+  const pkg = (rawPackages || []).find(p => String(p.id) === String(pkgId));
+  if (!pkg) return;
+
+  currentSendBindContext.selectedPkgId = pkg.id;
+  currentSendBindContext.pkgName = pkg.name;
+  currentSendBindContext.basePkgName = pkg.name;
+  currentSendBindContext.isExplicitPkgSelected = true;
+
+  updateSendBindPkgUI(pkg.id);
+
+  const previewPkgEl = document.getElementById("send-bind-preview-pkg-name");
+  if (previewPkgEl) {
+    previewPkgEl.textContent = pkg.name;
+  }
+
+  if (syncFields) {
+    const pkgDays = pkg.days || getPackageDays(pkg.name, pkg.app_id) || 30;
+    const daysInput = document.getElementById("send-bind-days");
+    if (daysInput) daysInput.value = pkgDays;
+    updateQuickDayChips(pkgDays);
+    syncSendBindExpiryFromDays(pkgDays);
+
+    const priceInput = document.getElementById("send-bind-price");
+    if (priceInput && pkg.price !== undefined && pkg.price !== null) {
+      priceInput.value = pkg.price;
+    }
+
+    const deviceSelect = document.getElementById("send-bind-device");
+    const isDisney = isDisneyAppObj(currentSendBindContext.appName);
+    const pLower = (pkg.name || "").toLowerCase();
+    const pkgIsTvOnly = /สมาร์ททีวี|ทีวี|\btv\b/.test(pLower) && !/มือถือ/.test(pLower);
+
+    if (deviceSelect) {
+      const currentDev = deviceSelect.value || "";
+      let nextDev = currentDev;
+      if (isDisney) {
+        if (pkgIsTvOnly) {
+          nextDev = "สมาร์ททีวี";
+        } else if (/ไอแพด|ipad/.test(pLower) && !/มือถือ/.test(pLower)) {
+          nextDev = "ไอแพด";
+        } else if ((/คอมพิวเตอร์/.test(pLower) || /คอม|\bpc\b/.test(pLower)) && !/มือถือ|ทีวี|tv/.test(pLower)) {
+          nextDev = "คอมพิวเตอร์";
+        } else if (currentDev === "สมาร์ททีวี" || !currentDev) {
+          nextDev = "มือถือ";
+        }
+      } else {
+        if (pkgIsTvOnly) {
+          nextDev = "TV / PC";
+        } else if (/ทุกอุปกรณ์|all/.test(pLower)) {
+          nextDev = "ทุกอุปกรณ์";
+        } else {
+          nextDev = "มือถือ/แท็บเล็ต/PC/iPad";
+        }
+      }
+
+      if (nextDev && nextDev !== currentDev) {
+        deviceSelect.value = nextDev;
+        updateSendBindDeviceUI(nextDev);
+      }
+    }
+  }
+}
+
 function syncSendBindPackageForDaysAndDevice(daysVal, deviceVal, options = {}) {
   if (!currentSendBindContext) return;
   const { updatePrice = true } = options;
+  const days = Math.max(1, parseInt(daysVal, 10) || 30);
+  const isDisney = isDisneyAppObj(currentSendBindContext.appName);
+
+  // If an explicit package is currently selected and ALREADY matches days + device category, preserve it!
+  if (currentSendBindContext.isExplicitPkgSelected && currentSendBindContext.selectedPkgId && currentSendBindContext.selectedPkgId !== "__CUSTOM__") {
+    const selectedPkg = (rawPackages || []).find(p => String(p.id) === String(currentSendBindContext.selectedPkgId));
+    if (selectedPkg) {
+      const selDays = Number(selectedPkg.days || getPackageDays(selectedPkg.name, selectedPkg.app_id) || 30);
+      if (selDays === days && isPackageCompatibleWithDevice(selectedPkg.name, deviceVal, isDisney)) {
+        currentSendBindContext.pkgName = selectedPkg.name;
+        const previewPkgEl = document.getElementById("send-bind-preview-pkg-name");
+        if (previewPkgEl) previewPkgEl.textContent = selectedPkg.name;
+        updateSendBindPkgUI(selectedPkg.id);
+        return;
+      }
+    }
+  }
+
   const basePkg = currentSendBindContext.basePkgName ?? currentSendBindContext.pkgName;
   const resolved = resolvePackageForDaysAndDevice(
     currentSendBindContext.appId,
@@ -8800,6 +9293,14 @@ function syncSendBindPackageForDaysAndDevice(daysVal, deviceVal, options = {}) {
   );
 
   currentSendBindContext.pkgName = resolved.pkgName;
+  if (resolved.matchedPkg) {
+    currentSendBindContext.selectedPkgId = resolved.matchedPkg.id;
+    currentSendBindContext.basePkgName = resolved.matchedPkg.name;
+    currentSendBindContext.isExplicitPkgSelected = true;
+    updateSendBindPkgUI(resolved.matchedPkg.id);
+  } else {
+    updateSendBindPkgUI("__CUSTOM__");
+  }
 
   const previewPkgEl = document.getElementById("send-bind-preview-pkg-name");
   if (previewPkgEl) {
