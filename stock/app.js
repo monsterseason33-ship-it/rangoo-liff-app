@@ -57,12 +57,32 @@ function isDisneyAppObj(appOrName) {
   return /disney|hotstar/i.test(appOrName.name || "") || /disney|hotstar/i.test(appOrName.display_name || "");
 }
 
+function isNetflixAppObj(appOrName) {
+  if (!appOrName) return false;
+  if (typeof appOrName === "string") return /netflix/i.test(appOrName);
+  return /netflix/i.test(appOrName.name || "") || /netflix/i.test(appOrName.display_name || "");
+}
+
+function isFlexibleStockAppObj(appOrName) {
+  return isDisneyAppObj(appOrName) || isNetflixAppObj(appOrName);
+}
+
 function isDisneyAccountRecord(acc) {
   if (!acc) return false;
   if (isDisneyAppObj(acc.app_name || "")) return true;
   if (acc.app_id && Array.isArray(rawApps)) {
     const appObj = rawApps.find(a => a.id === acc.app_id);
     if (appObj && isDisneyAppObj(appObj)) return true;
+  }
+  return false;
+}
+
+function isFlexibleStockAccountRecord(acc) {
+  if (!acc) return false;
+  if (isFlexibleStockAppObj(acc.app_name || "")) return true;
+  if (acc.app_id && Array.isArray(rawApps)) {
+    const appObj = rawApps.find(a => a.id === acc.app_id);
+    if (appObj && isFlexibleStockAppObj(appObj)) return true;
   }
   return false;
 }
@@ -1604,7 +1624,7 @@ function renderStockFeed() {
 
     if (validEmailKeys.length === 0) return;
 
-    const isDisneyGroup = isDisneyAppObj(group.appName);
+    const isFlexibleGroup = isFlexibleStockAppObj(group.appName);
 
     html += `
       <div class="group-card" style="--brand-color: ${theme.color}; --brand-gradient: ${theme.gradient}; --brand-border: ${theme.border};">
@@ -1616,8 +1636,8 @@ function renderStockFeed() {
             </div>
             ${group.pkgName ? 
               `<span class="group-pkg-name btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเปลี่ยนแพ็กเกจ & ปรับจำนวนจอ">[${escapeHtml(group.pkgName)}] <span class="pkg-edit-icon">✏️</span></span>` : 
-              (isDisneyGroup ?
-                `<span class="group-pkg-name disney-flex btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="แพ็กเกจอิสระ: เลือกประเภทแพ็กเกจได้ตอนส่งมอบจอ">[🏰 แพ็กเกจอิสระ • เลือกตอนส่งมอบ]</span>` :
+              (isFlexibleGroup ?
+                `<span class="group-pkg-name disney-flex btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="แพ็กเกจอิสระ: เลือกประเภทแพ็กเกจได้ตอนส่งมอบจอ">[${theme.icon} แพ็กเกจอิสระ • เลือกตอนส่งมอบ]</span>` :
                 `<span class="group-pkg-name unassigned btn-open-pkg-picker" data-group-key="${escapeHtml(groupKey)}" data-app-id="${escapeHtml(group.appId)}" title="คลิกเพื่อเลือกแพ็กเกจ & ปรับจำนวนจอ">[⚠️ ยังไม่กำหนดแพ็คเกจ ▾]</span>`
               )
             }
@@ -1736,17 +1756,17 @@ function renderStockFeed() {
             <!-- Package row -->
             <div class="acc-pkg-row">
               <span class="cred-label">📦 แพ็กเกจ:</span>
-              <span class="acc-pkg-chip btn-open-pkg-picker ${group.pkgName ? '' : (isDisneyGroup ? 'disney-flex' : 'unassigned')}" 
+              <span class="acc-pkg-chip btn-open-pkg-picker ${group.pkgName ? '' : (isFlexibleGroup ? 'disney-flex' : 'unassigned')}" 
                     data-group-key="${escapeHtml(groupKey)}" 
                     data-email="${escapeHtml(acc.email)}" 
-                    title="${isDisneyGroup && !group.pkgName ? 'เลือกประเภทแพ็กเกจได้อย่างอิสระในขั้นตอนการส่งมอบจอ' : 'คลิกเพื่อเปลี่ยนแพ็กเกจเฉพาะบัญชีนี้'}">
-                ${group.pkgName ? `<span>${escapeHtml(group.pkgName)}</span> <span>✏️</span>` : (isDisneyGroup ? `<span>✨ เลือกแพ็กเกจอิสระตอนส่งมอบ</span>` : `<span>⚠️ ยังไม่กำหนดแพ็คเกจ ▾</span>`)}
+                    title="${isFlexibleGroup && !group.pkgName ? 'เลือกประเภทแพ็กเกจได้อย่างอิสระในขั้นตอนการส่งมอบจอ' : 'คลิกเพื่อเปลี่ยนแพ็กเกจเฉพาะบัญชีนี้'}">
+                ${group.pkgName ? `<span>${escapeHtml(group.pkgName)}</span> <span>✏️</span>` : (isFlexibleGroup ? `<span>✨ เลือกแพ็กเกจอิสระตอนส่งมอบ</span>` : `<span>⚠️ ยังไม่กำหนดแพ็คเกจ ▾</span>`)}
               </span>
             </div>
           </div>
 
-          <!-- Screens Slot List (Hidden with CTA when package is unassigned, EXCEPT Disney+ which uses flexible delivery packages) -->
-          ${!group.pkgName && !isDisneyGroup && !isAccountBroken ? `
+          <!-- Screens Slot List (Hidden with CTA when package is unassigned, EXCEPT Disney+ & Netflix which use flexible delivery packages) -->
+          ${!group.pkgName && !isFlexibleGroup && !isAccountBroken ? `
           <div class="screens-section screens-unassigned-box">
             <div class="unassigned-box-header">
               <span class="unassigned-box-icon">⏳</span>
@@ -2099,7 +2119,7 @@ window.copyAllStockScript = async function() {
   const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
   const availableAccounts = allAccounts.filter(a => {
     if (a.status !== "available") return false;
-    if (!a.package_id && !(a.package_name || "").trim() && !isDisneyAccountRecord(a)) return false;
+    if (!a.package_id && !(a.package_name || "").trim() && !isFlexibleStockAccountRecord(a)) return false;
     if (a.expiry_date) {
       const expDate = new Date(a.expiry_date);
       if (!isNaN(expDate.getTime()) && (expDate.getTime() - now.getTime()) <= MS_IN_24_HOURS) {
@@ -2609,13 +2629,27 @@ function updateStockFormPackages() {
   const appId = appSelect ? appSelect.value : "";
   pkgSelect.innerHTML = `<option value="">-- ยังไม่กำหนดแพ็คเกจ --</option>`;
 
-  // Toggle Disney Phone wrapper & Flexible Package Banner
+  // Toggle Disney Phone wrapper & Flexible Package Banner (Disney+ & Netflix)
   const appObj = rawApps.find(a => a.id === appId);
   const isDisney = isDisneyAppObj(appObj);
+  const isNetflix = isNetflixAppObj(appObj);
+  const isFlexible = isFlexibleStockAppObj(appObj);
   const phoneWrapper = document.getElementById("acc-phone-wrapper");
   if (phoneWrapper) phoneWrapper.style.display = isDisney ? "block" : "none";
-  if (pkgGroup) pkgGroup.style.display = isDisney ? "none" : "block";
-  if (disneyFlexBanner) disneyFlexBanner.style.display = isDisney ? "flex" : "none";
+  if (pkgGroup) pkgGroup.style.display = isFlexible ? "none" : "block";
+  if (disneyFlexBanner) {
+    disneyFlexBanner.style.display = isFlexible ? "flex" : "none";
+    if (isFlexible) {
+      const iconEl = disneyFlexBanner.querySelector(".disney-flex-icon");
+      const titleEl = disneyFlexBanner.querySelector(".disney-flex-title");
+      if (iconEl) iconEl.textContent = isNetflix ? "🍿" : "🏰";
+      if (titleEl) {
+        const appTitle = isNetflix ? "Netflix" : "Disney+";
+        titleEl.textContent = `${appTitle} แพ็กเกจอิสระ (ไม่ต้องเลือกแพ็กเกจตอนเพิ่มสต็อก)`;
+      }
+      disneyFlexBanner.classList.toggle("netflix-theme", isNetflix);
+    }
+  }
 
   if (!appId) {
     pkgSelect.disabled = true;
@@ -2634,8 +2668,8 @@ function updateStockFormPackages() {
     pkgSelect.appendChild(opt);
   });
 
-  // Disney+ skips package selection at Add Stock & defaults to 5 screens with auto PINs (1111-5555)
-  if (isDisney) {
+  // Disney+ & Netflix skip package selection at Add Stock & default to 5 screens with auto PINs (1111-5555)
+  if (isFlexible) {
     pkgSelect.value = "";
     onStockFormPackageSelected(null);
     return;
@@ -2652,24 +2686,19 @@ function updateStockFormPackages() {
 function getDefaultScreensForSelectedApp() {
   const appId = document.getElementById("acc-app-select")?.value;
   const appObj = rawApps.find(a => a.id === appId);
-  const isNetflix = appObj && (
-    (appObj.name || "").toLowerCase().includes("netflix") ||
-    (appObj.display_name || "").toLowerCase().includes("netflix")
-  );
-  const isDisney = isDisneyAppObj(appObj);
-  return (isNetflix || isDisney) ? 5 : 1;
+  return isFlexibleStockAppObj(appObj) ? 5 : 1;
 }
 
 function onStockFormPackageSelected(pkg) {
   const appId = document.getElementById("acc-app-select")?.value;
   const appObj = rawApps.find(a => a.id === appId);
-  const isDisney = isDisneyAppObj(appObj);
+  const isFlexible = isFlexibleStockAppObj(appObj);
 
-  if (!pkg && !isDisney) {
+  if (!pkg && !isFlexible) {
     const pkgId = document.getElementById("acc-package-select")?.value;
     pkg = rawPackages.find(p => p.id === pkgId);
   }
-  const effectivePkg = isDisney ? null : pkg;
+  const effectivePkg = isFlexible ? null : pkg;
   const screensCount = effectivePkg ? (effectivePkg.screens || 1) : getDefaultScreensForSelectedApp();
   const screensInput = document.getElementById("pkg-screens");
   if (screensInput) screensInput.value = screensCount;
@@ -2685,8 +2714,8 @@ function renderScreensInputs(count) {
 
   const appId = document.getElementById("acc-app-select")?.value || "";
   const appObj = rawApps.find(a => a.id === appId);
-  const isNetflix = appObj && (appObj.name || "").toLowerCase().includes("netflix");
-  const isDisney = isDisneyAppObj(appObj);
+  const isNetflix = isNetflixAppObj(appObj);
+  const isFlexible = isFlexibleStockAppObj(appObj);
 
   count = Math.max(1, Math.min(10, parseInt(count, 10) || 1));
 
@@ -2707,7 +2736,7 @@ function renderScreensInputs(count) {
     const isChecked = prev ? prev.enabled : true;
     const profNameVal = (prev && prev.name !== null) ? prev.name : `จอ ${i}`;
     const autoSeqPin = generateScreenNumberPin(i, profNameVal);
-    const pinVal = (prev && prev.pin !== null) ? prev.pin : (isDisney ? autoSeqPin : "");
+    const pinVal = (prev && prev.pin !== null) ? prev.pin : (isFlexible ? autoSeqPin : "");
 
     const div = document.createElement("div");
     div.className = "prem-screen-card";
@@ -3297,12 +3326,13 @@ function handleQuickPaste() {
   if (multi.length > 1) {
     const currentAppId = document.getElementById("acc-app-select")?.value;
     const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
-    const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+    const isNetflix = isNetflixAppObj(selectedApp);
     const isDisneyMulti = isDisneyAppObj(selectedApp);
+    const isFlexibleMulti = isFlexibleStockAppObj(selectedApp);
     const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
-    const defaultPkg = isDisneyMulti ? null : (appPackages[0] || null);
+    const defaultPkg = isFlexibleMulti ? null : (appPackages[0] || null);
     const defaultPkgId = defaultPkg ? defaultPkg.id : "";
-    const defaultScreensCount = isDisneyMulti ? 5 : (defaultPkg ? (defaultPkg.screens || 1) : (isNetflix ? 5 : 1));
+    const defaultScreensCount = isFlexibleMulti ? 5 : (defaultPkg ? (defaultPkg.screens || 1) : 1);
 
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() + 30);
@@ -3318,7 +3348,7 @@ function handleQuickPaste() {
     batchMasterConfig.profiles = [];
     for (let i = 1; i <= defaultScreensCount; i++) {
       const defaultDevice = isDisneyMulti ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-      const defaultPin = isDisneyMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      const defaultPin = isFlexibleMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
       batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
 
@@ -3326,7 +3356,7 @@ function handleQuickPaste() {
       const profiles = [];
       for (let i = 1; i <= defaultScreensCount; i++) {
         const defaultDevice = isDisneyMulti ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-        const defaultPin = isDisneyMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+        const defaultPin = isFlexibleMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
         profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
       }
       return {
@@ -3431,7 +3461,7 @@ function syncBatchMasterToAllAccounts() {
   });
 }
 
-function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney = false) {
+function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isFlexible = false) {
   const panel = document.getElementById("multi-acc-batch-panel");
   if (!panel) return;
 
@@ -3441,11 +3471,22 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney = false
     syncCountEl.textContent = `${syncCount} จาก ${parsedBatchAccounts.length} บัญชี`;
   }
 
-  // 1. Package Select vs Disney+ Flexible Package Pill
+  // 1. Package Select vs Flexible Package Pill (Disney+ & Netflix)
   const pkgGroup = document.getElementById("batch-master-package-group");
   const disneyPkgInfo = document.getElementById("batch-master-disney-pkg-info");
-  if (pkgGroup) pkgGroup.style.display = isDisney ? "none" : "block";
-  if (disneyPkgInfo) disneyPkgInfo.style.display = isDisney ? "flex" : "none";
+  if (pkgGroup) pkgGroup.style.display = isFlexible ? "none" : "block";
+  if (disneyPkgInfo) {
+    disneyPkgInfo.style.display = isFlexible ? "flex" : "none";
+    if (isFlexible) {
+      disneyPkgInfo.innerHTML = `
+        <span style="font-size: 13px;">${isNetflix ? "🍿" : "🏰"}</span>
+        <div style="line-height: 1.25;">
+          <div style="font-weight: 700; color: ${isNetflix ? "#fda4af" : "#38bdf8"}; font-size: 10.5px;">แพ็กเกจอิสระ (${isNetflix ? "Netflix" : "Disney+"})</div>
+          <div style="font-size: 9.5px; color: #94a3b8;">เลือกแพ็กเกจตอนส่งมอบจอ</div>
+        </div>
+      `;
+    }
+  }
 
   const pkgSelect = document.getElementById("batch-master-package");
   if (pkgSelect) {
@@ -3454,7 +3495,7 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney = false
       pkgOptions += `<option value="${pkg.id}" ${batchMasterConfig.package_id === pkg.id ? 'selected' : ''}>${escapeHtml(pkg.name)} (${pkg.price} บาท • ${pkg.screens || 1} จอ)</option>`;
     });
     pkgSelect.innerHTML = pkgOptions;
-    if (isDisney) {
+    if (isFlexible) {
       pkgSelect.value = "";
       batchMasterConfig.package_id = "";
     }
@@ -3463,16 +3504,16 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney = false
       const newPkgId = e.target.value;
       batchMasterConfig.package_id = newPkgId;
       const foundPkg = rawPackages.find(p => p.id === newPkgId);
-      const newScreensCount = foundPkg ? (foundPkg.screens || 1) : (isNetflix || isDisney ? 5 : 1);
+      const newScreensCount = foundPkg ? (foundPkg.screens || 1) : (isFlexible ? 5 : 1);
       batchMasterConfig.screens_count = newScreensCount;
 
       const newProfiles = [];
       for (let i = 1; i <= newScreensCount; i++) {
-        const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
+        const defaultDevice = (!isNetflix && isFlexible) ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
         const oldProf = batchMasterConfig.profiles[i - 1];
         newProfiles.push({
           name: oldProf?.name || `จอ ${i}`,
-          pin: oldProf?.pin || (isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : ""),
+          pin: oldProf?.pin || (isFlexible ? generateScreenNumberPin(i, `จอ ${i}`) : ""),
           device_type: oldProf?.device_type || defaultDevice
         });
       }
@@ -3685,8 +3726,9 @@ function renderMultiAccountEditor() {
   const currentAppId = document.getElementById("acc-app-select")?.value;
   const activeAppPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
   const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
-  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+  const isNetflix = isNetflixAppObj(selectedApp);
   const isDisney = isDisneyAppObj(selectedApp);
+  const isFlexible = isFlexibleStockAppObj(selectedApp);
 
   // Mode Switcher Controls
   const btnBatch = document.getElementById("btn-multi-mode-batch");
@@ -3726,8 +3768,8 @@ function renderMultiAccountEditor() {
     };
   }
 
-  // Initialize batchMasterConfig if uninitialized or adjust for Disney+
-  if (isDisney) {
+  // Initialize batchMasterConfig if uninitialized or adjust for Disney+ / Netflix
+  if (isFlexible) {
     batchMasterConfig.package_id = "";
   } else if (batchMasterConfig.package_id === undefined && activeAppPackages.length > 0) {
     batchMasterConfig.package_id = activeAppPackages[0].id;
@@ -3743,19 +3785,19 @@ function renderMultiAccountEditor() {
     batchMasterConfig.status = "available";
   }
   if (!batchMasterConfig.profiles || batchMasterConfig.profiles.length === 0) {
-    const currentPkg = (!isDisney && batchMasterConfig.package_id) ? rawPackages.find(p => p.id === batchMasterConfig.package_id) : null;
-    const screensCount = isDisney ? 5 : (currentPkg ? (currentPkg.screens || 1) : (isNetflix ? 5 : 1));
+    const currentPkg = (!isFlexible && batchMasterConfig.package_id) ? rawPackages.find(p => p.id === batchMasterConfig.package_id) : null;
+    const screensCount = isFlexible ? 5 : (currentPkg ? (currentPkg.screens || 1) : 1);
     batchMasterConfig.screens_count = screensCount;
     batchMasterConfig.profiles = [];
     for (let i = 1; i <= screensCount; i++) {
       const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-      const defaultPin = isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      const defaultPin = isFlexible ? generateScreenNumberPin(i, `จอ ${i}`) : "";
       batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
   }
 
   if (multiAccountEditMode === "batch") {
-    renderMasterBatchPanelUI(activeAppPackages, isNetflix, isDisney);
+    renderMasterBatchPanelUI(activeAppPackages, isNetflix, isFlexible);
     syncBatchMasterToAllAccounts();
   }
 
@@ -3770,11 +3812,12 @@ function renderMultiAccountCardsOnly() {
   const currentAppId = document.getElementById("acc-app-select")?.value;
   const activeAppPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
   const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
-  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+  const isNetflix = isNetflixAppObj(selectedApp);
   const isDisney = isDisneyAppObj(selectedApp);
+  const isFlexible = isFlexibleStockAppObj(selectedApp);
 
   parsedBatchAccounts.forEach((acc, idx) => {
-    if (isDisney) {
+    if (isFlexible) {
       acc.package_id = "";
     } else if (acc.package_id === undefined) {
       acc.package_id = batchMasterConfig.package_id !== undefined ? batchMasterConfig.package_id : (activeAppPackages[0]?.id || "");
@@ -3796,7 +3839,7 @@ function renderMultiAccountCardsOnly() {
     const isAlreadyInDb = !!existingDbAcc;
 
     const currentPkg = acc.package_id ? rawPackages.find(p => p.id === acc.package_id) : null;
-    const pkgName = currentPkg ? currentPkg.name : (isDisney ? "🏰 แพ็กเกจอิสระ (เลือกตอนส่งมอบ)" : "-- ยังไม่กำหนดแพ็กเกจ --");
+    const pkgName = currentPkg ? currentPkg.name : (isFlexible ? `${isNetflix ? "🍿" : "🏰"} แพ็กเกจอิสระ (เลือกตอนส่งมอบ)` : "-- ยังไม่กำหนดแพ็กเกจ --");
     const statusMap = { available: "🟢 ว่าง", used: "🟡 ใช้แล้ว", broken: "🔴 มีปัญหา" };
     const statusText = statusMap[acc.status] || acc.status;
 
@@ -3880,10 +3923,10 @@ function renderMultiAccountCardsOnly() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
           <div>
             <div class="multi-acc-field-label"><span>📦 แพ็กเกจ</span></div>
-            ${isDisney ? `
+            ${isFlexible ? `
               <div class="disney-flex-pkg-pill" style="min-height: 32px;">
-                <span style="font-size: 12px;">🏰</span>
-                <span style="font-size: 10px; font-weight: 700; color: #7dd3fc;">เลือกอิสระตอนส่งมอบจอ</span>
+                <span style="font-size: 12px;">${isNetflix ? "🍿" : "🏰"}</span>
+                <span style="font-size: 10px; font-weight: 700; color: ${isNetflix ? "#fda4af" : "#7dd3fc"};">เลือกอิสระตอนส่งมอบจอ</span>
               </div>
             ` : `
               <select class="prem-select multi-acc-package" ${isAlreadyInDb ? 'disabled' : ''} style="margin-bottom:0; width: 100%; font-size: 11px; ${isAlreadyInDb ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
@@ -4183,12 +4226,13 @@ function renderCardProfilesWebapp(containerEl, acc, cardIdx, isNetflix) {
 function addNewMultiAccountRow() {
   const currentAppId = document.getElementById("acc-app-select")?.value;
   const selectedApp = currentAppId ? rawApps.find(a => a.id === currentAppId) : null;
-  const isNetflix = selectedApp && (selectedApp.name || "").toLowerCase().includes("netflix");
+  const isNetflix = isNetflixAppObj(selectedApp);
   const isDisney = isDisneyAppObj(selectedApp);
+  const isFlexible = isFlexibleStockAppObj(selectedApp);
   const appPackages = currentAppId ? rawPackages.filter(p => p.app_id === currentAppId) : rawPackages;
-  const defaultPkgId = isDisney ? "" : (batchMasterConfig.package_id || (appPackages[0] ? appPackages[0].id : ""));
-  const defaultPkg = (!isDisney && defaultPkgId) ? rawPackages.find(p => p.id === defaultPkgId) : (!isDisney ? (appPackages[0] || null) : null);
-  const defaultScreensCount = isDisney ? 5 : (defaultPkg ? (defaultPkg.screens || 1) : (batchMasterConfig.screens_count || (isNetflix ? 5 : 1)));
+  const defaultPkgId = isFlexible ? "" : (batchMasterConfig.package_id || (appPackages[0] ? appPackages[0].id : ""));
+  const defaultPkg = (!isFlexible && defaultPkgId) ? rawPackages.find(p => p.id === defaultPkgId) : (!isFlexible ? (appPackages[0] || null) : null);
+  const defaultScreensCount = isFlexible ? 5 : (defaultPkg ? (defaultPkg.screens || 1) : (batchMasterConfig.screens_count || 1));
 
   const defaultExpiryVal = batchMasterConfig.expiry_date || (() => {
     const defaultDate = new Date();
@@ -4204,7 +4248,7 @@ function addNewMultiAccountRow() {
   } else {
     for (let i = 1; i <= defaultScreensCount; i++) {
       const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-      const defaultPin = isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      const defaultPin = isFlexible ? generateScreenNumberPin(i, `จอ ${i}`) : "";
       profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
   }
@@ -4730,8 +4774,8 @@ async function submitAccountForm() {
   const password = passwordInput ? passwordInput.value.trim() : "";
   const appId = document.getElementById("acc-app-select")?.value;
   const selectedAppObj = rawApps.find(a => a.id === appId);
-  const isDisneySelected = isDisneyAppObj(selectedAppObj);
-  const packageId = isDisneySelected ? null : (document.getElementById("acc-package-select")?.value || null);
+  const isFlexibleSelected = isFlexibleStockAppObj(selectedAppObj);
+  const packageId = isFlexibleSelected ? null : (document.getElementById("acc-package-select")?.value || null);
   const status = document.getElementById("acc-status")?.value || "available";
   const expiryRaw = document.getElementById("acc-expiry")?.value;
   const otpUrl = document.getElementById("acc-otp-link")?.value.trim() || null;
@@ -4787,7 +4831,7 @@ async function submitAccountForm() {
     // Save multiple accounts from parsedBatchAccounts
     parsedBatchAccounts.forEach(acc => {
       const accExpiryISO = acc.expiry_date ? new Date(acc.expiry_date).toISOString() : expiryISO;
-      const accPkgId = isDisneySelected ? null : ((acc.package_id && acc.package_id !== "") ? acc.package_id : null);
+      const accPkgId = isFlexibleSelected ? null : ((acc.package_id && acc.package_id !== "") ? acc.package_id : null);
       if (acc.profiles && acc.profiles.length > 0) {
         acc.profiles.forEach((prof, profIdx) => {
           records.push({
@@ -4949,18 +4993,19 @@ function initStockFormEventListeners() {
       if (parsedBatchAccounts && parsedBatchAccounts.length > 0) {
         const newAppObj = rawApps.find(a => a.id === appSelect.value);
         const isDisneyNew = isDisneyAppObj(newAppObj);
-        const isNetflixNew = newAppObj && (newAppObj.name || "").toLowerCase().includes("netflix");
+        const isNetflixNew = isNetflixAppObj(newAppObj);
+        const isFlexibleNew = isFlexibleStockAppObj(newAppObj);
         const appPkgs = rawPackages.filter(p => p.app_id === appSelect.value);
-        const nextPkgId = isDisneyNew ? "" : (appPkgs[0]?.id || "");
-        const nextPkg = (!isDisneyNew && nextPkgId) ? appPkgs[0] : null;
-        const nextCount = isDisneyNew ? 5 : (nextPkg ? (nextPkg.screens || 1) : (isNetflixNew ? 5 : 1));
+        const nextPkgId = isFlexibleNew ? "" : (appPkgs[0]?.id || "");
+        const nextPkg = (!isFlexibleNew && nextPkgId) ? appPkgs[0] : null;
+        const nextCount = isFlexibleNew ? 5 : (nextPkg ? (nextPkg.screens || 1) : 1);
 
         batchMasterConfig.package_id = nextPkgId;
         batchMasterConfig.screens_count = nextCount;
         batchMasterConfig.profiles = [];
         for (let i = 1; i <= nextCount; i++) {
           const defDev = isDisneyNew ? "mobile" : (isNetflixNew ? (i <= 4 ? "mobile" : "tv") : (i <= 3 ? "mobile" : "tv"));
-          const defPin = isDisneyNew ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+          const defPin = isFlexibleNew ? generateScreenNumberPin(i, `จอ ${i}`) : "";
           batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defPin, device_type: defDev });
         }
         parsedBatchAccounts.forEach(acc => {
@@ -6581,6 +6626,7 @@ function buildSwapAccountMeta(acc, b) {
   const isExpValid = expDate && !isNaN(expDate.getTime());
   let diffDays = null;
   let lessThanCustDays = 0;
+  let custDiffDays = null; // positive = target expires AFTER customer, 0 = exact match, negative = target expires BEFORE customer
   let expDateShort = "";
   let expLabel = "ยังไม่ระบุวันหมดอายุ";
   let expColor = "#94a3b8";
@@ -6589,13 +6635,19 @@ function buildSwapAccountMeta(acc, b) {
   if (isExpValid) {
     diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     expDateShort = formatDateThai(expDate);
+    if (custExp && !isNaN(custExp.getTime())) {
+      const targetMid = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate());
+      const custMid = new Date(custExp.getFullYear(), custExp.getMonth(), custExp.getDate());
+      custDiffDays = Math.round((targetMid.getTime() - custMid.getTime()) / 86400000);
+    }
+
     if (diffDays <= 0) {
       expLabel = `หมดอายุแล้ว (${expDateShort})`;
       expColor = "#f87171";
       expTone = "danger";
-    } else if (custExp && !isNaN(custExp.getTime()) && expDate < custExp) {
-      lessThanCustDays = Math.max(1, Math.ceil((custExp.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24)));
-      expLabel = `${expDateShort} (เหลือ ${diffDays} วัน • น้อยกว่าลูกค้า ${lessThanCustDays} วัน)`;
+    } else if (custDiffDays !== null && custDiffDays < 0) {
+      lessThanCustDays = Math.abs(custDiffDays);
+      expLabel = `${expDateShort} (เหลือ ${diffDays} วัน • ขาดอีก ${lessThanCustDays} วัน)`;
       expColor = "#fbbf24";
       expTone = "warning";
     } else {
@@ -6615,6 +6667,7 @@ function buildSwapAccountMeta(acc, b) {
     isExpired: diffDays !== null && diffDays <= 0,
     diffDays: diffDays ?? 9999,
     lessThanCustDays,
+    custDiffDays,
     expDateShort,
     expTone,
     expLabel,
@@ -6623,13 +6676,28 @@ function buildSwapAccountMeta(acc, b) {
 }
 
 function buildSwapExpiryPillsHtml(item) {
-  const { isExpired, diffDays, lessThanCustDays, expDateShort, expTone, expLabel } = item;
+  const { isExpired, diffDays, lessThanCustDays, custDiffDays, expDateShort, expTone, expLabel } = item;
   if (!expDateShort) {
     return `<span class="swap-exp-pill tone-muted">⏳ ${escapeHtml(expLabel)}</span>`;
   }
   if (isExpired) {
     return `<span class="swap-exp-pill tone-danger">⚠️ หมดอายุแล้ว (${escapeHtml(expDateShort)})</span>`;
   }
+
+  let custDiffPillHtml = "";
+  if (custDiffDays !== null && custDiffDays !== undefined) {
+    if (custDiffDays < 0) {
+      const shortDays = Math.abs(custDiffDays);
+      custDiffPillHtml = `<span class="swap-exp-diff-pill diff-short" title="วันหมดอายุบัญชีเป้าหมายหมดก่อนลูกค้า ${shortDays} วัน">⚠️ ขาดอีก ${shortDays} วัน</span>`;
+    } else if (custDiffDays === 0) {
+      custDiffPillHtml = `<span class="swap-exp-diff-pill diff-exact" title="วันหมดอายุบัญชีเป้าหมายตรงกับวันหมดอายุลูกค้าพอดี">✅ ตรงวันลูกค้าพอดี</span>`;
+    } else {
+      custDiffPillHtml = `<span class="swap-exp-diff-pill diff-surplus" title="วันหมดอายุบัญชีเป้าหมายเหลือมากกว่าลูกค้า ${custDiffDays} วัน">🟣 เกินลูกค้า +${custDiffDays} วัน</span>`;
+    }
+  } else if (lessThanCustDays > 0) {
+    custDiffPillHtml = `<span class="swap-exp-diff-pill diff-short" title="วันหมดอายุบัญชีนี้น้อยกว่าวันหมดอายุของลูกค้า ${lessThanCustDays} วัน">⚠️ ขาดอีก ${lessThanCustDays} วัน</span>`;
+  }
+
   return `
     <div class="swap-opt-exp-group">
       <span class="swap-exp-pill tone-${expTone}">
@@ -6637,9 +6705,7 @@ function buildSwapExpiryPillsHtml(item) {
         <span class="swap-exp-dot">•</span>
         <span>เหลือ ${diffDays} วัน</span>
       </span>
-      ${lessThanCustDays > 0
-        ? `<span class="swap-exp-warn-pill" title="วันหมดอายุบัญชีนี้น้อยกว่าวันหมดอายุของลูกค้า ${lessThanCustDays} วัน">⚠️ น้อยกว่าลูกค้า ${lessThanCustDays} วัน</span>`
-        : ""}
+      ${custDiffPillHtml}
     </div>
   `;
 }
@@ -6942,9 +7008,6 @@ function buildSwapHandoverText(b, newAcc) {
   script += `━━━━━━━━━━━━━━━━━━\n`;
   script += `📧 อีเมล: ${newAcc.email || "-"}\n`;
   script += `🔑 รหัสผ่าน: ${passwordDisplay}\n`;
-  if (cleanId) {
-    script += `🆔 ID จอ: #${cleanId}\n`;
-  }
   if (showProfile) {
     script += `👤 โปรไฟล์/จอ: ${formattedProfile}\n`;
   }
@@ -9097,6 +9160,7 @@ function populateSendBindPackageSelector(appId, appName, initialPkgName = "", in
     .slice()
     .sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
   const isDisney = isDisneyAppObj(appName);
+  const isNetflix = isNetflixAppObj(appName);
 
   if (pkgSection) {
     pkgSection.style.display = "block";
@@ -9104,7 +9168,9 @@ function populateSendBindPackageSelector(appId, appName, initialPkgName = "", in
   if (modeBadge) {
     modeBadge.textContent = isDisney
       ? `🏰 เลือกด่วนตามราคา (${appPackages.length} แพ็กเกจ)`
-      : (appPackages.length > 0 ? `แตะเลือกราคา (${appPackages.length})` : "กำหนดเองอิสระ");
+      : (isNetflix
+        ? `🍿 เลือกด่วนตามราคา (${appPackages.length} แพ็กเกจ)`
+        : (appPackages.length > 0 ? `แตะเลือกราคา (${appPackages.length})` : "กำหนดเองอิสระ"));
   }
 
   let selectHtml = "";
