@@ -328,6 +328,13 @@ function initUIEventListeners() {
       openCleanupExpiredAccountsModal();
     });
   }
+  const scriptStudioBtn = document.getElementById("btn-open-script-studio");
+  if (scriptStudioBtn) {
+    scriptStudioBtn.addEventListener("click", () => {
+      haptic();
+      openScriptStudioModal();
+    });
+  }
   const toggleStockFormHeaderBtn = document.getElementById("btn-toggle-stock-form-header");
   if (toggleStockFormHeaderBtn) {
     toggleStockFormHeaderBtn.addEventListener("click", () => toggleStockForm());
@@ -14279,3 +14286,699 @@ function openCleanupExpiredAccountsModal() {
   updatePreview();
 }
 
+
+
+// ============================================================================
+// 🎨 SCRIPT STUDIO (Phase 1: Modular Block Editor + LINE Preview + D1 Packages)
+// ============================================================================
+const SCRIPT_STUDIO_STORAGE_KEY = "boss_script_studio_templates_v1";
+
+const SCRIPT_STUDIO_TABS = [
+  { key: "delivery", icon: "📦", label: "ส่งมอบบัญชี" },
+  { key: "claim", icon: "🔄", label: "เคลมจอ" },
+  { key: "sales", icon: "📢", label: "เสนอขาย" },
+  { key: "renewal", icon: "⏰", label: "แจ้งเตือนต่ออายุ" }
+];
+
+const SCRIPT_STUDIO_VARIABLES = [
+  { token: "{{app_name}}", label: "🎬 ชื่อแอป" },
+  { token: "{{package_name}}", label: "📦 แพ็กเกจ" },
+  { token: "{{display_id}}", label: "🆔 ID จอ" },
+  { token: "{{customer_name}}", label: "🙋 ชื่อลูกค้า" },
+  { token: "{{email}}", label: "✉️ อีเมล" },
+  { token: "{{password}}", label: "🔑 รหัสผ่าน" },
+  { token: "{{profile}}", label: "👤 โปรไฟล์" },
+  { token: "{{pin}}", label: "🔢 PIN" },
+  { token: "{{device}}", label: "📱 อุปกรณ์" },
+  { token: "{{expiry_date}}", label: "📅 วันหมดอายุ" },
+  { token: "{{otp_link}}", label: "🌐 ลิงก์ OTP" },
+  { token: "{{packages_list}}", label: "💰 รายการแพ็กเกจ" },
+  { token: "━━━━━━━━━━━━━━━━━━━━━", label: "━━ เส้นคั่น" }
+];
+
+function getDefaultStudioBlocks(tabKey) {
+  if (tabKey === "delivery") {
+    return [
+      { id: "blk_header", title: "หัวข้อส่งมอบ", enabled: true, content: "✨ *ข้อมูลการใช้งาน {{app_name}}* #{{display_id}}\n[{{package_name}}]\n━━━━━━━━━━━━━━━━━━━━━" },
+      { id: "blk_creds", title: "ข้อมูลล็อกอินบัญชี", enabled: true, content: "👤 คุณ: *{{customer_name}}*\n📧 อีเมล: {{email}}\n🔑 รหัสผ่าน: {{password}}\n🆔 ID จอ: #{{display_id}}\n👤 โปรไฟล์/จอ: {{profile}}\n🔢 รหัส PIN: {{pin}}\n📱 อุปกรณ์: {{device}}\n📅 วันหมดอายุ: {{expiry_date}}\n━━━━━━━━━━━━━━━━━━━━━" },
+      { id: "blk_rules", title: "กติกา & คำแนะนำ", enabled: true, content: "📌 *ข้อควรระวัง:*\n• ใช้งานเฉพาะโปรไฟล์ที่ได้รับเท่านั้น\n• ห้ามเปลี่ยนรหัสผ่านหรือแก้ไขข้อมูลบัญชี\n• หากติดปัญหาทักแจ้งแอดมินได้ตลอดครับ" },
+      { id: "blk_footer", title: "ข้อความปิดท้าย", enabled: true, content: "━━━━━━━━━━━━━━━━━━━━━\n🙏 ขอบคุณที่ใช้บริการครับ ✨" }
+    ];
+  }
+  if (tabKey === "claim") {
+    return [
+      { id: "blk_claim_head", title: "หัวข้อแจ้งเคลมจอใหม่", enabled: true, content: "🔄 *แจ้งเปลี่ยนบัญชี / เคลมจอใหม่ {{app_name}}*\nขออภัยในความไม่สะดวกครับ 🙏 แอดมินจัดส่งรหัสใหม่ให้เรียบร้อยแล้วครับ\n━━━━━━━━━━━━━━━━━━━━━" },
+      { id: "blk_claim_creds", title: "ข้อมูลบัญชีใหม่", enabled: true, content: "👤 คุณ: *{{customer_name}}*\n🆔 ID จอใหม่: #{{display_id}}\n📧 อีเมลใหม่: {{email}}\n🔑 รหัสผ่านใหม่: {{password}}\n👤 โปรไฟล์/จอ: {{profile}}\n🔢 รหัส PIN: {{pin}}\n📅 วันหมดอายุเดิม: {{expiry_date}}\n━━━━━━━━━━━━━━━━━━━━━" },
+      { id: "blk_claim_foot", title: "ข้อความปิดท้าย", enabled: true, content: "รบกวนออกจากระบบบัญชีเดิมแล้วล็อกอินด้วยรหัสใหม่ได้เลยนะครับ ✨" }
+    ];
+  }
+  if (tabKey === "sales") {
+    return [
+      { id: "blk_sales_head", title: "หัวข้อเสนอขาย", enabled: true, content: "🔥 *{{app_name}} พรีเมียม พร้อมส่งทันที!* 🔥\nดูชัด Full HD / 4K ไม่มีโฆษณา รับประกันตลอดอายุการใช้งาน ✨\n━━━━━━━━━━━━━━━━━━━━━" },
+      { id: "blk_sales_pkgs", title: "ตารางแพ็กเกจ & ราคา (ดึงอัตโนมัติจาก D1)", enabled: true, content: "💰 *แพ็กเกจและราคา:*\n{{packages_list}}\n━━━━━━━━━━━━━━━━━━━━━" },
+      { id: "blk_sales_foot", title: "ปิดการขาย & ช่องทางสั่งซื้อ", enabled: true, content: "✅ มีจอว่างพร้อมส่งมอบทันทีหลังโอน\n✅ แอดมินดูแลตลอดการใช้งาน\n📩 สนใจแพ็กเกจไหนแจ้งแอดมินได้เลยครับ 💖" }
+    ];
+  }
+  // renewal
+  return [
+    { id: "blk_ren_head", title: "ทักทายแจ้งเตือน", enabled: true, content: "สวัสดีครับคุณ {{customer_name}} 🙏✨\nแจ้งเตือนสิทธิ์การใช้งาน *{{app_name}}* [{{package_name}}]\n━━━━━━━━━━━━━━━━━━━━━" },
+    { id: "blk_ren_info", title: "รายละเอียดสิทธิ์เดิม", enabled: true, content: "👤 โปรไฟล์/จอ: {{profile}}\n📧 บัญชี: {{email}}\n🆔 ID จอ: #{{display_id}}\n⏰ วันครบกำหนด: *{{expiry_date}}*\n━━━━━━━━━━━━━━━━━━━━━" },
+    { id: "blk_ren_foot", title: "ข้อความชวนต่ออายุ", enabled: true, content: "หากคุณลูกค้าต้องการต่ออายุการใช้งานต่อเนื่อง สามารถแจ้งแอดมินได้เลยนะครับ ขอบคุณครับ 💖" }
+  ];
+}
+
+function loadAllStudioTemplates() {
+  try {
+    const raw = localStorage.getItem(SCRIPT_STUDIO_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveAllStudioTemplates(map) {
+  try {
+    localStorage.setItem(SCRIPT_STUDIO_STORAGE_KEY, JSON.stringify(map || {}));
+  } catch (e) {
+    console.warn("[ScriptStudio] Save error:", e);
+  }
+}
+
+function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
+  const existing = document.getElementById("boss-script-studio-modal");
+  if (existing) existing.remove();
+
+  const allTemplates = loadAllStudioTemplates();
+  let activeTab = SCRIPT_STUDIO_TABS.some(t => t.key === initialTab) ? initialTab : "delivery";
+  let activeScopeAppId = initialAppId || (activeAppFilter !== "all" ? activeAppFilter : "global");
+  let previewDataMode = "sample"; // "sample" | "real"
+  let mobilePane = "editor"; // "editor" | "preview"
+  let focusedBlockId = null;
+  let lastFocusedTextarea = null;
+
+  const getTemplateKey = (tab, scopeId) => `${tab}::${scopeId || "global"}`;
+
+  const getActiveBlocks = () => {
+    const key = getTemplateKey(activeTab, activeScopeAppId);
+    if (!allTemplates[key]) {
+      const globalKey = getTemplateKey(activeTab, "global");
+      allTemplates[key] = JSON.parse(JSON.stringify(allTemplates[globalKey] || getDefaultStudioBlocks(activeTab)));
+    }
+    return allTemplates[key];
+  };
+
+  const overlay = document.createElement("div");
+  overlay.id = "boss-script-studio-modal";
+  overlay.className = "script-studio-overlay";
+
+  const appOptionsHtml = [`<option value="global">🌐 เทมเพลตกลาง (ทุกแอป)</option>`]
+    .concat((rawApps || []).map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.display_name || a.name)}</option>`))
+    .join("");
+
+  overlay.innerHTML = `
+    <div class="script-studio-shell">
+      <div class="studio-header">
+        <div class="studio-title-group">
+          <div class="studio-logo-badge">🎨</div>
+          <div>
+            <div class="studio-title">Script Studio — ศูนย์พรีวิว & ปรับแต่งสคริปต์</div>
+            <div class="studio-subtitle">ปรับแต่งบล็อกสคริปต์ได้อิสระ • แทรกตัวแปร 1-Tap • แก้ชื่อและราคาแพ็กเกจลง D1 ทันที</div>
+          </div>
+        </div>
+        <button type="button" id="studio-close-btn" class="studio-close-btn" title="ปิดหน้าต่าง">✕</button>
+      </div>
+
+      <div class="studio-toolbar">
+        <div class="studio-tabs" id="studio-tabs">
+          ${SCRIPT_STUDIO_TABS.map(t => `
+            <button type="button" class="studio-tab-btn ${t.key === activeTab ? 'active' : ''}" data-studio-tab="${t.key}">
+              <span>${t.icon}</span><span>${t.label}</span>
+            </button>
+          `).join("")}
+        </div>
+        <div class="studio-scope-controls">
+          <select id="studio-app-scope" class="studio-app-select" title="เลือกแอปสำหรับปรับแต่งและแก้ไขราคาแพ็กเกจ">
+            ${appOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <div class="studio-mobile-view-switch" id="studio-mobile-switch">
+        <button type="button" class="studio-mobile-switch-btn active" data-pane="editor">✏️ แก้ไขบล็อก & ราคา</button>
+        <button type="button" class="studio-mobile-switch-btn" data-pane="preview">💬 พรีวิวแชท LINE</button>
+      </div>
+
+      <div class="studio-workspace" id="studio-workspace" data-mobile-pane="editor">
+        <!-- Left Pane: Modular Editor & Packages -->
+        <div class="studio-editor-pane" id="studio-editor-pane">
+          <div class="studio-vars-box">
+            <div class="studio-vars-title">
+              <span>⚡ ตัวแปรอัจฉริยะ (แตะเพื่อแทรกลงช่องที่กำลังแก้ไข)</span>
+              <span style="font-size: 10px; color: #94a3b8;">Smart Chips</span>
+            </div>
+            <div class="studio-vars-chips" id="studio-vars-chips">
+              ${SCRIPT_STUDIO_VARIABLES.map(v => `
+                <button type="button" class="studio-var-chip" data-token="${escapeHtml(v.token)}">${v.label}</button>
+              `).join("")}
+            </div>
+          </div>
+
+          <div id="studio-packages-container"></div>
+
+          <div class="studio-blocks-list" id="studio-blocks-list"></div>
+
+          <button type="button" id="studio-add-block-btn" class="studio-add-block-btn">
+            ➕ เพิ่มบล็อกข้อความใหม่
+          </button>
+        </div>
+
+        <!-- Right Pane: Live LINE Chat Preview -->
+        <div class="studio-preview-pane">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 800; color: #34d399;">💬 พรีวิวแชท LINE (Real-time)</span>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="studio-var-chip" id="studio-data-sample-btn" style="border-color: #34d399; color: #6ee7b7;">✨ ข้อมูลตัวอย่าง</button>
+              <button type="button" class="studio-var-chip" id="studio-data-real-btn">📦 บัญชีจริงในคลัง</button>
+            </div>
+          </div>
+
+          <div class="studio-line-phone">
+            <div class="studio-line-topbar">
+              <span>◀ ลูกค้า (LINE OA)</span>
+              <span id="studio-preview-app-badge" style="font-size: 10.5px; color: #38bdf8;">🌐 เทมเพลตกลาง</span>
+            </div>
+            <div class="studio-line-chat-bg">
+              <div class="studio-line-msg-row">
+                <div class="studio-line-meta">
+                  <div>อ่านแล้ว</div>
+                  <div id="studio-preview-time">23:15</div>
+                </div>
+                <div class="studio-line-bubble" id="studio-line-bubble"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="studio-footer">
+        <button type="button" id="studio-reset-btn" class="studio-footer-btn">↩️ คืนค่าเริ่มต้น</button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" id="studio-copy-test-btn" class="studio-footer-btn success">📋 คัดลอกทดสอบ</button>
+          <button type="button" id="studio-save-template-btn" class="studio-footer-btn primary">💾 บันทึกเทมเพลต</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const scopeSelect = overlay.querySelector("#studio-app-scope");
+  if (scopeSelect) scopeSelect.value = activeScopeAppId;
+
+  const blocksListEl = overlay.querySelector("#studio-blocks-list");
+  const pkgsContainerEl = overlay.querySelector("#studio-packages-container");
+  const bubbleEl = overlay.querySelector("#studio-line-bubble");
+  const previewAppBadge = overlay.querySelector("#studio-preview-app-badge");
+  const previewTimeEl = overlay.querySelector("#studio-preview-time");
+  const workspaceEl = overlay.querySelector("#studio-workspace");
+
+  if (previewTimeEl) {
+    const now = new Date();
+    previewTimeEl.textContent = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  }
+
+  const getSelectedAppObj = () => {
+    if (activeScopeAppId === "global") return (rawApps && rawApps[0]) || null;
+    return (rawApps || []).find(a => String(a.id) === String(activeScopeAppId)) || null;
+  };
+
+  const buildPackagesListText = (appObj) => {
+    if (!appObj) return "• แพ็กเกจ 30 วัน — 99 บาท\n• แพ็กเกจ 90 วัน — 279 บาท";
+    const appPkgs = (rawPackages || [])
+      .filter(p => String(p.app_id) === String(appObj.id))
+      .sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    if (appPkgs.length === 0) return "• (ยังไม่มีแพ็กเกจสำหรับแอปนี้ — เพิ่มได้ในกล่องด้านบน)";
+    return appPkgs.map(p => {
+      const daysTxt = p.days ? ` (${p.days} วัน)` : "";
+      const screensTxt = p.screens ? ` • ${p.screens} จอ` : "";
+      return `🔸 ${p.name}${daysTxt}${screensTxt} — *${Number(p.price || 0).toLocaleString()} บาท*`;
+    }).join("\n");
+  };
+
+  const getPreviewVariables = () => {
+    const appObj = getSelectedAppObj();
+    const appName = appObj ? (appObj.display_name || appObj.name) : "Netflix UHD 4K";
+    const appPkgs = appObj ? (rawPackages || []).filter(p => String(p.app_id) === String(appObj.id)) : [];
+    const firstPkg = appPkgs[0];
+
+    if (previewDataMode === "real") {
+      const sourceAccs = (allAccountsList && allAccountsList.length > 0) ? allAccountsList : (rawAccounts || []);
+      const realAcc = sourceAccs.find(a => !appObj || String(a.app_id) === String(appObj.id)) || sourceAccs[0];
+      if (realAcc) {
+        const expStr = realAcc.expiry_date ? formatDateThai(new Date(realAcc.expiry_date)) : "25 ธ.ค. 2569";
+        const linkedPkg = (rawPackages || []).find(p => String(p.id) === String(realAcc.package_id));
+        return {
+          app_name: (realAcc.app_name || appName).toUpperCase(),
+          package_name: linkedPkg ? linkedPkg.name : (realAcc.package_name || firstPkg?.name || "แพ็กเกจพรีเมียม"),
+          display_id: String(realAcc.display_id || "6465"),
+          customer_name: "คุณสมชาย (ตัวอย่าง)",
+          email: realAcc.email || "demo@example.com",
+          password: realAcc.password || "Pass1234",
+          profile: realAcc.profile_name || "จอ 1",
+          pin: realAcc.pin_code || "1111",
+          device: "มือถือ / แท็บเล็ต / ทีวี",
+          expiry_date: expStr,
+          otp_link: realAcc.cookie_data || "https://code.varinzxify.com/",
+          packages_list: buildPackagesListText(appObj)
+        };
+      }
+    }
+
+    return {
+      app_name: appName.toUpperCase(),
+      package_name: firstPkg ? firstPkg.name : "หาร 30 วัน (จอส่วนตัว)",
+      display_id: "6465",
+      customer_name: "คุณลูกค้า VIP",
+      email: "premium.vip@example.com",
+      password: "Boss@2026",
+      profile: "จอ 1",
+      pin: "1111",
+      device: "มือถือ / iPad / TV",
+      expiry_date: "26 ธ.ค. 2569",
+      otp_link: "https://code.varinzxify.com/",
+      packages_list: buildPackagesListText(appObj)
+    };
+  };
+
+  const resolveTemplateText = (rawText, vars) => {
+    return String(rawText || "").replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : `{{${k}}}`));
+  };
+
+  const renderPreview = () => {
+    const blocks = getActiveBlocks();
+    const vars = getPreviewVariables();
+    const appObj = getSelectedAppObj();
+    if (previewAppBadge) {
+      previewAppBadge.textContent = activeScopeAppId === "global"
+        ? `🌐 เทมเพลตกลาง (ตัวอย่าง: ${appObj ? (appObj.display_name || appObj.name) : "ทั่วไป"})`
+        : `🎬 ${appObj ? (appObj.display_name || appObj.name) : ""}`;
+    }
+
+    const enabledBlocks = blocks.filter(b => b.enabled !== false);
+    if (enabledBlocks.length === 0) {
+      bubbleEl.innerHTML = `<span style="opacity: 0.65;">(ยังไม่มีบล็อกที่เปิดใช้งาน)</span>`;
+      return;
+    }
+
+    bubbleEl.innerHTML = enabledBlocks.map(b => {
+      const resolved = resolveTemplateText(b.content, vars);
+      const isHi = focusedBlockId && focusedBlockId === b.id;
+      return `<div class="studio-preview-seg ${isHi ? 'is-highlighted' : ''}" data-preview-block="${escapeHtml(b.id)}">${escapeHtml(resolved)}</div>`;
+    }).join("\n");
+  };
+
+  const getPlainRenderedScript = () => {
+    const blocks = getActiveBlocks().filter(b => b.enabled !== false);
+    const vars = getPreviewVariables();
+    return blocks.map(b => resolveTemplateText(b.content, vars)).join("\n\n").trim();
+  };
+
+  const renderPackagesEditor = () => {
+    if (activeTab !== "sales") {
+      pkgsContainerEl.innerHTML = "";
+      return;
+    }
+
+    const appObj = getSelectedAppObj();
+    if (!appObj) {
+      pkgsContainerEl.innerHTML = "";
+      return;
+    }
+
+    const appPkgs = (rawPackages || [])
+      .filter(p => String(p.app_id) === String(appObj.id))
+      .sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+
+    pkgsContainerEl.innerHTML = `
+      <div class="studio-packages-section">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div style="font-size: 12px; font-weight: 800; color: #34d399;">
+            💰 จัดการชื่อ & ราคาแพ็กเกจ: ${escapeHtml(appObj.display_name || appObj.name)} (ซิงค์ D1)
+          </div>
+          <button type="button" id="studio-add-pkg-btn" style="padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(52, 211, 153, 0.45); background: rgba(16, 185, 129, 0.16); color: #6ee7b7; font-size: 11px; font-weight: 700; cursor: pointer;">
+            ➕ เพิ่มแพ็กเกจใหม่
+          </button>
+        </div>
+        <div style="font-size: 10.5px; color: #94a3b8;">
+          พิมพ์แก้ชื่อ / ราคา / วัน / จอ แล้วพรีวิวแชทด้านขวาจะอัปเดตทันที — กด 💾 เพื่อบันทึกลงฐานข้อมูล D1
+        </div>
+        <div id="studio-pkg-rows" style="display: flex; flex-direction: column; gap: 6px;">
+          ${appPkgs.length === 0 ? `<div style="font-size: 11.5px; color: #94a3b8; padding: 6px;">ยังไม่มีแพ็กเกจในแอปนี้ กด "➕ เพิ่มแพ็กเกจใหม่" ได้เลย</div>` : appPkgs.map(pkg => `
+            <div class="studio-pkg-row" data-pkg-id="${escapeHtml(pkg.id)}">
+              <input type="text" class="studio-pkg-input studio-pkg-name" value="${escapeHtml(pkg.name || "")}" placeholder="ชื่อแพ็กเกจ">
+              <input type="number" class="studio-pkg-input studio-pkg-price" value="${Number(pkg.price || 0)}" placeholder="ราคา (฿)" min="0">
+              <input type="number" class="studio-pkg-input studio-pkg-days" value="${pkg.days || 30}" placeholder="วัน" min="1" title="จำนวนวัน">
+              <input type="number" class="studio-pkg-input studio-pkg-screens" value="${pkg.screens || 1}" placeholder="จอ" min="1" title="จำนวนจอ">
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="studio-icon-mini-btn studio-pkg-save-btn" title="💾 บันทึกแพ็กเกจนี้ลง D1" style="border-color: rgba(52,211,153,0.45); color: #34d399;">💾</button>
+                <button type="button" class="studio-icon-mini-btn danger studio-pkg-del-btn" title="🗑️ ลบแพ็กเกจนี้">🗑️</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    const d1Headers = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json"
+    };
+
+    // Live input sync to preview
+    pkgsContainerEl.querySelectorAll(".studio-pkg-row").forEach(row => {
+      const pkgId = row.dataset.pkgId;
+      const pkgObj = rawPackages.find(p => String(p.id) === String(pkgId));
+      if (!pkgObj) return;
+
+      const nameEl = row.querySelector(".studio-pkg-name");
+      const priceEl = row.querySelector(".studio-pkg-price");
+      const daysEl = row.querySelector(".studio-pkg-days");
+      const screensEl = row.querySelector(".studio-pkg-screens");
+
+      const syncLocalPkg = () => {
+        pkgObj.name = nameEl.value.trim();
+        pkgObj.price = Number(priceEl.value) || 0;
+        pkgObj.days = parseInt(daysEl.value, 10) || 30;
+        pkgObj.screens = parseInt(screensEl.value, 10) || 1;
+        renderPreview();
+      };
+
+      [nameEl, priceEl, daysEl, screensEl].forEach(inp => inp.addEventListener("input", syncLocalPkg));
+
+      // Save to Cloudflare D1
+      row.querySelector(".studio-pkg-save-btn").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        syncLocalPkg();
+        if (!pkgObj.name) {
+          showToast("❌ กรุณาระบุชื่อแพ็กเกจ");
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "⏳";
+        try {
+          const res = await fetch(`${currentShop.url}/rest/v1/packages?id=eq.${encodeURIComponent(pkgId)}`, {
+            method: "PATCH",
+            headers: d1Headers,
+            body: JSON.stringify({
+              name: pkgObj.name,
+              price: pkgObj.price,
+              days: pkgObj.days,
+              screens: pkgObj.screens
+            })
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          haptic();
+          showToast(`✅ บันทึกแพ็กเกจ "${pkgObj.name}" (${pkgObj.price} ฿) ลง D1 เรียบร้อย!`);
+          btn.textContent = "✅";
+          setTimeout(() => { btn.textContent = "💾"; btn.disabled = false; }, 1200);
+        } catch (err) {
+          showToast("❌ บันทึกแพ็กเกจล้มเหลว: " + err.message);
+          btn.textContent = "💾";
+          btn.disabled = false;
+        }
+      });
+
+      // Delete from Cloudflare D1
+      row.querySelector(".studio-pkg-del-btn").addEventListener("click", async () => {
+        if (!confirm(`⚠️ ต้องการลบแพ็กเกจ "${pkgObj.name}" ออกจากฐานข้อมูล D1 ใช่หรือไม่?`)) return;
+        try {
+          const res = await fetch(`${currentShop.url}/rest/v1/packages?id=eq.${encodeURIComponent(pkgId)}`, {
+            method: "DELETE",
+            headers: d1Headers
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          rawPackages = rawPackages.filter(p => String(p.id) !== String(pkgId));
+          haptic();
+          showToast(`🗑️ ลบแพ็กเกจ "${pkgObj.name}" เรียบร้อย!`);
+          renderPackagesEditor();
+          renderPreview();
+        } catch (err) {
+          showToast("❌ ลบแพ็กเกจล้มเหลว: " + err.message);
+        }
+      });
+    });
+
+    // Add new package to D1
+    const addPkgBtn = pkgsContainerEl.querySelector("#studio-add-pkg-btn");
+    if (addPkgBtn) {
+      addPkgBtn.addEventListener("click", async () => {
+        const newName = prompt(`➕ ชื่อแพ็กเกจใหม่สำหรับ ${appObj.display_name || appObj.name}:`, "หาร 30 วัน");
+        if (!newName || !newName.trim()) return;
+        const newPriceRaw = prompt("💰 ราคา (บาท):", "99");
+        if (newPriceRaw === null) return;
+        const newPrice = Number(newPriceRaw) || 0;
+        const newDays = parseInt(prompt("📅 จำนวนวัน:", "30") || "30", 10) || 30;
+        const newScreens = parseInt(prompt("👥 จำนวนจอ:", "1") || "1", 10) || 1;
+
+        try {
+          const res = await fetch(`${currentShop.url}/rest/v1/packages`, {
+            method: "POST",
+            headers: d1Headers,
+            body: JSON.stringify({
+              app_id: appObj.id,
+              name: newName.trim(),
+              price: newPrice,
+              days: newDays,
+              screens: newScreens
+            })
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const created = await res.json();
+          const createdPkg = Array.isArray(created) ? created[0] : created;
+          if (createdPkg) rawPackages.push(createdPkg);
+          haptic();
+          showToast(`✅ เพิ่มแพ็กเกจ "${newName.trim()}" (${newPrice} ฿) ลง D1 เรียบร้อย!`);
+          renderPackagesEditor();
+          renderPreview();
+        } catch (err) {
+          showToast("❌ เพิ่มแพ็กเกจล้มเหลว: " + err.message);
+        }
+      });
+    }
+  };
+
+  const renderBlocksEditor = () => {
+    const blocks = getActiveBlocks();
+    blocksListEl.innerHTML = blocks.map((blk, idx) => `
+      <div class="studio-block-card ${blk.enabled === false ? 'is-disabled' : ''} ${focusedBlockId === blk.id ? 'is-focused' : ''}" data-block-id="${escapeHtml(blk.id)}">
+        <div class="studio-block-head">
+          <input type="text" class="studio-block-title-input" value="${escapeHtml(blk.title || `บล็อก ${idx + 1}`)}" placeholder="ชื่อส่วนข้อความ...">
+          <div class="studio-block-actions">
+            <label class="studio-toggle-switch" title="เปิด/ปิดส่วนนี้">
+              <input type="checkbox" class="studio-block-toggle" ${blk.enabled !== false ? 'checked' : ''}>
+              <span class="studio-toggle-slider"></span>
+            </label>
+            <button type="button" class="studio-icon-mini-btn studio-move-up" title="เลื่อนขึ้น" ${idx === 0 ? 'disabled style="opacity:0.35;"' : ''}>⬆️</button>
+            <button type="button" class="studio-icon-mini-btn studio-move-down" title="เลื่อนลง" ${idx === blocks.length - 1 ? 'disabled style="opacity:0.35;"' : ''}>⬇️</button>
+            <button type="button" class="studio-icon-mini-btn danger studio-del-block" title="ลบบล็อกนี้">🗑️</button>
+          </div>
+        </div>
+        <textarea class="studio-block-textarea" placeholder="พิมพ์ข้อความสคริปต์ในส่วนนี้...">${escapeHtml(blk.content || "")}</textarea>
+      </div>
+    `).join("");
+
+    blocksListEl.querySelectorAll(".studio-block-card").forEach((card, idx) => {
+      const blk = blocks[idx];
+      const titleInput = card.querySelector(".studio-block-title-input");
+      const toggleInput = card.querySelector(".studio-block-toggle");
+      const textarea = card.querySelector(".studio-block-textarea");
+
+      titleInput.addEventListener("input", () => {
+        blk.title = titleInput.value;
+      });
+
+      toggleInput.addEventListener("change", () => {
+        blk.enabled = toggleInput.checked;
+        card.classList.toggle("is-disabled", !blk.enabled);
+        renderPreview();
+      });
+
+      textarea.addEventListener("focus", () => {
+        focusedBlockId = blk.id;
+        lastFocusedTextarea = textarea;
+        blocksListEl.querySelectorAll(".studio-block-card").forEach(c => c.classList.remove("is-focused"));
+        card.classList.add("is-focused");
+        renderPreview();
+      });
+
+      textarea.addEventListener("input", () => {
+        blk.content = textarea.value;
+        renderPreview();
+      });
+
+      card.querySelector(".studio-move-up").addEventListener("click", () => {
+        if (idx <= 0) return;
+        haptic();
+        [blocks[idx - 1], blocks[idx]] = [blocks[idx], blocks[idx - 1]];
+        renderBlocksEditor();
+        renderPreview();
+      });
+
+      card.querySelector(".studio-move-down").addEventListener("click", () => {
+        if (idx >= blocks.length - 1) return;
+        haptic();
+        [blocks[idx + 1], blocks[idx]] = [blocks[idx], blocks[idx + 1]];
+        renderBlocksEditor();
+        renderPreview();
+      });
+
+      card.querySelector(".studio-del-block").addEventListener("click", () => {
+        if (blocks.length <= 1) {
+          showToast("⚠️ ต้องมีอย่างน้อย 1 บล็อกครับ");
+          return;
+        }
+        haptic();
+        blocks.splice(idx, 1);
+        renderBlocksEditor();
+        renderPreview();
+      });
+    });
+  };
+
+  const renderAllStudio = () => {
+    renderPackagesEditor();
+    renderBlocksEditor();
+    renderPreview();
+  };
+
+  // Tab Switch
+  overlay.querySelectorAll(".studio-tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      activeTab = btn.dataset.studioTab;
+      focusedBlockId = null;
+      lastFocusedTextarea = null;
+      overlay.querySelectorAll(".studio-tab-btn").forEach(b => b.classList.toggle("active", b === btn));
+      renderAllStudio();
+    });
+  });
+
+  // Scope App Switch
+  if (scopeSelect) {
+    scopeSelect.addEventListener("change", () => {
+      haptic();
+      activeScopeAppId = scopeSelect.value || "global";
+      focusedBlockId = null;
+      lastFocusedTextarea = null;
+      renderAllStudio();
+    });
+  }
+
+  // Mobile Editor/Preview Switch
+  overlay.querySelectorAll(".studio-mobile-switch-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      mobilePane = btn.dataset.pane;
+      workspaceEl.setAttribute("data-mobile-pane", mobilePane);
+      overlay.querySelectorAll(".studio-mobile-switch-btn").forEach(b => b.classList.toggle("active", b === btn));
+    });
+  });
+
+  // Smart Variable Chip Insert
+  overlay.querySelector("#studio-vars-chips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".studio-var-chip");
+    if (!chip || !chip.dataset.token) return;
+    haptic();
+    const token = chip.dataset.token;
+    const targetTa = (lastFocusedTextarea && document.body.contains(lastFocusedTextarea))
+      ? lastFocusedTextarea
+      : blocksListEl.querySelector(".studio-block-textarea");
+    if (!targetTa) return;
+
+    const start = targetTa.selectionStart ?? targetTa.value.length;
+    const end = targetTa.selectionEnd ?? targetTa.value.length;
+    targetTa.value = targetTa.value.slice(0, start) + token + targetTa.value.slice(end);
+    targetTa.focus();
+    const nextPos = start + token.length;
+    targetTa.setSelectionRange(nextPos, nextPos);
+    targetTa.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  // Add New Block
+  overlay.querySelector("#studio-add-block-btn").addEventListener("click", () => {
+    haptic();
+    const blocks = getActiveBlocks();
+    const newId = `blk_custom_${Date.now()}`;
+    blocks.push({ id: newId, title: `ส่วนเพิ่มเติม #${blocks.length + 1}`, enabled: true, content: "" });
+    focusedBlockId = newId;
+    renderBlocksEditor();
+    renderPreview();
+    const newTa = blocksListEl.querySelector(`[data-block-id="${newId}"] .studio-block-textarea`);
+    if (newTa) {
+      newTa.focus();
+      newTa.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+
+  // Sample vs Real Preview Toggle
+  const sampleBtn = overlay.querySelector("#studio-data-sample-btn");
+  const realBtn = overlay.querySelector("#studio-data-real-btn");
+  const updateDataModeBtns = () => {
+    sampleBtn.style.borderColor = previewDataMode === "sample" ? "#34d399" : "rgba(56,189,248,0.28)";
+    sampleBtn.style.color = previewDataMode === "sample" ? "#6ee7b7" : "#bae6fd";
+    realBtn.style.borderColor = previewDataMode === "real" ? "#34d399" : "rgba(56,189,248,0.28)";
+    realBtn.style.color = previewDataMode === "real" ? "#6ee7b7" : "#bae6fd";
+  };
+  sampleBtn.addEventListener("click", () => {
+    haptic();
+    previewDataMode = "sample";
+    updateDataModeBtns();
+    renderPreview();
+  });
+  realBtn.addEventListener("click", () => {
+    haptic();
+    previewDataMode = "real";
+    updateDataModeBtns();
+    renderPreview();
+  });
+
+  // Reset to Default
+  overlay.querySelector("#studio-reset-btn").addEventListener("click", () => {
+    if (!confirm("↩️ ต้องการคืนค่าบล็อกสคริปต์ของแท็บนี้กลับเป็นค่าเริ่มต้นใช่หรือไม่?")) return;
+    haptic();
+    const key = getTemplateKey(activeTab, activeScopeAppId);
+    allTemplates[key] = getDefaultStudioBlocks(activeTab);
+    saveAllStudioTemplates(allTemplates);
+    renderAllStudio();
+    showToast("↩️ คืนค่าเทมเพลตเริ่มต้นเรียบร้อย!");
+  });
+
+  // Copy Test Script
+  overlay.querySelector("#studio-copy-test-btn").addEventListener("click", async () => {
+    haptic();
+    const text = getPlainRenderedScript();
+    if (!text) {
+      showToast("⚠️ ไม่มีข้อความให้คัดลอก");
+      return;
+    }
+    await copyToClipboard(text);
+    showToast("📋 คัดลอกสคริปต์พรีวิวเรียบร้อยแล้ว! ลองวางใน LINE ได้เลย ✨");
+  });
+
+  // Save Template
+  overlay.querySelector("#studio-save-template-btn").addEventListener("click", () => {
+    haptic();
+    saveAllStudioTemplates(allTemplates);
+    showToast("💾 บันทึกเทมเพลตสคริปต์เรียบร้อยแล้ว! ✨");
+  });
+
+  // Close Modal
+  const closeStudio = () => overlay.remove();
+  overlay.querySelector("#studio-close-btn").addEventListener("click", closeStudio);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeStudio();
+  });
+
+  renderAllStudio();
+}
