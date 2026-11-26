@@ -297,6 +297,13 @@ function initUIEventListeners() {
   if (toggleStockFormBtn) {
     toggleStockFormBtn.addEventListener("click", () => toggleStockForm());
   }
+  const cleanupExpiredBtn = document.getElementById("btn-open-cleanup-expired-modal");
+  if (cleanupExpiredBtn) {
+    cleanupExpiredBtn.addEventListener("click", () => {
+      haptic();
+      openCleanupExpiredAccountsModal();
+    });
+  }
   const toggleStockFormHeaderBtn = document.getElementById("btn-toggle-stock-form-header");
   if (toggleStockFormHeaderBtn) {
     toggleStockFormHeaderBtn.addEventListener("click", () => toggleStockForm());
@@ -13573,5 +13580,297 @@ function renderRecentMessagesSettingsTab(bodyEl, footerEl) {
       closeRecentMessagesModal();
     });
   }
+}
+
+// ============================================================================
+// 🧹 Bulk Cleanup Expired Accounts Modal
+// ============================================================================
+function openCleanupExpiredAccountsModal() {
+  const existing = document.getElementById("boss-cleanup-expired-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "boss-cleanup-expired-modal";
+  overlay.style.cssText = "position: fixed; inset: 0; z-index: 99999; background: rgba(2, 6, 23, 0.82); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 14px;";
+
+  const appsOptionsHtml = [`<option value="all">🌐 ทุกแอปพลิเคชัน</option>`]
+    .concat((rawApps || []).map(a => `<option value="${a.id}">${escapeHtml(a.display_name || a.name || a.id)}</option>`))
+    .join("");
+
+  overlay.innerHTML = `
+    <div style="width: 100%; max-width: 460px; background: #0f172a; border: 1px solid rgba(239, 68, 68, 0.42); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,0.7); overflow: hidden; color: #f8fafc;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(15, 23, 42, 0.96)); border-bottom: 1px solid rgba(239, 68, 68, 0.25);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">🧹</span>
+          <div>
+            <div style="font-weight: 800; font-size: 15px; color: #fca5a5;">ล้างบัญชีที่หมดอายุแล้ว</div>
+            <div style="font-size: 11px; color: #94a3b8;">ลบข้อมูลบัญชีเก่าออกจากฐานข้อมูลเพื่อลดการอ่านข้อมูล</div>
+          </div>
+        </div>
+        <button type="button" id="boss-cleanup-close-btn" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); color: #cbd5e1; border-radius: 9px; width: 32px; height: 32px; cursor: pointer; font-size: 15px;">✕</button>
+      </div>
+
+      <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; max-height: 72vh; overflow-y: auto;">
+        <div>
+          <div style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">⏳ เลือกลบบัญชีที่หมดอายุเกินกี่วัน:</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
+            <button type="button" class="boss-cleanup-preset-btn" data-days="0" style="padding: 8px 4px; font-size: 11.5px; font-weight: 700; border-radius: 9px; border: 1px solid rgba(148,163,184,0.28); background: rgba(30,41,59,0.8); color: #cbd5e1; cursor: pointer;">หมดอายุทั้งหมด</button>
+            <button type="button" class="boss-cleanup-preset-btn" data-days="7" style="padding: 8px 4px; font-size: 11.5px; font-weight: 700; border-radius: 9px; border: 1px solid rgba(148,163,184,0.28); background: rgba(30,41,59,0.8); color: #cbd5e1; cursor: pointer;">เกิน 7 วัน</button>
+            <button type="button" class="boss-cleanup-preset-btn" data-days="15" style="padding: 8px 4px; font-size: 11.5px; font-weight: 700; border-radius: 9px; border: 1px solid rgba(148,163,184,0.28); background: rgba(30,41,59,0.8); color: #cbd5e1; cursor: pointer;">เกิน 15 วัน</button>
+            <button type="button" class="boss-cleanup-preset-btn" data-days="30" style="padding: 8px 4px; font-size: 11.5px; font-weight: 700; border-radius: 9px; border: 1px solid rgba(239,68,68,0.65); background: rgba(239,68,68,0.22); color: #fca5a5; cursor: pointer;">เกิน 30 วัน</button>
+            <button type="button" class="boss-cleanup-preset-btn" data-days="60" style="padding: 8px 4px; font-size: 11.5px; font-weight: 700; border-radius: 9px; border: 1px solid rgba(148,163,184,0.28); background: rgba(30,41,59,0.8); color: #cbd5e1; cursor: pointer;">เกิน 60 วัน</button>
+            <button type="button" class="boss-cleanup-preset-btn" data-days="90" style="padding: 8px 4px; font-size: 11.5px; font-weight: 700; border-radius: 9px; border: 1px solid rgba(148,163,184,0.28); background: rgba(30,41,59,0.8); color: #cbd5e1; cursor: pointer;">เกิน 90 วัน</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="boss-cleanup-days-input" style="font-size: 12px; color: #94a3b8; white-space: nowrap;">กำหนดเอง (วัน):</label>
+            <input type="number" id="boss-cleanup-days-input" min="0" value="30" style="flex: 1; padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(148,163,184,0.35); background: #020617; color: #f8fafc; font-size: 13px; font-weight: 700;">
+          </div>
+        </div>
+
+        <div>
+          <label for="boss-cleanup-app-filter" style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px;">🎬 กรองตามแอป (ไม่บังคับ):</label>
+          <select id="boss-cleanup-app-filter" style="width: 100%; padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(148,163,184,0.35); background: #020617; color: #f8fafc; font-size: 12.5px;">
+            ${appsOptionsHtml}
+          </select>
+        </div>
+
+        <div style="padding: 12px; border-radius: 12px; background: rgba(2, 6, 23, 0.7); border: 1px solid rgba(239, 68, 68, 0.35); display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12.5px; color: #cbd5e1;">จำนวนแถว/โปรไฟล์ที่จะลบ:</span>
+            <span id="boss-cleanup-row-count" style="font-size: 19px; font-weight: 800; color: #f87171;">0 รายการ</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: #94a3b8;">จำนวนอีเมล (บัญชีหลัก):</span>
+            <span id="boss-cleanup-email-count" style="font-size: 13.5px; font-weight: 700; color: #fbbf24;">0 บัญชี</span>
+          </div>
+          <div id="boss-cleanup-cutoff-text" style="font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(148,163,184,0.15); padding-top: 6px;"></div>
+          <div id="boss-cleanup-app-breakdown" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px;"></div>
+        </div>
+
+        <div style="font-size: 11.5px; color: #94a3b8; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.22); border-radius: 9px; padding: 8px 10px; line-height: 1.45;">
+          🔒 ระบบจะปลด <code style="color:#38bdf8;">account_id</code> ในประวัติลูกค้า (<code style="color:#38bdf8;">customer_bindings</code>) เป็นค่าว่างให้อัตโนมัติ โดย <b>ไม่ลบประวัติการซื้อของลูกค้า</b>
+        </div>
+
+        <div id="boss-cleanup-progress-wrap" style="display: none; flex-direction: column; gap: 5px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: #fca5a5; font-weight: 700;">
+            <span id="boss-cleanup-progress-label">⏳ กำลังลบข้อมูล...</span>
+            <span id="boss-cleanup-progress-pct">0%</span>
+          </div>
+          <div style="width: 100%; height: 8px; border-radius: 999px; background: rgba(148,163,184,0.2); overflow: hidden;">
+            <div id="boss-cleanup-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); transition: width 0.2s ease;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid rgba(148,163,184,0.15); background: rgba(2, 6, 23, 0.55);">
+        <button type="button" id="boss-cleanup-cancel-btn" style="flex: 0.4; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.3); background: rgba(30,41,59,0.85); color: #cbd5e1; font-weight: 700; font-size: 13px; cursor: pointer;">ยกเลิก</button>
+        <button type="button" id="boss-cleanup-confirm-btn" style="flex: 1; padding: 10px 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #dc2626, #b91c1c); color: #ffffff; font-weight: 800; font-size: 13px; cursor: pointer;">🗑️ ยืนยันลบ</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const daysInput = overlay.querySelector("#boss-cleanup-days-input");
+  const appFilterSelect = overlay.querySelector("#boss-cleanup-app-filter");
+  const rowCountEl = overlay.querySelector("#boss-cleanup-row-count");
+  const emailCountEl = overlay.querySelector("#boss-cleanup-email-count");
+  const cutoffTextEl = overlay.querySelector("#boss-cleanup-cutoff-text");
+  const breakdownEl = overlay.querySelector("#boss-cleanup-app-breakdown");
+  const confirmBtn = overlay.querySelector("#boss-cleanup-confirm-btn");
+  const cancelBtn = overlay.querySelector("#boss-cleanup-cancel-btn");
+  const closeBtn = overlay.querySelector("#boss-cleanup-close-btn");
+  const presetBtns = Array.from(overlay.querySelectorAll(".boss-cleanup-preset-btn"));
+  const progressWrap = overlay.querySelector("#boss-cleanup-progress-wrap");
+  const progressLabel = overlay.querySelector("#boss-cleanup-progress-label");
+  const progressPct = overlay.querySelector("#boss-cleanup-progress-pct");
+  const progressBar = overlay.querySelector("#boss-cleanup-progress-bar");
+
+  let isRunning = false;
+  let currentMatches = [];
+
+  const closeModal = () => {
+    if (isRunning) return;
+    overlay.remove();
+  };
+
+  closeBtn.addEventListener("click", closeModal);
+  cancelBtn.addEventListener("click", closeModal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  const getMatchingAccounts = () => {
+    const days = Math.max(0, parseInt(daysInput.value, 10) || 0);
+    const selectedApp = appFilterSelect.value || "all";
+    const cutoffMs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const sourceList = (Array.isArray(allAccountsList) && allAccountsList.length > 0) ? allAccountsList : (rawAccounts || []);
+
+    return {
+      days,
+      cutoffMs,
+      matches: sourceList.filter(a => {
+        if (!a || !a.expiry_date) return false;
+        if (selectedApp !== "all" && String(a.app_id) !== String(selectedApp)) return false;
+        const expMs = new Date(a.expiry_date).getTime();
+        return !isNaN(expMs) && expMs < cutoffMs;
+      })
+    };
+  };
+
+  const updatePreview = () => {
+    const { days, cutoffMs, matches } = getMatchingAccounts();
+    currentMatches = matches;
+
+    presetBtns.forEach(b => {
+      const isActive = String(b.dataset.days) === String(days);
+      b.style.borderColor = isActive ? "rgba(239,68,68,0.65)" : "rgba(148,163,184,0.28)";
+      b.style.background = isActive ? "rgba(239,68,68,0.22)" : "rgba(30,41,59,0.8)";
+      b.style.color = isActive ? "#fca5a5" : "#cbd5e1";
+    });
+
+    const uniqueEmails = new Set(matches.map(a => (a.email || a.id || "").trim().toLowerCase()).filter(Boolean));
+    rowCountEl.textContent = `${matches.length.toLocaleString()} รายการ`;
+    rowCountEl.style.color = matches.length > 0 ? "#f87171" : "#64748b";
+    emailCountEl.textContent = `${uniqueEmails.size.toLocaleString()} บัญชี`;
+
+    const cutoffDateStr = new Date(cutoffMs).toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" });
+    cutoffTextEl.textContent = days === 0
+      ? `เงื่อนไข: บัญชีที่หมดอายุแล้วทั้งหมด (ก่อน ${cutoffDateStr})`
+      : `เงื่อนไข: บัญชีที่หมดอายุก่อนวันที่ ${cutoffDateStr} (เกิน ${days} วัน)`;
+
+    const appCounts = new Map();
+    matches.forEach(a => {
+      const appObj = (rawApps || []).find(ap => ap.id === a.app_id);
+      const appName = appObj ? (appObj.display_name || appObj.name) : (a.app_name || "ไม่ระบุแอป");
+      appCounts.set(appName, (appCounts.get(appName) || 0) + 1);
+    });
+
+    if (appCounts.size > 0) {
+      breakdownEl.innerHTML = Array.from(appCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, cnt]) => `<span style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.28); color: #fca5a5;">${escapeHtml(name)}: <b>${cnt}</b></span>`)
+        .join("");
+    } else {
+      breakdownEl.innerHTML = `<span style="font-size: 11.5px; color: #34d399;">✨ ไม่พบบัญชีที่หมดอายุตามเงื่อนไขนี้</span>`;
+    }
+
+    confirmBtn.disabled = matches.length === 0;
+    confirmBtn.style.opacity = matches.length === 0 ? "0.45" : "1";
+    confirmBtn.style.cursor = matches.length === 0 ? "not-allowed" : "pointer";
+    confirmBtn.textContent = matches.length > 0
+      ? `🗑️ ยืนยันลบ ${matches.length.toLocaleString()} รายการ (${uniqueEmails.size.toLocaleString()} บัญชี)`
+      : "ไม่มีรายการให้ลบ";
+  };
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      haptic();
+      daysInput.value = btn.dataset.days;
+      updatePreview();
+    });
+  });
+
+  daysInput.addEventListener("input", updatePreview);
+  appFilterSelect.addEventListener("change", updatePreview);
+
+  confirmBtn.addEventListener("click", async () => {
+    if (isRunning || currentMatches.length === 0) return;
+
+    const days = Math.max(0, parseInt(daysInput.value, 10) || 0);
+    const uniqueEmails = new Set(currentMatches.map(a => (a.email || a.id || "").trim().toLowerCase()).filter(Boolean));
+    const condMsg = days === 0 ? "หมดอายุแล้วทั้งหมด" : `หมดอายุเกิน ${days} วัน`;
+
+    if (!confirm(`⚠️ ยืนยันการลบข้อมูลถาวร?\n\n• เงื่อนไข: ${condMsg}\n• จำนวนที่จะลบ: ${currentMatches.length.toLocaleString()} รายการ (${uniqueEmails.size.toLocaleString()} บัญชี)\n\nการดำเนินการนี้ไม่สามารถย้อนคืนได้ (ประวัติลูกค้าจะยังคงอยู่)`)) {
+      return;
+    }
+
+    isRunning = true;
+    confirmBtn.disabled = true;
+    cancelBtn.disabled = true;
+    closeBtn.disabled = true;
+    daysInput.disabled = true;
+    appFilterSelect.disabled = true;
+    presetBtns.forEach(b => (b.disabled = true));
+    progressWrap.style.display = "flex";
+
+    const targetIds = currentMatches.map(a => a.id).filter(Boolean);
+    const CHUNK_SIZE = 25;
+    let deletedTotal = 0;
+    let failedChunks = 0;
+
+    const baseHeaders = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`,
+      "Content-Type": "application/json"
+    };
+
+    try {
+      for (let i = 0; i < targetIds.length; i += CHUNK_SIZE) {
+        const chunk = targetIds.slice(i, i + CHUNK_SIZE);
+        const inParam = encodeURIComponent(`in.(${chunk.join(",")})`);
+
+        progressLabel.textContent = `⏳ กำลังล้างข้อมูล... (${Math.min(i + chunk.length, targetIds.length)} / ${targetIds.length})`;
+        const pct = Math.round((i / targetIds.length) * 100);
+        progressPct.textContent = `${pct}%`;
+        progressBar.style.width = `${pct}%`;
+
+        // 1. Unbind customer_bindings.account_id = null
+        try {
+          await fetch(`${currentShop.url}/rest/v1/customer_bindings?account_id=${inParam}`, {
+            method: "PATCH",
+            headers: baseHeaders,
+            body: JSON.stringify({ account_id: null })
+          });
+        } catch (unbindErr) {
+          console.warn("[CleanupExpired] Unbind chunk warning:", unbindErr);
+        }
+
+        // 2. Delete expired rows from accounts
+        const delRes = await fetch(`${currentShop.url}/rest/v1/accounts?id=${inParam}`, {
+          method: "DELETE",
+          headers: baseHeaders
+        });
+
+        if (delRes.ok) {
+          deletedTotal += chunk.length;
+        } else {
+          failedChunks++;
+          console.error("[CleanupExpired] Delete chunk failed:", delRes.status, await delRes.text().catch(() => ""));
+        }
+      }
+
+      progressPct.textContent = "100%";
+      progressBar.style.width = "100%";
+      progressLabel.textContent = "✅ ล้างข้อมูลเสร็จสิ้น!";
+
+      haptic();
+      if (failedChunks === 0) {
+        showToast(`🧹 ลบบัญชีที่หมดอายุแล้ว ${deletedTotal.toLocaleString()} รายการ (${uniqueEmails.size.toLocaleString()} บัญชี) เรียบร้อย!`);
+      } else {
+        showToast(`⚠️ ลบสำเร็จ ${deletedTotal.toLocaleString()} รายการ (ผิดพลาด ${failedChunks} ชุด โปรดลองรีเฟรช)`);
+      }
+
+      isRunning = false;
+      setTimeout(async () => {
+        overlay.remove();
+        if (typeof loadData === "function") {
+          await loadData(true);
+        }
+      }, 500);
+    } catch (err) {
+      console.error("[CleanupExpired] Error:", err);
+      showToast("❌ เกิดข้อผิดพลาดระหว่างลบ: " + (err.message || err));
+      isRunning = false;
+      cancelBtn.disabled = false;
+      closeBtn.disabled = false;
+      daysInput.disabled = false;
+      appFilterSelect.disabled = false;
+      presetBtns.forEach(b => (b.disabled = false));
+      updatePreview();
+    }
+  });
+
+  updatePreview();
 }
 
