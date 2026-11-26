@@ -1867,7 +1867,7 @@ function renderStockFeed() {
       const isAccountBroken = acc.hasBroken || brokenEmailsSet.has(emailKey.toLowerCase());
 
       html += `
-        <div class="account-card ${isAccountBroken ? 'broken-account' : ''}">
+        <div class="account-card ${isAccountBroken ? 'broken-account' : ''}" data-account-email="${escapeHtml(emailKey.toLowerCase())}">
           <div class="acc-cred-row">
             <!-- Email row with 1-tap copy capsule & Broken Toggle -->
             <div class="cred-item">
@@ -2523,6 +2523,38 @@ window.selectShop = function(shopId) {
 // 📦 Stock Form Panel Functions (div#stock-form-panel.form-panel.prem-card.expanded)
 // ============================================================================
 
+function smoothScrollWindowToElement(el, offsetExtra = 10, duration = 460) {
+  if (!el) return;
+  const header = document.querySelector(".app-header");
+  const headerHeight = header ? header.getBoundingClientRect().height : 0;
+  const rect = el.getBoundingClientRect();
+  const targetY = Math.max(0, window.scrollY + rect.top - headerHeight - offsetExtra);
+  const startY = window.scrollY;
+  const distance = targetY - startY;
+
+  if (Math.abs(distance) < 2) return;
+
+  if (window._smoothScrollAnimId) {
+    cancelAnimationFrame(window._smoothScrollAnimId);
+  }
+
+  const startTime = performance.now();
+  const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+
+  const step = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    window.scrollTo(0, startY + distance * easeOutQuart(progress));
+    if (progress < 1) {
+      window._smoothScrollAnimId = requestAnimationFrame(step);
+    } else {
+      window._smoothScrollAnimId = null;
+    }
+  };
+
+  window._smoothScrollAnimId = requestAnimationFrame(step);
+}
+
 function toggleStockForm(forceOpen = null) {
   haptic();
   const panel = document.getElementById("stock-form-panel");
@@ -2532,9 +2564,11 @@ function toggleStockForm(forceOpen = null) {
 
   if (shouldOpen) {
     panel.classList.add("expanded");
-    setTimeout(() => {
-      panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        smoothScrollWindowToElement(panel, 10, 440);
+      });
+    });
   } else {
     panel.classList.remove("expanded");
   }
@@ -5091,10 +5125,42 @@ async function submitAccountForm() {
       throw new Error(errTxt || `HTTP Error ${saveRes.status}`);
     }
 
+    const savedEmails = isMultiBatch
+      ? parsedBatchAccounts.map(a => (a.email || "").trim().toLowerCase()).filter(Boolean)
+      : [email.trim().toLowerCase()].filter(Boolean);
+
     showToast(`🟢 เพิ่มสต็อกสำเร็จ ${isMultiBatch ? `(${parsedBatchAccounts.length} บัญชี, รวม ${records.length} จอ)` : `(สร้าง ${records.length} หน้าจอ)`}! ✨`);
+    toggleStockForm(false);
     resetStockForm();
     await loadData(true);
+
+    // Ensure status filter displays the newly added account
+    if (status === "broken" && activeStockStatusFilter === "available") {
+      setStockStatusFilter("broken");
+    } else if (status === "used" && activeStockStatusFilter !== "all") {
+      setStockStatusFilter("all");
+    }
+
     selectChip(appId);
+
+    // Smoothly scroll to newly added account card after form collapses
+    if (savedEmails.length > 0) {
+      setTimeout(() => {
+        const feedEl = document.getElementById("stock-feed");
+        if (!feedEl) return;
+        const allCards = Array.from(feedEl.querySelectorAll(".account-card[data-account-email]"));
+        const matchedCards = allCards.filter(c => savedEmails.includes((c.dataset.accountEmail || "").toLowerCase()));
+        if (matchedCards.length > 0) {
+          smoothScrollWindowToElement(matchedCards[0], 14, 520);
+          matchedCards.forEach(card => {
+            card.classList.remove("newly-added-card-highlight");
+            void card.offsetWidth; // trigger reflow for replay
+            card.classList.add("newly-added-card-highlight");
+            setTimeout(() => card.classList.remove("newly-added-card-highlight"), 2800);
+          });
+        }
+      }, 360);
+    }
   } catch (err) {
     console.error("Save account error:", err);
     showToast("❌ บันทึกสต็อกไม่สำเร็จ: " + err.message);
