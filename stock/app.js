@@ -32,6 +32,7 @@ let activeAppFilter = "all";
 let activeStockStatusFilter = "available"; // "available" (เฉพาะจอว่าง) | "broken" (มีปัญหา) | "all" (ทั้งหมด)
 let searchQuery = "";
 let bindingSearchQuery = "";
+let activeSearchCategory = "all"; // "all" | "id" | "email" | "password" | "pin" | "customer" | "app"
 let bindingFilter = "all"; // "all" | "active" | "expiring" | "expired" | "reverted"
 let isPasswordHidden = false;
 let appGroups = {};
@@ -174,6 +175,11 @@ function initUIEventListeners() {
     searchInput.addEventListener("input", (e) => {
       const val = e.target.value.trim();
       if (searchClear) searchClear.style.display = val ? "block" : "none";
+      if (!val) {
+        activeSearchCategory = "all";
+      } else if (val.startsWith("#") && val.length > 1) {
+        activeSearchCategory = "id";
+      }
 
       clearTimeout(searchDebounceTimer);
       searchDebounceTimer = setTimeout(() => {
@@ -191,6 +197,7 @@ function initUIEventListeners() {
     searchClear.addEventListener("click", () => {
       if (searchInput) searchInput.value = "";
       searchClear.style.display = "none";
+      activeSearchCategory = "all";
       clearTimeout(searchDebounceTimer);
       if (currentView === "bindings") {
         bindingSearchQuery = "";
@@ -200,6 +207,23 @@ function initUIEventListeners() {
         renderStockFeed();
       }
     });
+  }
+
+  // Smart Search Facets Bar Event Delegation & Desktop Drag Scroll
+  const searchFacetsBar = document.getElementById("search-facets-bar");
+  if (searchFacetsBar) {
+    searchFacetsBar.addEventListener("click", (e) => {
+      const pill = e.target.closest(".search-facet-pill");
+      if (!pill || !pill.dataset.facet) return;
+      haptic();
+      activeSearchCategory = pill.dataset.facet;
+      if (currentView === "bindings") {
+        renderBindingsFeed();
+      } else {
+        renderStockFeed();
+      }
+    });
+    enableHorizontalDragScroll(searchFacetsBar);
   }
 
   // Stock Status Filter Buttons (เฉพาะจอว่าง / มีปัญหา / ทั้งหมด)
@@ -1679,6 +1703,131 @@ window.setStockStatusFilter = function(status) {
 // ----------------------------------------------------------------------------
 // Render Stock Feed Cards (Brand Themed + Interactive Capsules)
 // ----------------------------------------------------------------------------
+// ============================================================================
+// 🔍 Smart Multi-Category Search Engine (Shared across Stock & Bindings)
+// ============================================================================
+const SEARCH_FACET_DEFS = [
+  { key: "all", icon: "✨", label: "ทั้งหมด" },
+  { key: "id", icon: "🆔", label: "ID จอ" },
+  { key: "email", icon: "✉️", label: "อีเมล" },
+  { key: "password", icon: "🔑", label: "รหัสผ่าน" },
+  { key: "pin", icon: "🔢", label: "PIN" },
+  { key: "customer", icon: "👤", label: "ลูกค้า" },
+  { key: "app", icon: "🎬", label: "แอป/อื่นๆ" }
+];
+
+function buildStockCustomerLookup() {
+  const byAccountId = new Map();
+  const byEmail = new Map();
+  if (Array.isArray(rawBindings)) {
+    rawBindings.forEach(b => {
+      const cust = (b.customer_name || "").trim().toLowerCase();
+      if (!cust) return;
+      if (b.account_id) {
+        if (!byAccountId.has(b.account_id)) byAccountId.set(b.account_id, []);
+        byAccountId.get(b.account_id).push(cust);
+      }
+      const em = (b._emailLower || "").trim().toLowerCase();
+      if (em) {
+        if (!byEmail.has(em)) byEmail.set(em, []);
+        byEmail.get(em).push(cust);
+      }
+    });
+  }
+  return { byAccountId, byEmail };
+}
+
+function getStockAccountMatchFlags(group, acc, emailKey, query, custLookup) {
+  if (!query) return { all: true, id: false, email: false, password: false, pin: false, customer: false, app: false, any: true };
+  const cleanIdQ = query.replace(/^#/, "").trim();
+  const screens = acc.screens || [];
+
+  const id = cleanIdQ.length > 0 && screens.some(s => s.display_id && String(s.display_id).toLowerCase().includes(cleanIdQ));
+  const email = Boolean((acc.email || emailKey || "").toLowerCase().includes(query));
+  const password = Boolean((acc.password || "").toLowerCase().includes(query));
+  const pin = screens.some(s => s.pin_code && String(s.pin_code).toLowerCase().includes(query));
+
+  let customer = false;
+  if (custLookup) {
+    const emailLower = (acc.email || emailKey || "").trim().toLowerCase();
+    const emCusts = custLookup.byEmail.get(emailLower);
+    if (emCusts && emCusts.some(c => c.includes(query))) {
+      customer = true;
+    } else {
+      customer = screens.some(s => {
+        const list = custLookup.byAccountId.get(s.id);
+        return list && list.some(c => c.includes(query));
+      });
+    }
+  }
+
+  const app = Boolean(
+    (group.appName || "").toLowerCase().includes(query) ||
+    (group.pkgName || "").toLowerCase().includes(query) ||
+    screens.some(s =>
+      (s.profile_name && s.profile_name.toLowerCase().includes(query)) ||
+      (s.cookie_data && String(s.cookie_data).toLowerCase().includes(query))
+    )
+  );
+
+  const any = id || email || password || pin || customer || app;
+  return { all: any, id, email, password, pin, customer, app, any };
+}
+
+function getBindingMatchFlags(b, query) {
+  if (!query) return { all: true, id: false, email: false, password: false, pin: false, customer: false, app: false, any: true };
+  const cleanIdQ = query.replace(/^#/, "").trim();
+
+  const id = cleanIdQ.length > 0 && Boolean(b._displayIdLower && b._displayIdLower.includes(cleanIdQ));
+  const email = Boolean(b._emailLower && b._emailLower.includes(query));
+  const linkedAcc = b.account_id ? accountsByIdMap.get(b.account_id) : null;
+  const pwLower = (b._passwordLower || (linkedAcc && linkedAcc.password ? String(linkedAcc.password).toLowerCase() : ""));
+  const password = Boolean(pwLower && pwLower.includes(query));
+  const pin = Boolean(b._pinLower && b._pinLower.includes(query));
+  const customer = Boolean(b._custLower && b._custLower.includes(query));
+  const app = Boolean(
+    (b.app_name || "").toLowerCase().includes(query) ||
+    (b.package_name || "").toLowerCase().includes(query) ||
+    (b.raw_account_data || "").toLowerCase().includes(query)
+  );
+
+  const any = id || email || password || pin || customer || app;
+  return { all: any, id, email, password, pin, customer, app, any };
+}
+
+function renderSearchFacetsBar(query, counts) {
+  const bar = document.getElementById("search-facets-bar");
+  if (!bar) return;
+
+  if (!query) {
+    bar.style.display = "none";
+    bar.innerHTML = "";
+    return;
+  }
+
+  bar.style.display = "flex";
+  const prevScrollLeft = bar.scrollLeft;
+
+  bar.innerHTML = SEARCH_FACET_DEFS.map(def => {
+    const cnt = counts[def.key] || 0;
+    const isActive = activeSearchCategory === def.key;
+    const hitClass = cnt > 0 ? "has-hits" : "zero-hits";
+    return `
+      <button type="button" class="search-facet-pill ${hitClass} ${isActive ? 'active' : ''}" data-facet="${def.key}" title="กรองผลลัพธ์เฉพาะ: ${def.label} (${cnt} รายการ)">
+        <span>${def.icon}</span>
+        <span>${def.label}</span>
+        <span class="search-facet-count">${cnt}</span>
+      </button>
+    `;
+  }).join("");
+
+  bar.scrollLeft = prevScrollLeft;
+  const activePill = bar.querySelector(".search-facet-pill.active");
+  if (activePill) {
+    smoothCenterHorizontalItem(bar, activePill, 300);
+  }
+}
+
 function renderStockFeed() {
   const feed = document.getElementById("stock-feed");
   if (!feed) return;
@@ -1687,54 +1836,77 @@ function renderStockFeed() {
   stockFeedDirty = false;
 
   const now = new Date();
-  const filteredGroups = Object.entries(appGroups).filter(([key, group]) => {
-    // 1. App filter
-    if (activeAppFilter !== "all" && group.appId !== activeAppFilter) return false;
+  const q = (searchQuery || "").trim().toLowerCase();
+  const custLookup = q ? buildStockCustomerLookup() : null;
+  const facetCounts = { all: 0, id: 0, email: 0, password: 0, pin: 0, customer: 0, app: 0 };
+  const matchedEmailsByGroupKey = new Map();
 
-    // 2. Status filter
-    if (activeStockStatusFilter === "available") {
-      const hasAvailable = Object.values(group.accountsByEmail).some(acc =>
-        acc.screens.some(s => s.status === "available")
-      );
-      if (!hasAvailable) return false;
-    } else if (activeStockStatusFilter === "broken") {
-      const hasBroken = Object.values(group.accountsByEmail).some(acc =>
-        acc.hasBroken || acc.screens.some(s => s.status === "broken")
-      );
-      if (!hasBroken) return false;
-    }
-
-    // 3. Search query (supports app, package, email, PIN, and #display_id)
-    if (searchQuery) {
-      const cleanStockIdQ = searchQuery.replace(/^#/, "").trim();
-      const isExplicitIdSearch = searchQuery.startsWith("#") && cleanStockIdQ.length > 0;
-      const matchScreenId = cleanStockIdQ ? Object.values(group.accountsByEmail).some(acc =>
-        (acc.screens || []).some(s => s.display_id && String(s.display_id).toLowerCase().includes(cleanStockIdQ))
-      ) : false;
-
-      if (isExplicitIdSearch) {
-        if (!matchScreenId) return false;
-      } else {
-        const matchApp = group.appName.toLowerCase().includes(searchQuery);
-        const matchPkg = group.pkgName.toLowerCase().includes(searchQuery);
-        const matchEmail = Object.keys(group.accountsByEmail).some(e => e.toLowerCase().includes(searchQuery));
-        const matchPin = Object.values(group.accountsByEmail).some(acc =>
-          (acc.screens || []).some(s => s.pin_code && String(s.pin_code).toLowerCase().includes(searchQuery))
-        );
-        if (!matchApp && !matchPkg && !matchEmail && !matchScreenId && !matchPin) return false;
-      }
-    }
-
+  // Helper: check if an account passes status filter
+  const passesStatusFilter = (acc, statusFilter) => {
+    const hasAvail = acc.screens.some(s => s.status === "available");
+    const hasBroken = acc.hasBroken || acc.screens.some(s => s.status === "broken");
+    if (statusFilter === "available") return hasAvail;
+    if (statusFilter === "broken") return hasBroken;
     return true;
+  };
+
+  // Pre-evaluate every group & account for exact per-category counts + filtering
+  const filteredGroups = [];
+  let hiddenStatusMatchCount = 0;
+
+  Object.entries(appGroups).forEach(([groupKey, group]) => {
+    if (activeAppFilter !== "all" && group.appId !== activeAppFilter) return;
+
+    const emailKeys = Object.keys(group.accountsByEmail);
+    const matchingEmails = [];
+
+    emailKeys.forEach(emailKey => {
+      const acc = group.accountsByEmail[emailKey];
+      const inCurrentStatus = passesStatusFilter(acc, activeStockStatusFilter);
+
+      if (!q) {
+        if (inCurrentStatus) matchingEmails.push(emailKey);
+        return;
+      }
+
+      const flags = getStockAccountMatchFlags(group, acc, emailKey, q, custLookup);
+      if (!inCurrentStatus) {
+        if (flags[activeSearchCategory]) hiddenStatusMatchCount++;
+        return;
+      }
+
+      if (flags.any) {
+        facetCounts.all++;
+        if (flags.id) facetCounts.id++;
+        if (flags.email) facetCounts.email++;
+        if (flags.password) facetCounts.password++;
+        if (flags.pin) facetCounts.pin++;
+        if (flags.customer) facetCounts.customer++;
+        if (flags.app) facetCounts.app++;
+      }
+
+      if (flags[activeSearchCategory]) {
+        matchingEmails.push(emailKey);
+      }
+    });
+
+    if (matchingEmails.length > 0) {
+      matchedEmailsByGroupKey.set(groupKey, matchingEmails);
+      filteredGroups.push([groupKey, group]);
+    }
   });
 
-  if (searchQuery) {
-    const cleanStockIdQ = searchQuery.replace(/^#/, "").trim();
+  if (currentView === "stock") {
+    renderSearchFacetsBar(q, facetCounts);
+  }
+
+  if (q) {
+    const cleanStockIdQ = q.replace(/^#/, "").trim();
     const getGroupSearchRank = (group) => {
       if (!cleanStockIdQ) return 0;
       const allScreens = Object.values(group.accountsByEmail).flatMap(acc => acc.screens || []);
       if (allScreens.some(s => String(s.display_id || "").toLowerCase() === cleanStockIdQ)) return 1000;
-      if (Object.keys(group.accountsByEmail).some(e => e.toLowerCase() === searchQuery)) return 800;
+      if (Object.keys(group.accountsByEmail).some(e => e.toLowerCase() === q)) return 800;
       if (allScreens.some(s => String(s.display_id || "").toLowerCase().startsWith(cleanStockIdQ))) return 600;
       if (allScreens.some(s => String(s.pin_code || "").toLowerCase() === cleanStockIdQ)) return 400;
       return 100;
@@ -1743,42 +1915,42 @@ function renderStockFeed() {
   }
 
   if (filteredGroups.length === 0) {
-    let emptyTitle = "ไม่พบสต็อกพร้อมขาย";
-    let emptyDesc = "ไม่มีบัญชีสถานะว่าง หรือบัญชีกำลังจะหมดอายุใน 24 ชม.";
-    let emptyIcon = "📭";
-    if (activeStockStatusFilter === "broken") {
+    let emptyTitle = q ? `ไม่พบผลลัพธ์สำหรับ "${escapeHtml(q)}"` : "ไม่พบสต็อกพร้อมขาย";
+    let emptyDesc = q
+      ? "ลองเปลี่ยนประเภทการค้นหาด้านบน หรือล้างคำค้นหา"
+      : "ไม่มีบัญชีสถานะว่าง หรือบัญชีกำลังจะหมดอายุใน 24 ชม.";
+    let emptyIcon = q ? "🔍" : "📭";
+    if (!q && activeStockStatusFilter === "broken") {
       emptyIcon = "🎉";
       emptyTitle = "ไม่พบบัญชีที่มีปัญหา";
       emptyDesc = "ยอดเยี่ยม! ทุกบัญชีในระบบปกติ ไม่มีจอที่ติดสถานะมีปัญหา";
-    } else if (activeStockStatusFilter === "available") {
+    } else if (!q && activeStockStatusFilter === "available") {
       emptyTitle = "ไม่มีจอว่างพร้อมขายในขณะนี้";
       emptyDesc = "ยังไม่มีจอสถานะ 'ว่าง' หรือกำลังจะหมดอายุใน 24 ชม.";
     }
+    const switchAllBtnHtml = (q && activeStockStatusFilter !== "all" && hiddenStatusMatchCount > 0)
+      ? `<button type="button" id="btn-search-switch-status-all" style="margin-top: 12px; padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(56, 189, 248, 0.45); background: rgba(56, 189, 248, 0.16); color: #7dd3fc; font-weight: 700; font-size: 12px; cursor: pointer;">🔍 พบ ${hiddenStatusMatchCount} รายการในสถานะ "ทั้งหมด" (แตะเพื่อดู)</button>`
+      : "";
     feed.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">${emptyIcon}</div>
         <div class="empty-title">${emptyTitle}</div>
         <p style="font-size:12px; color:var(--text-dim); margin-top:4px;">${emptyDesc}</p>
+        ${switchAllBtnHtml}
       </div>
     `;
+    const switchAllBtn = document.getElementById("btn-search-switch-status-all");
+    if (switchAllBtn) {
+      switchAllBtn.addEventListener("click", () => setStockStatusFilter("all"));
+    }
     return;
   }
 
   let html = "";
 
   filteredGroups.forEach(([groupKey, group]) => {
-    const emailKeys = Object.keys(group.accountsByEmail);
     const theme = getAppTheme(group.appName);
-
-    // Filter accounts inside group based on activeStockStatusFilter
-    const validEmailKeys = emailKeys.filter(emailKey => {
-      const acc = group.accountsByEmail[emailKey];
-      const hasAvail = acc.screens.some(s => s.status === "available");
-      const hasBroken = acc.hasBroken || acc.screens.some(s => s.status === "broken");
-      if (activeStockStatusFilter === "available") return hasAvail;
-      if (activeStockStatusFilter === "broken") return hasBroken;
-      return true;
-    });
+    const validEmailKeys = matchedEmailsByGroupKey.get(groupKey) || [];
 
     if (validEmailKeys.length === 0) return;
 
@@ -5481,10 +5653,12 @@ function switchView(viewName) {
     }
 
     // Only render if not already rendered or if data was changed (dirty)
-    if (!hasRenderedBindingsFeed || bindingsFeedDirty) {
+    if (!hasRenderedBindingsFeed || bindingsFeedDirty || bindingSearchQuery) {
       renderBindingsFeed();
       hasRenderedBindingsFeed = true;
       bindingsFeedDirty = false;
+    } else {
+      renderSearchFacetsBar("", {});
     }
     updateBindingMetrics();
   } else {
@@ -5494,16 +5668,18 @@ function switchView(viewName) {
     if (secBindings) secBindings.style.display = "none";
 
     if (searchInput) {
-      searchInput.placeholder = "ค้นหาแอป, แพ็กเกจ, หรืออีเมล...";
+      searchInput.placeholder = "ค้นหา ID จอ (#6465), อีเมล, รหัสผ่าน, PIN, ชื่อลูกค้า, แอป...";
       searchInput.value = searchQuery;
       if (searchClear) searchClear.style.display = searchQuery ? "block" : "none";
     }
 
     // Only render if not already rendered or if data was changed (dirty)
-    if (!hasRenderedStockFeed || stockFeedDirty) {
+    if (!hasRenderedStockFeed || stockFeedDirty || searchQuery) {
       renderStockFeed();
       hasRenderedStockFeed = true;
       stockFeedDirty = false;
+    } else {
+      renderSearchFacetsBar("", {});
     }
     updateMetrics();
   }
@@ -5690,6 +5866,7 @@ function preprocessBindings() {
 
     b._displayIdLower = displayId;
     b._emailLower = email;
+    b._passwordLower = (details.password || "").trim().toLowerCase();
     b._pinLower = pinLower;
     b._custLower = custLower;
 
@@ -6243,6 +6420,7 @@ function renderBindingsFeed() {
 
   const now = new Date();
   const query = bindingSearchQuery.trim().toLowerCase();
+  const bindingFacetCounts = { all: 0, id: 0, email: 0, password: 0, pin: 0, customer: 0, app: 0 };
 
   const filtered = rawBindings.filter(b => {
     // 1. Status Filter (Enhanced Expiry Tracker)
@@ -6269,14 +6447,24 @@ function renderBindingsFeed() {
       if (!b._isReverted) return false;
     }
 
-    // 2. Query Search (Fast precomputed string search + explicit #id support)
+    // 2. Categorized Query Search (supports ID จอ, อีเมล, รหัสผ่าน, PIN, ลูกค้า, แอป/อื่นๆ)
     if (!query) return true;
-    const cleanIdQuery = query.replace(/^#/, "").trim();
-    if (query.startsWith("#") && cleanIdQuery.length > 0) {
-      return Boolean(b._displayIdLower && b._displayIdLower.includes(cleanIdQuery));
+    const flags = getBindingMatchFlags(b, query);
+    if (flags.any) {
+      bindingFacetCounts.all++;
+      if (flags.id) bindingFacetCounts.id++;
+      if (flags.email) bindingFacetCounts.email++;
+      if (flags.password) bindingFacetCounts.password++;
+      if (flags.pin) bindingFacetCounts.pin++;
+      if (flags.customer) bindingFacetCounts.customer++;
+      if (flags.app) bindingFacetCounts.app++;
     }
-    return b._searchStr ? b._searchStr.includes(query) : true;
+    return Boolean(flags[activeSearchCategory]);
   });
+
+  if (currentView === "bindings") {
+    renderSearchFacetsBar(query, bindingFacetCounts);
+  }
 
   const cleanSearchId = query ? query.replace(/^#/, "").trim() : "";
   const getBindingSearchRelevance = (b) => {

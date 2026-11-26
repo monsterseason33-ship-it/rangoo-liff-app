@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon"
     href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%230a1124'/><path d='M256 110 L410 190 L256 270 L102 190 Z' fill='%2338bdf8'/><path d='M102 210 L256 290 L410 210 L410 290 L256 370 L102 290 Z' fill='%23818cf8'/><path d='M102 310 L256 390 L410 310 L410 390 L256 470 L102 390 Z' fill='%23c084fc'/></svg>">
 
-  <link rel="stylesheet" href="styles.css?v=2.11">
+  <link rel="stylesheet" href="styles.css?v=2.12">
 </head>
 
 <body>
@@ -58,9 +58,12 @@
     <!-- Real-time Search Bar -->
     <div class="search-bar-wrap">
       <span class="search-icon">🔍</span>
-      <input type="text" id="search-input" class="search-input" placeholder="ค้นหาแอป, แพ็กเกจ, หรืออีเมล..." autocomplete="off">
+      <input type="text" id="search-input" class="search-input" placeholder="ค้นหา ID จอ (#6465), อีเมล, รหัสผ่าน, PIN, ชื่อลูกค้า, แอป..." autocomplete="off">
       <button type="button" id="search-clear" class="search-clear-btn">✕</button>
     </div>
+
+    <!-- Smart Categorized Search Facet Pills (Auto-shows when typing) -->
+    <div id="search-facets-bar" class="search-facets-bar" style="display: none;"></div>
   </header>
 
   <!-- Navigation Segmented Tabs (Stock Feed vs Customer Bindings) -->
@@ -1536,7 +1539,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.51"></script>
+  <script src="app.js?v=2.52"></script>
 </body>
 
 </html>
