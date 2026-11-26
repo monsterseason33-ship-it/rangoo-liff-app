@@ -134,6 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initUIEventListeners();
   initSmartSync();
   loadData();
+  syncScriptStudioTemplatesFromD1();
 });
 
 function loadSavedShop() {
@@ -7417,6 +7418,22 @@ function buildSwapHandoverText(b, newAcc) {
     ? `PIN: ${newAcc.pin_code}`
     : "ไม่มี PIN";
 
+  // Check if user customized Claim script in Script Studio
+  const studioClaim = renderStudioTemplateIfCustomized("claim", appObj ? appObj.id : newAcc.app_id, {
+    app_name: appName.toUpperCase(),
+    package_name: pkgName || "แพ็กเกจพรีเมียม",
+    display_id: cleanId || "-",
+    customer_name: b.customer_name || "ลูกค้า",
+    email: newAcc.email || "-",
+    password: passwordDisplay,
+    profile: cleanScreenName,
+    pin: (newAcc.pin_code && newAcc.pin_code !== "-" && newAcc.pin_code !== "undefined") ? newAcc.pin_code : "ไม่มี PIN",
+    device: b.device_type || "มือถือ / PC",
+    expiry_date: b.expiry_date ? formatDateThai(new Date(b.expiry_date)) : "-",
+    otp_link: newAcc.cookie_data || ""
+  });
+  if (studioClaim) return studioClaim;
+
   let script = `${headerTitle}\n`;
   if (pkgName) {
     script += `[${pkgName}]\n`;
@@ -8562,7 +8579,24 @@ async function copyBindingHandoverScript(bindingId, btnElement = null) {
   );
   const passwordDisplay = isWrongPassword ? "เข้าระบบแบบ OTP ได้จากแอดมิน" : rawPwd;
 
-  let script = `${headerTitle}\n`;
+  // Check if user customized Delivery script in Script Studio
+  const studioDelivery = renderStudioTemplateIfCustomized("delivery", appObj ? appObj.id : (linkedAcc ? linkedAcc.app_id : null), {
+    app_name: appName.toUpperCase(),
+    package_name: b.package_name || "แพ็กเกจพรีเมียม",
+    display_id: cleanId || "-",
+    customer_name: b.customer_name || "ลูกค้า",
+    email: details.email || "-",
+    password: passwordDisplay,
+    profile: details.profileName || "จอที่กำหนด",
+    pin: details.pinCode || "ไม่มี PIN",
+    device: details.deviceType || "มือถือ / PC",
+    expiry_date: expStr,
+    otp_link: (linkedAcc && linkedAcc.cookie_data) || ""
+  });
+
+  let script = studioDelivery || "";
+  if (!script) {
+    script = `${headerTitle}\n`;
   script += `[${b.package_name || 'แพ็กเกจพรีเมียม'}]\n`;
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
   script += `👤 คุณ: *${b.customer_name}*\n`;
@@ -8583,13 +8617,13 @@ async function copyBindingHandoverScript(bindingId, btnElement = null) {
   }
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
 
-  const deliverySections = getAppDeliverySegments(appObj);
-  if (deliverySections.length > 0) {
-    script += `\n${deliverySections.join("\n\n")}\n`;
-    script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    const deliverySections = getAppDeliverySegments(appObj);
+    if (deliverySections.length > 0) {
+      script += `\n${deliverySections.join("\n\n")}\n`;
+      script += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    }
+    script += `🙏 ขอบคุณที่ใช้บริการครับ ✨`;
   }
-
-  script += `🙏 ขอบคุณที่ใช้บริการครับ ✨`;
 
   await copyToClipboard(script);
 
@@ -8623,6 +8657,27 @@ function getRenewalReminderScript(b) {
       timeContext = `จะครบกำหนดหมดอายุในอีก ${daysLeft} วัน (${expStr})`;
     }
   }
+
+  // Check if user customized Renewal script in Script Studio
+  const renewalAppObj = (rawApps || []).find(a =>
+    (linkedAcc && a.id === linkedAcc.app_id) ||
+    (a.name || "").toLowerCase() === (b.app_name || "").toLowerCase() ||
+    (a.display_name || "").toLowerCase() === (b.app_name || "").toLowerCase()
+  );
+  const studioRenewal = renderStudioTemplateIfCustomized("renewal", renewalAppObj ? renewalAppObj.id : (linkedAcc ? linkedAcc.app_id : null), {
+    app_name: (b.app_name || "").toUpperCase(),
+    package_name: b.package_name || "แพ็กเกจพรีเมียม",
+    display_id: (details.displayId || "-").toString().replace(/^#/, ""),
+    customer_name: b.customer_name || "ลูกค้า",
+    email: details.email || "-",
+    password: details.password || "-",
+    profile: details.profileName || "จอที่กำหนด",
+    pin: details.pinCode || "ไม่มี PIN",
+    device: details.deviceType || "มือถือ / PC",
+    expiry_date: `${expStr} (${timeContext})`,
+    otp_link: (linkedAcc && linkedAcc.cookie_data) || ""
+  });
+  if (studioRenewal) return studioRenewal;
 
   let text = `สวัสดีครับคุณ ${b.customer_name || 'ลูกค้า'} 🙏✨\n\n`;
   text += `แจ้งเตือนสิทธิ์การใช้งาน *${(b.app_name || '').toUpperCase()}* [${b.package_name || 'แพ็กเกจพรีเมียม'}]\n`;
@@ -9917,6 +9972,22 @@ function buildUnifiedHandoverText(customerName, context, days, expiryDateObj, de
   const showProfile = appObj ? (appObj.show_profile !== false && appObj.show_profile !== 0 && appObj.show_profile !== "0") : true;
   const showPin = appObj ? (appObj.show_pin !== false && appObj.show_pin !== 0 && appObj.show_pin !== "0") : true;
 
+  // Check if user customized Delivery script in Script Studio
+  const studioDelivery = renderStudioTemplateIfCustomized("delivery", appObj ? appObj.id : context.appId, {
+    app_name: (context.appName || "").toUpperCase(),
+    package_name: context.pkgName || `แพ็กเกจ ${days} วัน`,
+    display_id: cleanId || "-",
+    customer_name: customerName || "ลูกค้า",
+    email: context.email || "-",
+    password: passwordDisplay || "-",
+    profile: cleanScreenName,
+    pin: (context.pinCode && context.pinCode !== "-" && context.pinCode !== "undefined") ? context.pinCode : pinDisplay.replace(/^PIN:\s*/i, ""),
+    device: device || "มือถือ / PC",
+    expiry_date: expStr,
+    otp_link: (context.targetAcc && context.targetAcc.cookie_data) || ""
+  });
+  if (studioDelivery) return studioDelivery;
+
   let script = `${headerTitle}\n`;
   script += `[${context.pkgName || `แพ็กเกจ ${days} วัน`}]\n`;
   script += `━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -10367,6 +10438,14 @@ function generateNormalSalesScript(app) {
     packagesText = formatGroupedPackagesList(activePkgs, app, emoji, false);
     activePkgsCount = activePkgs.length;
   }
+
+  // Check if user customized Sales script in Script Studio
+  const studioSales = renderStudioTemplateIfCustomized("sales", app.id, {
+    app_name: (app.display_name || app.name || "").toUpperCase(),
+    package_name: appPkgs[0] ? appPkgs[0].name : "แพ็กเกจพรีเมียม",
+    packages_list: packagesText
+  });
+  if (studioSales) return studioSales;
 
   let evaluatedFooter = evaluateFooterTemplate(segments.footer, activePkgsCount);
   let finalHeader = segments.header;
@@ -14292,6 +14371,118 @@ function openCleanupExpiredAccountsModal() {
 // 🎨 SCRIPT STUDIO (Phase 1: Modular Block Editor + LINE Preview + D1 Packages)
 // ============================================================================
 const SCRIPT_STUDIO_STORAGE_KEY = "boss_script_studio_templates_v1";
+const SCRIPT_STUDIO_D1_ROW_ID = "__boss_script_studio_templates_v1__";
+const SCRIPT_STUDIO_D1_ROW_TITLE = "__SYSTEM_SCRIPT_STUDIO_TEMPLATES__";
+let cachedStudioTemplatesMap = null;
+
+function loadAllStudioTemplates() {
+  if (cachedStudioTemplatesMap && typeof cachedStudioTemplatesMap === "object") {
+    return cachedStudioTemplatesMap;
+  }
+  try {
+    const raw = localStorage.getItem(SCRIPT_STUDIO_STORAGE_KEY);
+    cachedStudioTemplatesMap = raw ? JSON.parse(raw) : {};
+    return cachedStudioTemplatesMap;
+  } catch (e) {
+    cachedStudioTemplatesMap = {};
+    return cachedStudioTemplatesMap;
+  }
+}
+
+function saveAllStudioTemplates(map) {
+  cachedStudioTemplatesMap = map || {};
+  try {
+    localStorage.setItem(SCRIPT_STUDIO_STORAGE_KEY, JSON.stringify(cachedStudioTemplatesMap));
+  } catch (e) {
+    console.warn("[ScriptStudio] Save localStorage error:", e);
+  }
+}
+
+async function syncScriptStudioTemplatesFromD1() {
+  try {
+    if (!currentShop || !currentShop.url) return;
+    const headers = {
+      "apikey": currentShop.key,
+      "Authorization": `Bearer ${currentShop.key}`
+    };
+    const res = await fetch(`${currentShop.url}/rest/v1/quick_replies?id=eq.${encodeURIComponent(SCRIPT_STUDIO_D1_ROW_ID)}`, { headers });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length > 0 && rows[0].message) {
+      const parsed = JSON.parse(rows[0].message);
+      if (parsed && typeof parsed === "object") {
+        saveAllStudioTemplates(parsed);
+        console.log("[ScriptStudio] ☁️ Synced templates from Cloudflare D1");
+      }
+    }
+  } catch (e) {
+    console.warn("[ScriptStudio] D1 sync skipped:", e.message || e);
+  }
+}
+
+async function saveScriptStudioTemplatesToD1(map) {
+  saveAllStudioTemplates(map);
+  if (!currentShop || !currentShop.url) return false;
+  const headers = {
+    "apikey": currentShop.key,
+    "Authorization": `Bearer ${currentShop.key}`,
+    "Content-Type": "application/json"
+  };
+  const payloadStr = JSON.stringify(map || {});
+  try {
+    // 1. Try PATCH existing system row first
+    const patchRes = await fetch(`${currentShop.url}/rest/v1/quick_replies?id=eq.${encodeURIComponent(SCRIPT_STUDIO_D1_ROW_ID)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        title: SCRIPT_STUDIO_D1_ROW_TITLE,
+        message: payloadStr
+      })
+    });
+    if (patchRes.ok) {
+      const updated = await patchRes.json().catch(() => []);
+      if (Array.isArray(updated) && updated.length > 0) {
+        return true;
+      }
+    }
+    // 2. If not yet created, INSERT system row
+    const postRes = await fetch(`${currentShop.url}/rest/v1/quick_replies`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        id: SCRIPT_STUDIO_D1_ROW_ID,
+        title: SCRIPT_STUDIO_D1_ROW_TITLE,
+        message: payloadStr
+      })
+    });
+    return postRes.ok;
+  } catch (e) {
+    console.warn("[ScriptStudio] D1 save error:", e);
+    return false;
+  }
+}
+
+// Render saved Script Studio template if user customized this tab (app-specific first, then global)
+function renderStudioTemplateIfCustomized(tabKey, appId, vars) {
+  const map = loadAllStudioTemplates();
+  if (!map || typeof map !== "object") return null;
+
+  const appKey = appId ? `${tabKey}::${appId}` : null;
+  const globalKey = `${tabKey}::global`;
+  const blocks = (appKey && Array.isArray(map[appKey]))
+    ? map[appKey]
+    : (Array.isArray(map[globalKey]) ? map[globalKey] : null);
+
+  if (!blocks) return null;
+
+  const enabledBlocks = blocks.filter(b => b && b.enabled !== false && (b.content || "").trim().length > 0);
+  if (enabledBlocks.length === 0) return null;
+
+  return enabledBlocks
+    .map(b => String(b.content || "").replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : "")))
+    .join("\n\n")
+    .trim();
+}
 
 const SCRIPT_STUDIO_TABS = [
   { key: "delivery", icon: "📦", label: "ส่งมอบบัญชี" },
@@ -14345,23 +14536,6 @@ function getDefaultStudioBlocks(tabKey) {
     { id: "blk_ren_info", title: "รายละเอียดสิทธิ์เดิม", enabled: true, content: "👤 โปรไฟล์/จอ: {{profile}}\n📧 บัญชี: {{email}}\n🆔 ID จอ: #{{display_id}}\n⏰ วันครบกำหนด: *{{expiry_date}}*\n━━━━━━━━━━━━━━━━━━━━━" },
     { id: "blk_ren_foot", title: "ข้อความชวนต่ออายุ", enabled: true, content: "หากคุณลูกค้าต้องการต่ออายุการใช้งานต่อเนื่อง สามารถแจ้งแอดมินได้เลยนะครับ ขอบคุณครับ 💖" }
   ];
-}
-
-function loadAllStudioTemplates() {
-  try {
-    const raw = localStorage.getItem(SCRIPT_STUDIO_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-function saveAllStudioTemplates(map) {
-  try {
-    localStorage.setItem(SCRIPT_STUDIO_STORAGE_KEY, JSON.stringify(map || {}));
-  } catch (e) {
-    console.warn("[ScriptStudio] Save error:", e);
-  }
 }
 
 function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
@@ -14943,15 +15117,15 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     renderPreview();
   });
 
-  // Reset to Default
-  overlay.querySelector("#studio-reset-btn").addEventListener("click", () => {
+  // Reset to Default (removes custom override so system default is restored)
+  overlay.querySelector("#studio-reset-btn").addEventListener("click", async () => {
     if (!confirm("↩️ ต้องการคืนค่าบล็อกสคริปต์ของแท็บนี้กลับเป็นค่าเริ่มต้นใช่หรือไม่?")) return;
     haptic();
     const key = getTemplateKey(activeTab, activeScopeAppId);
-    allTemplates[key] = getDefaultStudioBlocks(activeTab);
-    saveAllStudioTemplates(allTemplates);
+    delete allTemplates[key];
+    await saveScriptStudioTemplatesToD1(allTemplates);
     renderAllStudio();
-    showToast("↩️ คืนค่าเทมเพลตเริ่มต้นเรียบร้อย!");
+    showToast("↩️ คืนค่าเทมเพลตเริ่มต้นและซิงค์ D1 เรียบร้อย!");
   });
 
   // Copy Test Script
@@ -14966,11 +15140,21 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     showToast("📋 คัดลอกสคริปต์พรีวิวเรียบร้อยแล้ว! ลองวางใน LINE ได้เลย ✨");
   });
 
-  // Save Template
-  overlay.querySelector("#studio-save-template-btn").addEventListener("click", () => {
+  // Save Template (Local + Cloud Sync to Cloudflare D1)
+  overlay.querySelector("#studio-save-template-btn").addEventListener("click", async (e) => {
     haptic();
-    saveAllStudioTemplates(allTemplates);
-    showToast("💾 บันทึกเทมเพลตสคริปต์เรียบร้อยแล้ว! ✨");
+    const saveBtn = e.currentTarget;
+    const origText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "⏳ กำลังซิงค์ขึ้น D1...";
+    const synced = await saveScriptStudioTemplatesToD1(allTemplates);
+    saveBtn.disabled = false;
+    saveBtn.textContent = origText;
+    if (synced) {
+      showToast("☁️ บันทึก & ซิงค์เทมเพลตขึ้น Cloudflare D1 เรียบร้อย! ใช้งานจริงได้ทันที ✨");
+    } else {
+      showToast("💾 บันทึกเทมเพลตในเครื่องเรียบร้อย (ซิงค์ D1 ไม่สำเร็จ ลองใหม่อีกครั้ง)");
+    }
   });
 
   // Close Modal
