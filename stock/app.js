@@ -351,7 +351,13 @@ function initUIEventListeners() {
         selectChip(chip.dataset.appId);
       }
     });
+    enableHorizontalDragScroll(chipsContainer);
   }
+
+  // Desktop Mouse Drag & Wheel Scroll for Quick Tools Carousel & Binding Filter Chips
+  const toolCarousel = document.getElementById("tool-pills-carousel");
+  if (toolCarousel) enableHorizontalDragScroll(toolCarousel);
+  if (bindFilterChips) enableHorizontalDragScroll(bindFilterChips);
 
   // Stock Feed Event Delegation (100% CSP compliant)
   const feed = document.getElementById("stock-feed");
@@ -1505,7 +1511,152 @@ function renderChips() {
     `;
   });
 
+  const prevScrollLeft = container.scrollLeft;
   container.innerHTML = html;
+  container.scrollLeft = prevScrollLeft;
+
+  const activeChipEl = container.querySelector(".chip-btn.active");
+  if (activeChipEl) {
+    smoothCenterHorizontalItem(container, activeChipEl, 380);
+  }
+}
+
+function smoothCenterHorizontalItem(container, itemEl, duration = 380) {
+  if (!container || !itemEl) return;
+  const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+  if (maxScroll <= 0) return;
+
+  const targetLeft = Math.max(
+    0,
+    Math.min(
+      maxScroll,
+      itemEl.offsetLeft - (container.clientWidth / 2) + (itemEl.offsetWidth / 2)
+    )
+  );
+
+  const startLeft = container.scrollLeft;
+  const distance = targetLeft - startLeft;
+  if (Math.abs(distance) < 1) return;
+
+  if (container._centerAnimId) {
+    cancelAnimationFrame(container._centerAnimId);
+  }
+
+  const startTime = performance.now();
+  const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+
+  const step = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    container.scrollLeft = startLeft + distance * easeOutQuart(progress);
+    if (progress < 1) {
+      container._centerAnimId = requestAnimationFrame(step);
+    } else {
+      container._centerAnimId = null;
+    }
+  };
+
+  container._centerAnimId = requestAnimationFrame(step);
+}
+
+function enableHorizontalDragScroll(el) {
+  if (!el || el._dragScrollBound) return;
+  el._dragScrollBound = true;
+
+  let isDown = false;
+  let hasDragged = false;
+  let suppressClickUntil = 0;
+  let startX = 0;
+  let startScrollLeft = 0;
+  let lastX = 0;
+  let lastTime = 0;
+  let velocity = 0;
+  let momentumId = null;
+
+  const stopMomentum = () => {
+    if (momentumId) {
+      cancelAnimationFrame(momentumId);
+      momentumId = null;
+    }
+    if (el._centerAnimId) {
+      cancelAnimationFrame(el._centerAnimId);
+      el._centerAnimId = null;
+    }
+  };
+
+  el.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    stopMomentum();
+    isDown = true;
+    hasDragged = false;
+    startX = e.pageX;
+    lastX = e.pageX;
+    lastTime = performance.now();
+    velocity = 0;
+    startScrollLeft = el.scrollLeft;
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isDown) return;
+    const dx = e.pageX - startX;
+    if (!hasDragged && Math.abs(dx) > 4) {
+      hasDragged = true;
+      el.classList.add("is-dragging");
+    }
+    if (hasDragged) {
+      e.preventDefault();
+      const now = performance.now();
+      const dt = Math.max(1, now - lastTime);
+      velocity = (e.pageX - lastX) / dt;
+      lastX = e.pageX;
+      lastTime = now;
+      el.scrollLeft = startScrollLeft - dx;
+    }
+  });
+
+  const endDrag = () => {
+    if (!isDown) return;
+    isDown = false;
+    el.classList.remove("is-dragging");
+
+    if (hasDragged) {
+      suppressClickUntil = performance.now() + 80;
+      let momentum = velocity * 16;
+      const glide = () => {
+        if (Math.abs(momentum) < 0.35) {
+          momentumId = null;
+          return;
+        }
+        el.scrollLeft -= momentum;
+        momentum *= 0.92;
+        momentumId = requestAnimationFrame(glide);
+      };
+      if (Math.abs(momentum) >= 0.6) {
+        momentumId = requestAnimationFrame(glide);
+      }
+    }
+  };
+
+  window.addEventListener("mouseup", endDrag);
+  window.addEventListener("blur", endDrag);
+
+  // Prevent accidental button click right after dragging
+  el.addEventListener("click", (e) => {
+    if (performance.now() < suppressClickUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  // Support desktop mouse wheel to scroll horizontally
+  el.addEventListener("wheel", (e) => {
+    if (el.scrollWidth <= el.clientWidth) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      stopMomentum();
+      el.scrollLeft += e.deltaY * 0.9;
+    }
+  }, { passive: false });
 }
 
 window.selectChip = function(appId) {

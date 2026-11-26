@@ -369,6 +369,21 @@ body {
   padding: 8px 16px 10px 16px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+}
+
+.chips-container.is-dragging,
+.tool-pills-carousel.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto !important;
+}
+
+.chips-container.is-dragging *,
+.tool-pills-carousel.is-dragging * {
+  cursor: grabbing !important;
 }
 
 .chips-container::-webkit-scrollbar {
@@ -390,21 +405,22 @@ body {
   align-items: center;
   gap: 7px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, color 0.2s ease;
   white-space: nowrap;
   backdrop-filter: blur(8px);
 }
 
 .chip-btn.active {
-  background: linear-gradient(135deg, rgba(2, 132, 199, 0.4) 0%, rgba(99, 102, 241, 0.45) 100%);
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.44) 0%, rgba(99, 102, 241, 0.5) 100%);
   border-color: var(--sky-blue);
   color: #fff;
   font-weight: 700;
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.28);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 6px 18px rgba(56, 189, 248, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .chip-btn:active {
-  transform: scale(0.94);
+  transform: scale(0.95);
 }
 
 .chip-count {
@@ -477,6 +493,9 @@ body {
   scrollbar-width: none;
   padding: 3px 2px 6px 2px;
   margin: 0 -2px;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tool-pills-carousel::-webkit-scrollbar {
