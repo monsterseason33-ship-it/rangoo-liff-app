@@ -374,17 +374,93 @@ function initUIEventListeners() {
     }
   });
 
-  // Chips Event Delegation (App filters)
+  // Chips Event Delegation (App filters + Long-Press / Right-Click Quick Actions + Smart Edge Fade + Keyboard)
   const chipsContainer = document.getElementById("chips-container");
   if (chipsContainer) {
+    let chipLongPressTimer = null;
+    let chipLongPressFired = false;
+
     chipsContainer.addEventListener("click", (e) => {
-      const chip = e.target.closest(".chip-btn");
-      if (chip && chip.dataset.appId) {
-        selectChip(chip.dataset.appId);
+      if (chipLongPressFired) {
+        chipLongPressFired = false;
+        e.preventDefault();
+        return;
       }
+      const chip = e.target.closest(".chip-btn");
+      if (!chip || !chip.dataset.appId) return;
+
+      if (chip.classList.contains("out-of-stock")) {
+        openAddStockForApp(chip.dataset.appId);
+        return;
+      }
+      selectChip(chip.dataset.appId);
     });
+
+    // Desktop Right-Click Quick Menu
+    chipsContainer.addEventListener("contextmenu", (e) => {
+      const chip = e.target.closest(".chip-btn");
+      if (!chip || !chip.dataset.appId || chip.dataset.appId === "all") return;
+      e.preventDefault();
+      haptic();
+      openChipQuickActionMenu(chip.dataset.appId, chip, e.clientX, e.clientY);
+    });
+
+    // Mobile Long-Press Quick Menu (~450ms)
+    chipsContainer.addEventListener("touchstart", (e) => {
+      const chip = e.target.closest(".chip-btn");
+      if (!chip || !chip.dataset.appId || chip.dataset.appId === "all") return;
+      chipLongPressFired = false;
+      clearTimeout(chipLongPressTimer);
+      const touch = e.touches[0];
+      chipLongPressTimer = setTimeout(() => {
+        chipLongPressFired = true;
+        haptic();
+        openChipQuickActionMenu(chip.dataset.appId, chip, touch ? touch.clientX : null, touch ? touch.clientY : null);
+      }, 450);
+    }, { passive: true });
+
+    const cancelChipLongPress = () => clearTimeout(chipLongPressTimer);
+    chipsContainer.addEventListener("touchmove", cancelChipLongPress, { passive: true });
+    chipsContainer.addEventListener("touchend", cancelChipLongPress, { passive: true });
+    chipsContainer.addEventListener("touchcancel", cancelChipLongPress, { passive: true });
+
+    // Smart Edge Fade Updater
+    chipsContainer.addEventListener("scroll", () => updateChipsEdgeFade(chipsContainer), { passive: true });
+    window.addEventListener("resize", () => updateChipsEdgeFade(chipsContainer));
+
     enableHorizontalDragScroll(chipsContainer);
   }
+
+  // Desktop Keyboard Shortcuts for App Chips (0 = All, 1-9 = Apps, ArrowLeft / ArrowRight = Cycle)
+  document.addEventListener("keydown", (e) => {
+    if (currentView !== "stock") return;
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Ignore when any modal/overlay is open
+    if (document.querySelector(".script-studio-overlay, #boss-cleanup-expired-modal, .modal-overlay.active, .recent-msg-modal-overlay.active, .chip-quick-menu-overlay")) return;
+
+    const chipsBar = document.getElementById("chips-container");
+    if (!chipsBar) return;
+    const selectableChips = Array.from(chipsBar.querySelectorAll(".chip-btn:not(.out-of-stock)"));
+    if (selectableChips.length <= 1) return;
+
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      const curIdx = selectableChips.findIndex(c => c.classList.contains("active"));
+      const nextIdx = e.key === "ArrowRight"
+        ? (curIdx + 1) % selectableChips.length
+        : (curIdx - 1 + selectableChips.length) % selectableChips.length;
+      const targetId = selectableChips[nextIdx]?.dataset.appId;
+      if (targetId) selectChip(targetId);
+    } else if (/^[0-9]$/.test(e.key)) {
+      const idx = parseInt(e.key, 10);
+      if (idx < selectableChips.length) {
+        const targetId = selectableChips[idx]?.dataset.appId;
+        if (targetId) selectChip(targetId);
+      }
+    }
+  });
 
   // Desktop Mouse Drag & Wheel Scroll for Quick Tools Carousel & Binding Filter Chips
   const toolCarousel = document.getElementById("tool-pills-carousel");
@@ -1473,33 +1549,197 @@ function getAppTheme(appName = "") {
 }
 
 // ----------------------------------------------------------------------------
-// Render Chips (App Filters with Authentic Brand Accents)
+// 🧠 Smart Chips Preferences (Auto-Sort by Usage + Pin + Quick Action Menu)
+// ----------------------------------------------------------------------------
+const SMART_CHIP_PREFS_KEY = "boss_stock_chip_prefs_v1";
+
+function loadSmartChipPrefs() {
+  try {
+    const raw = localStorage.getItem(SMART_CHIP_PREFS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      pinned: Array.isArray(parsed.pinned) ? parsed.pinned.map(String) : [],
+      usage: (parsed.usage && typeof parsed.usage === "object") ? parsed.usage : {}
+    };
+  } catch (e) {
+    return { pinned: [], usage: {} };
+  }
+}
+
+function saveSmartChipPrefs(prefs) {
+  try {
+    localStorage.setItem(SMART_CHIP_PREFS_KEY, JSON.stringify(prefs));
+  } catch (e) {}
+}
+
+function recordChipUsage(appId) {
+  if (!appId || appId === "all") return;
+  const prefs = loadSmartChipPrefs();
+  const key = String(appId);
+  prefs.usage[key] = (Number(prefs.usage[key]) || 0) + 1;
+  saveSmartChipPrefs(prefs);
+}
+
+function toggleChipPin(appId) {
+  if (!appId || appId === "all") return false;
+  const prefs = loadSmartChipPrefs();
+  const key = String(appId);
+  const idx = prefs.pinned.indexOf(key);
+  let isNowPinned = false;
+  if (idx >= 0) {
+    prefs.pinned.splice(idx, 1);
+    isNowPinned = false;
+  } else {
+    prefs.pinned.unshift(key);
+    isNowPinned = true;
+  }
+  saveSmartChipPrefs(prefs);
+  return isNowPinned;
+}
+
+function updateChipsEdgeFade(container) {
+  if (!container) return;
+  const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+  container.classList.toggle("fade-left", container.scrollLeft > 8);
+  container.classList.toggle("fade-right", maxScroll > 8 && container.scrollLeft < maxScroll - 8);
+}
+
+function openAddStockForApp(appId) {
+  haptic();
+  toggleStockForm(true);
+  const appSelect = document.getElementById("acc-app-select");
+  if (appSelect && appId) {
+    appSelect.value = appId;
+    if (typeof syncAccAppCustomSelect === "function") syncAccAppCustomSelect();
+    if (typeof updateStockFormPackages === "function") updateStockFormPackages();
+  }
+  const appObj = (rawApps || []).find(a => String(a.id) === String(appId));
+  showToast(`➕ พร้อมเพิ่มสต็อก ${appObj ? (appObj.display_name || appObj.name) : "แอปนี้"} แล้ว!`);
+}
+
+function openChipQuickActionMenu(appId, chipEl, clientX = null, clientY = null) {
+  document.querySelectorAll(".chip-quick-menu-overlay, .chip-quick-menu-card").forEach(el => el.remove());
+
+  const appObj = (rawApps || []).find(a => String(a.id) === String(appId));
+  const appName = appObj ? (appObj.display_name || appObj.name) : appId;
+  const theme = getAppTheme(appName);
+  const prefs = loadSmartChipPrefs();
+  const isPinned = prefs.pinned.includes(String(appId));
+
+  // Count broken screens for this app
+  let brokenCnt = 0;
+  Object.values(appGroups).forEach(g => {
+    if (String(g.appId) !== String(appId)) return;
+    Object.values(g.accountsByEmail).forEach(acc => {
+      acc.screens.forEach(s => { if (s.status === "broken") brokenCnt++; });
+    });
+  });
+
+  const overlay = document.createElement("div");
+  overlay.className = "chip-quick-menu-overlay";
+
+  const card = document.createElement("div");
+  card.className = "chip-quick-menu-card";
+  card.innerHTML = `
+    <div class="chip-quick-menu-head">
+      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${theme.icon} ${escapeHtml(appName)}</span>
+      <span style="font-size: 10px; color: #94a3b8;">เมนูด่วน</span>
+    </div>
+    <button type="button" class="chip-quick-menu-btn" data-chip-act="smart-fetch">
+      <span>⚡</span><span>ดึงรหัสอัจฉริยะแอปนี้</span>
+    </button>
+    <button type="button" class="chip-quick-menu-btn" data-chip-act="sales">
+      <span>📢</span><span>คัดลอกบทเสนอขายแอปนี้</span>
+    </button>
+    <button type="button" class="chip-quick-menu-btn" data-chip-act="add-stock">
+      <span>➕</span><span>เพิ่มสต็อกแอปนี้</span>
+    </button>
+    <button type="button" class="chip-quick-menu-btn" data-chip-act="pin">
+      <span>${isPinned ? '📍' : '📌'}</span><span>${isPinned ? 'เลิกปักหมุดแอปนี้' : 'ปักหมุดไว้หน้าสุด'}</span>
+    </button>
+    ${brokenCnt > 0 ? `
+      <button type="button" class="chip-quick-menu-btn warn" data-chip-act="broken">
+        <span>⚠️</span><span>ดูจอที่มีปัญหา (${brokenCnt} จอ)</span>
+      </button>
+    ` : ""}
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(card);
+
+  // Position cleanly near chip or click point, clamped inside viewport
+  const rect = chipEl ? chipEl.getBoundingClientRect() : { left: 20, bottom: 180 };
+  const x = (clientX !== null && !isNaN(clientX)) ? clientX : rect.left;
+  const y = (clientY !== null && !isNaN(clientY)) ? clientY + 8 : rect.bottom + 8;
+  const maxX = window.innerWidth - card.offsetWidth - 12;
+  const maxY = window.innerHeight - card.offsetHeight - 12;
+  card.style.left = `${Math.max(12, Math.min(x, maxX))}px`;
+  card.style.top = `${Math.max(12, Math.min(y, maxY))}px`;
+
+  const closeMenu = () => {
+    overlay.remove();
+    card.remove();
+  };
+
+  overlay.addEventListener("click", closeMenu);
+  card.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chip-quick-menu-btn");
+    if (!btn) return;
+    const act = btn.dataset.chipAct;
+    closeMenu();
+    if (act === "smart-fetch") {
+      if (typeof openSmartFetchModal === "function") openSmartFetchModal(appId);
+    } else if (act === "sales") {
+      if (typeof handleQuickCopySalesScript === "function") handleQuickCopySalesScript(appId);
+    } else if (act === "add-stock") {
+      openAddStockForApp(appId);
+    } else if (act === "pin") {
+      const pinnedNow = toggleChipPin(appId);
+      haptic();
+      showToast(pinnedNow ? `📌 ปักหมุด ${appName} ไว้หน้าสุดแล้ว!` : `📍 เลิกปักหมุด ${appName} แล้ว`);
+      renderChips();
+    } else if (act === "broken") {
+      setStockStatusFilter("broken");
+      selectChip(appId);
+    }
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Render Chips (Smart App Filters with Auto-Sort, Pin, Health & Broken Alerts)
 // ----------------------------------------------------------------------------
 function renderChips() {
   const container = document.getElementById("chips-container");
   if (!container) return;
 
-  // Calculate screens per app based on activeStockStatusFilter
+  const prefs = loadSmartChipPrefs();
+  const pinnedSet = new Set(prefs.pinned);
+
+  // Calculate screens & broken alerts per app
   const appTotals = {};
+  const appAvailCounts = {};
+  const appBrokenCounts = {};
   let overallScreens = 0;
 
   Object.values(appGroups).forEach(g => {
+    let availInGroup = g.totalScreens || 0;
+    let brokenInGroup = 0;
+    Object.values(g.accountsByEmail).forEach(acc => {
+      acc.screens.forEach(s => {
+        if (s.status === "broken") brokenInGroup++;
+      });
+    });
+
+    appAvailCounts[g.appId] = (appAvailCounts[g.appId] || 0) + availInGroup;
+    appBrokenCounts[g.appId] = (appBrokenCounts[g.appId] || 0) + brokenInGroup;
+
     let screensInGroup = 0;
     if (activeStockStatusFilter === "available") {
-      screensInGroup = g.totalScreens || 0;
+      screensInGroup = availInGroup;
     } else if (activeStockStatusFilter === "broken") {
-      Object.values(g.accountsByEmail).forEach(acc => {
-        acc.screens.forEach(s => {
-          if (s.status === "broken") screensInGroup++;
-        });
-      });
+      screensInGroup = brokenInGroup;
     } else {
-      screensInGroup = (g.totalScreens || 0);
-      Object.values(g.accountsByEmail).forEach(acc => {
-        acc.screens.forEach(s => {
-          if (s.status === "broken") screensInGroup++;
-        });
-      });
+      screensInGroup = availInGroup + brokenInGroup;
     }
 
     if (screensInGroup > 0) {
@@ -1514,42 +1754,86 @@ function renderChips() {
   }
 
   let html = `
-    <button type="button" class="chip-btn ${activeAppFilter === 'all' ? 'active' : ''}" data-app-id="all">
+    <button type="button" class="chip-btn ${activeAppFilter === 'all' ? 'active' : ''}" data-app-id="all" title="แสดงสต็อกทุกแอป (กดปุ่ม 0)">
       <span>🌐</span>
       <span>ทั้งหมด</span>
       <span class="chip-count">${overallScreens}</span>
     </button>
   `;
 
-  // Get distinct apps that actually have stock in the active filter
-  const distinctAppIds = Object.keys(appTotals);
-  distinctAppIds.forEach(appId => {
+  // Smart Sort: Pinned FIRST -> Usage frequency DESC -> Screen count DESC
+  const distinctAppIds = Object.keys(appTotals).sort((a, b) => {
+    const pinA = pinnedSet.has(String(a)) ? 1 : 0;
+    const pinB = pinnedSet.has(String(b)) ? 1 : 0;
+    if (pinA !== pinB) return pinB - pinA;
+    if (pinA && pinB) {
+      return prefs.pinned.indexOf(String(a)) - prefs.pinned.indexOf(String(b));
+    }
+    const useA = Number(prefs.usage[String(a)]) || 0;
+    const useB = Number(prefs.usage[String(b)]) || 0;
+    if (useA !== useB) return useB - useA;
+    return (appTotals[b] || 0) - (appTotals[a] || 0);
+  });
+
+  distinctAppIds.forEach((appId, idx) => {
     const app = rawApps.find(a => a.id === appId);
     const appName = app ? (app.display_name || app.name) : appId;
     const count = appTotals[appId] || 0;
+    const brokenCnt = appBrokenCounts[appId] || 0;
     const theme = getAppTheme(appName);
+    const isPinned = pinnedSet.has(String(appId));
 
     const isCurrentActive = activeAppFilter === appId;
     const dynamicStyle = isCurrentActive
       ? `border-color: ${theme.color}; box-shadow: 0 4px 14px ${theme.color}40;`
       : ``;
 
+    const healthClass = activeStockStatusFilter === "available"
+      ? (count <= 2 ? "health-low" : (count >= 5 ? "health-ok" : ""))
+      : "";
+
+    const brokenBadgeHtml = (activeStockStatusFilter !== "broken" && brokenCnt > 0)
+      ? `<span class="chip-broken-badge" title="มี ${brokenCnt} จอติดปัญหา">⚠️${brokenCnt}</span>`
+      : "";
+
+    const shortcutHint = idx < 9 ? ` • กดเลข ${idx + 1} • คลิกขวา/กดค้างเพื่อเปิดเมนูด่วน` : " • คลิกขวา/กดค้างเพื่อเปิดเมนูด่วน";
+
     html += `
-      <button type="button" class="chip-btn ${isCurrentActive ? 'active' : ''}" style="${dynamicStyle}" data-app-id="${escapeHtml(appId)}">
+      <button type="button" class="chip-btn ${isCurrentActive ? 'active' : ''}" style="${dynamicStyle}" data-app-id="${escapeHtml(appId)}" title="${escapeHtml(appName)} (${count} จอ${shortcutHint})">
+        ${isPinned ? `<span class="chip-pin-badge" title="ปักหมุดอยู่">📌</span>` : ""}
         <span>${theme.icon}</span>
         <span>${escapeHtml(appName)}</span>
-        <span class="chip-count" style="${isCurrentActive ? `background: ${theme.color}; color: #04101e;` : ''}">${count}</span>
+        <span class="chip-count ${healthClass}" style="${isCurrentActive ? `background: ${theme.color}; color: #04101e;` : ''}">${count}</span>
+        ${brokenBadgeHtml}
       </button>
     `;
   });
 
+  // Append dimmed Out-of-Stock apps (0 screens) in "available" mode so admin can 1-tap to add stock
+  if (activeStockStatusFilter === "available" && Array.isArray(rawApps)) {
+    const outOfStockApps = rawApps.filter(a => a && a.id && !appTotals[a.id]);
+    outOfStockApps.forEach(app => {
+      const appName = app.display_name || app.name;
+      const theme = getAppTheme(appName);
+      html += `
+        <button type="button" class="chip-btn out-of-stock" data-app-id="${escapeHtml(app.id)}" title="${escapeHtml(appName)} สต็อกหมด (แตะเพื่อเพิ่มสต็อกทันที)">
+          <span>${theme.icon}</span>
+          <span>${escapeHtml(appName)}</span>
+          <span class="chip-count">0 ➕</span>
+        </button>
+      `;
+    });
+  }
+
   const prevScrollLeft = container.scrollLeft;
   container.innerHTML = html;
   container.scrollLeft = prevScrollLeft;
+  updateChipsEdgeFade(container);
 
   const activeChipEl = container.querySelector(".chip-btn.active");
   if (activeChipEl) {
     smoothCenterHorizontalItem(container, activeChipEl, 380);
+    setTimeout(() => updateChipsEdgeFade(container), 400);
   }
 }
 
@@ -1694,6 +1978,7 @@ function enableHorizontalDragScroll(el) {
 window.selectChip = function(appId) {
   haptic();
   activeAppFilter = appId;
+  recordChipUsage(appId);
   renderChips();
   renderStockFeed();
 };
