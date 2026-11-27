@@ -14611,8 +14611,10 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
   let activeScopeAppId = initialAppId || (activeAppFilter !== "all" ? activeAppFilter : "global");
   let previewTestAppId = (activeScopeAppId !== "global") ? activeScopeAppId : ((rawApps && rawApps[0]) ? rawApps[0].id : "");
   let openAppsDrawerBlockId = null;
+  let quickEditBlockId = null;
+  let quickEditAppsOpen = false;
   let previewDataMode = "sample"; // "sample" | "real"
-  let mobilePane = "editor"; // "editor" | "preview"
+  let mobilePane = "preview"; // "preview" (WYSIWYG default!) | "editor"
   let focusedBlockId = null;
   let lastFocusedEditor = null;
   let lastSavedRange = null;
@@ -14665,11 +14667,11 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       </div>
 
       <div class="studio-mobile-view-switch" id="studio-mobile-switch">
-        <button type="button" class="studio-mobile-switch-btn active" data-pane="editor">✏️ แก้ไขบล็อก & ราคา</button>
-        <button type="button" class="studio-mobile-switch-btn" data-pane="preview">💬 พรีวิวแชท LINE</button>
+        <button type="button" class="studio-mobile-switch-btn active" data-pane="preview">💬 พรีวิว & แตะแก้ทันที</button>
+        <button type="button" class="studio-mobile-switch-btn" data-pane="editor">✏️ จัดการทุกบล็อก & ราคา</button>
       </div>
 
-      <div class="studio-workspace" id="studio-workspace" data-mobile-pane="editor">
+      <div class="studio-workspace" id="studio-workspace" data-mobile-pane="preview">
         <!-- Left Pane: Modular Editor & Packages -->
         <div class="studio-editor-pane" id="studio-editor-pane">
           <div class="studio-vars-box">
@@ -14711,7 +14713,10 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
               <span>◀ ลูกค้า (LINE OA)</span>
               <span id="studio-preview-app-badge" style="font-size: 10.5px; color: #38bdf8;">🌐 เทมเพลตกลาง</span>
             </div>
-            <div class="studio-line-chat-bg">
+            <div class="studio-line-chat-bg" id="studio-line-chat-bg">
+              <div style="text-align: center; font-size: 10.5px; color: #94a3b8; background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(148,163,184,0.16); padding: 4px 10px; border-radius: 999px; align-self: center;">
+                💡 แตะที่ท่อนข้อความในกล่องสีเขียวเพื่อแก้ไขได้ทันที
+              </div>
               <div class="studio-line-msg-row">
                 <div class="studio-line-meta">
                   <div>อ่านแล้ว</div>
@@ -14719,10 +14724,14 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
                 </div>
                 <div class="studio-line-bubble" id="studio-line-bubble"></div>
               </div>
+              <div class="studio-preview-quick-actions" id="studio-preview-quick-actions"></div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- ✨ Slide-up WYSIWYG Quick-Edit Bottom Sheet (edits any tapped preview block in-place) -->
+      <div class="studio-quick-edit-sheet" id="studio-quick-edit-sheet"></div>
 
       <div class="studio-footer">
         <button type="button" id="studio-reset-btn" class="studio-footer-btn">↩️ คืนค่าเริ่มต้น</button>
@@ -14744,6 +14753,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
   const blocksListEl = overlay.querySelector("#studio-blocks-list");
   const pkgsContainerEl = overlay.querySelector("#studio-packages-container");
   const bubbleEl = overlay.querySelector("#studio-line-bubble");
+  const previewQuickActionsEl = overlay.querySelector("#studio-preview-quick-actions");
+  const quickEditSheetEl = overlay.querySelector("#studio-quick-edit-sheet");
   const previewAppBadge = overlay.querySelector("#studio-preview-app-badge");
   const previewTimeEl = overlay.querySelector("#studio-preview-time");
   const workspaceEl = overlay.querySelector("#studio-workspace");
@@ -14836,16 +14847,65 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
 
     const previewAppId = appObj ? appObj.id : null;
     const enabledBlocks = blocks.filter(b => isStudioBlockVisibleForApp(b, previewAppId));
+    const hiddenBlocks = blocks.filter(b => !isStudioBlockVisibleForApp(b, previewAppId));
+
     if (enabledBlocks.length === 0) {
-      bubbleEl.innerHTML = `<span style="opacity: 0.65;">(ยังไม่มีบล็อกที่แสดงในแอปนี้)</span>`;
-      return;
+      bubbleEl.innerHTML = `<span style="opacity: 0.65;">(ยังไม่มีบล็อกที่แสดงในแอปนี้ — แตะด้านล่างเพื่อเพิ่มหรือเปิดบล็อก)</span>`;
+    } else {
+      bubbleEl.innerHTML = enabledBlocks.map(b => {
+        const resolved = resolveTemplateText(b.content, vars);
+        const isHi = (focusedBlockId && focusedBlockId === b.id) || (quickEditBlockId && quickEditBlockId === b.id);
+        return `<div class="studio-preview-seg ${isHi ? 'is-highlighted' : ''}" data-preview-block="${escapeHtml(b.id)}" title="แตะเพื่อแก้ไข: ${escapeHtml(b.title || 'บล็อกข้อความ')}">${escapeHtml(resolved)}</div>`;
+      }).join("\n");
     }
 
-    bubbleEl.innerHTML = enabledBlocks.map(b => {
-      const resolved = resolveTemplateText(b.content, vars);
-      const isHi = focusedBlockId && focusedBlockId === b.id;
-      return `<div class="studio-preview-seg ${isHi ? 'is-highlighted' : ''}" data-preview-block="${escapeHtml(b.id)}">${escapeHtml(resolved)}</div>`;
-    }).join("\n");
+    if (previewQuickActionsEl) {
+      const hiddenChipsHtml = hiddenBlocks.map(hb => `
+        <button type="button" class="studio-preview-hidden-chip" data-open-hidden-block="${escapeHtml(hb.id)}" title="แตะเพื่อเปิดหรือแก้ไขบล็อกนี้">
+          <span>🙈</span><span>${escapeHtml(hb.title || "บล็อกที่ซ่อน")}</span>
+        </button>
+      `).join("");
+      const pkgShortcutHtml = activeTab === "sales"
+        ? `<button type="button" class="studio-preview-action-chip" id="studio-preview-goto-pkgs" style="border-color: rgba(52,211,153,0.55); background: rgba(16,185,129,0.16); color: #6ee7b7;">💰 แก้ชื่อ/ราคาแพ็กเกจ</button>`
+        : "";
+      previewQuickActionsEl.innerHTML = `
+        ${hiddenChipsHtml}
+        ${pkgShortcutHtml}
+        <button type="button" class="studio-preview-action-chip" id="studio-preview-add-block-btn">➕ เพิ่มบล็อกใหม่</button>
+      `;
+
+      previewQuickActionsEl.querySelectorAll("[data-open-hidden-block]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          haptic();
+          openQuickEditSheet(btn.dataset.openHiddenBlock);
+        });
+      });
+
+      const gotoPkgsBtn = previewQuickActionsEl.querySelector("#studio-preview-goto-pkgs");
+      if (gotoPkgsBtn) {
+        gotoPkgsBtn.addEventListener("click", () => {
+          haptic();
+          closeQuickEditSheet();
+          mobilePane = "editor";
+          workspaceEl.setAttribute("data-mobile-pane", "editor");
+          overlay.querySelectorAll(".studio-mobile-switch-btn").forEach(b => b.classList.toggle("active", b.dataset.pane === "editor"));
+          pkgsContainerEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+
+      const addFromPreviewBtn = previewQuickActionsEl.querySelector("#studio-preview-add-block-btn");
+      if (addFromPreviewBtn) {
+        addFromPreviewBtn.addEventListener("click", () => {
+          haptic();
+          const blocksArr = getActiveBlocks();
+          const newId = `blk_custom_${Date.now()}`;
+          blocksArr.push({ id: newId, title: `ส่วนเพิ่มเติม #${blocksArr.length + 1}`, enabled: true, content: "" });
+          renderBlocksEditor();
+          renderPreview();
+          openQuickEditSheet(newId);
+        });
+      }
+    }
   };
 
   const getPlainRenderedScript = () => {
@@ -15309,7 +15369,249 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     });
   };
 
+  const closeQuickEditSheet = () => {
+    quickEditBlockId = null;
+    quickEditAppsOpen = false;
+    if (quickEditSheetEl) {
+      quickEditSheetEl.classList.remove("is-open");
+      quickEditSheetEl.innerHTML = "";
+    }
+    renderPreview();
+  };
+
+  const openQuickEditSheet = (blockId) => {
+    if (!quickEditSheetEl) return;
+    const blocks = getActiveBlocks();
+    const idx = blocks.findIndex(b => b.id === blockId);
+    if (idx === -1) {
+      closeQuickEditSheet();
+      return;
+    }
+    const blk = blocks[idx];
+    quickEditBlockId = blk.id;
+    focusedBlockId = blk.id;
+
+    const appSummary = formatBlockAppsSummary(blk);
+    const selectedSet = new Set((Array.isArray(blk.targetApps) ? blk.targetApps : []).map(String));
+    const isAllSelected = selectedSet.size === 0;
+
+    quickEditSheetEl.innerHTML = `
+      <div class="studio-sheet-handle"></div>
+      <div class="studio-block-head" style="margin-bottom: 2px;">
+        <input type="text" class="studio-block-title-input" id="studio-sheet-title" value="${escapeHtml(blk.title || `บล็อก ${idx + 1}`)}" placeholder="ชื่อบล็อก...">
+        <div class="studio-block-actions">
+          <label class="studio-toggle-switch" title="เปิด/ปิดบล็อกนี้">
+            <input type="checkbox" id="studio-sheet-toggle" ${blk.enabled !== false ? 'checked' : ''}>
+            <span class="studio-toggle-slider"></span>
+          </label>
+          <button type="button" class="studio-icon-mini-btn" id="studio-sheet-up" title="เลื่อนขึ้น" ${idx === 0 ? 'disabled style="opacity:0.35;"' : ''}>⬆️</button>
+          <button type="button" class="studio-icon-mini-btn" id="studio-sheet-down" title="เลื่อนลง" ${idx === blocks.length - 1 ? 'disabled style="opacity:0.35;"' : ''}>⬇️</button>
+          <button type="button" class="studio-icon-mini-btn danger" id="studio-sheet-del" title="ลบบล็อกนี้">🗑️</button>
+          <button type="button" class="studio-sheet-done-btn" id="studio-sheet-done">✓ เสร็จสิ้น</button>
+        </div>
+      </div>
+
+      <div class="studio-block-apps-bar" style="margin-bottom: 2px;">
+        <button type="button" class="studio-block-apps-trigger ${appSummary.isFiltered ? 'is-filtered' : ''}" id="studio-sheet-apps-trigger">
+          <span>${escapeHtml(appSummary.text)}</span>
+          <span style="opacity:0.75;">${quickEditAppsOpen ? '▴' : '▾'}</span>
+        </button>
+      </div>
+      <div class="studio-block-apps-drawer ${quickEditAppsOpen ? 'is-open' : ''}" id="studio-sheet-apps-drawer" style="margin-bottom: 2px;">
+        <div class="studio-block-apps-chips">
+          <button type="button" class="studio-app-target-chip all-chip ${isAllSelected ? 'selected' : ''}" data-sheet-app="ALL">
+            <span>${isAllSelected ? '✓' : ''}</span><span>🌐 ทุกแอป</span>
+          </button>
+          ${(rawApps || []).map(a => {
+            const isSel = selectedSet.has(String(a.id));
+            const theme = getAppTheme(a.display_name || a.name);
+            return `
+              <button type="button" class="studio-app-target-chip ${isSel ? 'selected' : ''}" data-sheet-app="${escapeHtml(a.id)}">
+                <span>${isSel ? '✓' : theme.icon}</span>
+                <span>${escapeHtml(a.display_name || a.name)}</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </div>
+
+      <div class="studio-sheet-vars-scroll" id="studio-sheet-vars">
+        ${SCRIPT_STUDIO_VARIABLES.map(v => `
+          <button type="button" class="studio-var-chip" data-token="${escapeHtml(v.token)}">${v.label}</button>
+        `).join("")}
+      </div>
+
+      <div class="studio-rich-editor-wrap" style="border-color: rgba(192,132,252,0.6);">
+        <div class="studio-rich-editor" id="studio-sheet-editor" contenteditable="true" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="min-height: 82px;" data-placeholder="พิมพ์ข้อความสคริปต์ในส่วนนี้...">${renderTemplateToRichHtml(blk.content || "")}</div>
+        <div class="studio-block-mini-bar">
+          <div class="studio-mini-format-btns">
+            <button type="button" class="studio-mini-fmt-btn" data-insert="*ข้อความตัวหนา*"><b>B</b></button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="━━━━━━━━━━━━━━━━━━━━━">━━</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="✨">✨</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="🔥">🔥</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="✅">✅</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="🙏">🙏</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="💖">💖</button>
+          </div>
+          <span class="studio-block-stats" id="studio-sheet-stats">${computeBlockStatsText(blk.content)}</span>
+        </div>
+      </div>
+    `;
+
+    quickEditSheetEl.classList.add("is-open");
+    renderPreview();
+
+    const segEl = bubbleEl.querySelector(`[data-preview-block="${CSS.escape(blk.id)}"]`);
+    if (segEl) {
+      segEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    const sheetEditor = quickEditSheetEl.querySelector("#studio-sheet-editor");
+    const sheetStats = quickEditSheetEl.querySelector("#studio-sheet-stats");
+    lastFocusedEditor = sheetEditor;
+
+    const saveSheetSel = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && sheetEditor.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+        lastSavedRange = sel.getRangeAt(0).cloneRange();
+      }
+    };
+
+    const syncSheet = () => {
+      blk.content = serializeRichEditorToTemplate(sheetEditor);
+      if (sheetStats) sheetStats.textContent = computeBlockStatsText(blk.content);
+      renderPreview();
+      // Keep left editor pane in sync too (if visible on desktop)
+      const mirrorEditor = blocksListEl.querySelector(`[data-block-id="${CSS.escape(blk.id)}"] .studio-rich-editor`);
+      if (mirrorEditor && document.activeElement !== mirrorEditor) {
+        mirrorEditor.innerHTML = renderTemplateToRichHtml(blk.content);
+      }
+    };
+
+    quickEditSheetEl.querySelector("#studio-sheet-title").addEventListener("input", (e) => {
+      blk.title = e.target.value;
+      const mirrorTitle = blocksListEl.querySelector(`[data-block-id="${CSS.escape(blk.id)}"] .studio-block-title-input`);
+      if (mirrorTitle) mirrorTitle.value = blk.title;
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-toggle").addEventListener("change", (e) => {
+      blk.enabled = e.target.checked;
+      renderBlocksEditor();
+      renderPreview();
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-done").addEventListener("click", () => {
+      haptic();
+      renderBlocksEditor();
+      closeQuickEditSheet();
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-up").addEventListener("click", () => {
+      if (idx <= 0) return;
+      haptic();
+      [blocks[idx - 1], blocks[idx]] = [blocks[idx], blocks[idx - 1]];
+      renderBlocksEditor();
+      openQuickEditSheet(blk.id);
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-down").addEventListener("click", () => {
+      if (idx >= blocks.length - 1) return;
+      haptic();
+      [blocks[idx + 1], blocks[idx]] = [blocks[idx], blocks[idx + 1]];
+      renderBlocksEditor();
+      openQuickEditSheet(blk.id);
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-del").addEventListener("click", () => {
+      if (blocks.length <= 1) {
+        showToast("⚠️ ต้องมีอย่างน้อย 1 บล็อกครับ");
+        return;
+      }
+      haptic();
+      blocks.splice(idx, 1);
+      renderBlocksEditor();
+      closeQuickEditSheet();
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-apps-trigger").addEventListener("click", () => {
+      haptic();
+      quickEditAppsOpen = !quickEditAppsOpen;
+      openQuickEditSheet(blk.id);
+    });
+
+    quickEditSheetEl.querySelectorAll("[data-sheet-app]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        haptic();
+        const tId = chip.dataset.sheetApp;
+        if (tId === "ALL") {
+          blk.targetApps = null;
+        } else {
+          const list = Array.isArray(blk.targetApps) ? [...blk.targetApps] : [];
+          const eIdx = list.findIndex(x => String(x) === String(tId));
+          if (eIdx >= 0) list.splice(eIdx, 1);
+          else list.push(tId);
+          blk.targetApps = list.length > 0 ? list : null;
+        }
+        renderBlocksEditor();
+        openQuickEditSheet(blk.id);
+      });
+    });
+
+    quickEditSheetEl.querySelector("#studio-sheet-vars").addEventListener("click", (e) => {
+      const chip = e.target.closest(".studio-var-chip");
+      if (!chip || !chip.dataset.token) return;
+      haptic();
+      insertContentIntoRichEditor(sheetEditor, chip.dataset.token);
+    });
+
+    quickEditSheetEl.querySelectorAll(".studio-mini-fmt-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        haptic();
+        insertContentIntoRichEditor(sheetEditor, btn.dataset.insert || "");
+      });
+    });
+
+    sheetEditor.addEventListener("keyup", saveSheetSel);
+    sheetEditor.addEventListener("mouseup", saveSheetSel);
+    sheetEditor.addEventListener("input", () => {
+      saveSheetSel();
+      syncSheet();
+    });
+    sheetEditor.addEventListener("click", (e) => {
+      const delBtn = e.target.closest(".studio-token-pill-del");
+      if (delBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const pill = delBtn.closest(".studio-token-pill");
+        if (pill) {
+          haptic();
+          pill.remove();
+          syncSheet();
+        }
+      }
+    });
+    sheetEditor.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const plain = (e.clipboardData || window.clipboardData).getData("text/plain") || "";
+      if (!plain) return;
+      plain.split(/(\{\{\w+\}\})/g).forEach(p => {
+        if (p) insertContentIntoRichEditor(sheetEditor, p);
+      });
+    });
+
+    sheetEditor.focus();
+  };
+
+  // Click any block directly inside the green LINE chat bubble to edit it in-place!
+  bubbleEl.addEventListener("click", (e) => {
+    const seg = e.target.closest(".studio-preview-seg[data-preview-block]");
+    if (!seg) return;
+    haptic();
+    openQuickEditSheet(seg.dataset.previewBlock);
+  });
+
   const renderAllStudio = () => {
+    closeQuickEditSheet();
     renderPackagesEditor();
     renderBlocksEditor();
     renderPreview();
