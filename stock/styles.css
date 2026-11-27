@@ -7836,6 +7836,52 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
   color: #e9d5ff;
 }
 
+.studio-block-apps-trigger.is-excluded {
+  border-color: rgba(244, 63, 94, 0.55);
+  background: rgba(244, 63, 94, 0.16);
+  color: #fda4af;
+}
+
+.studio-apps-mode-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.studio-apps-mode-btn {
+  flex: 1;
+  min-width: 115px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(30, 41, 59, 0.7);
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.studio-apps-mode-btn.active.mode-include {
+  border-color: #c084fc;
+  background: rgba(168, 85, 247, 0.22);
+  color: #f3e8ff;
+}
+
+.studio-apps-mode-btn.active.mode-exclude {
+  border-color: #fb7185;
+  background: rgba(244, 63, 94, 0.22);
+  color: #ffe4e6;
+}
+
+.studio-app-target-chip.selected.is-exclude-mode {
+  border-color: #fb7185;
+  background: rgba(244, 63, 94, 0.22);
+  color: #fecdd3;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.22);
+}
+
 .studio-block-apps-trigger:hover {
   filter: brightness(1.12);
 }

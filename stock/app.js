@@ -14466,7 +14466,26 @@ function isStudioBlockVisibleForApp(block, appId) {
   if (!block || block.enabled === false) return false;
   if (!Array.isArray(block.targetApps) || block.targetApps.length === 0) return true;
   if (!appId) return true;
-  return block.targetApps.some(id => String(id) === String(appId));
+  const isMatched = block.targetApps.some(id => String(id) === String(appId));
+  return block.targetAppsMode === "exclude" ? !isMatched : isMatched;
+}
+
+function resolveStudioBlockContent(rawContent, vars, appObj = null) {
+  const showProfile = appObj ? (appObj.show_profile !== false && appObj.show_profile !== 0 && appObj.show_profile !== "0") : true;
+  const showPin = appObj ? (appObj.show_pin !== false && appObj.show_pin !== 0 && appObj.show_pin !== "0") : true;
+  const lines = String(rawContent || "").split("\n");
+
+  const keptLines = lines.filter(line => {
+    if (!showProfile && line.includes("{{profile}}")) return false;
+    if (!showPin && line.includes("{{pin}}")) return false;
+    if (line.includes("{{otp_link}}") && (!vars || !String(vars.otp_link || "").trim())) return false;
+    return true;
+  });
+
+  return keptLines
+    .map(line => line.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars && vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : "")))
+    .join("\n")
+    .trim();
 }
 
 // Render saved Script Studio template if user customized this tab (app-specific first, then global)
@@ -14482,11 +14501,13 @@ function renderStudioTemplateIfCustomized(tabKey, appId, vars) {
 
   if (!blocks) return null;
 
+  const appObj = appId ? (rawApps || []).find(a => String(a.id) === String(appId)) : null;
   const enabledBlocks = blocks.filter(b => isStudioBlockVisibleForApp(b, appId) && (b.content || "").trim().length > 0);
   if (enabledBlocks.length === 0) return null;
 
   return enabledBlocks
-    .map(b => String(b.content || "").replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : "")))
+    .map(b => resolveStudioBlockContent(b.content, vars, appObj))
+    .filter(Boolean)
     .join("\n\n")
     .trim();
 }
@@ -14906,8 +14927,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     };
   };
 
-  const resolveTemplateText = (rawText, vars) => {
-    return String(rawText || "").replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : `{{${k}}}`));
+  const resolveTemplateText = (rawText, vars, appObj = null) => {
+    return resolveStudioBlockContent(rawText, vars, appObj);
   };
 
   const renderPreview = () => {
@@ -14915,9 +14936,15 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     const vars = getPreviewVariables();
     const appObj = getSelectedAppObj();
     if (previewAppBadge) {
+      const autoFlags = [];
+      if (appObj) {
+        if (appObj.show_profile === false || appObj.show_profile === 0 || appObj.show_profile === "0") autoFlags.push("ซ่อนโปรไฟล์");
+        if (appObj.show_pin === false || appObj.show_pin === 0 || appObj.show_pin === "0") autoFlags.push("ซ่อน PIN");
+      }
+      const autoNote = autoFlags.length > 0 ? ` • ${autoFlags.join("/")}` : "";
       previewAppBadge.textContent = activeScopeAppId === "global"
-        ? `🌐 เทมเพลตกลาง (ตัวอย่าง: ${appObj ? (appObj.display_name || appObj.name) : "ทั่วไป"})`
-        : `🎬 ${appObj ? (appObj.display_name || appObj.name) : ""}`;
+        ? `🌐 เทมเพลตกลาง (${appObj ? (appObj.display_name || appObj.name) : "ทั่วไป"}${autoNote})`
+        : `🎬 ${appObj ? (appObj.display_name || appObj.name) : ""}${autoNote}`;
     }
 
     const previewAppId = appObj ? appObj.id : null;
@@ -14928,10 +14955,11 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       bubbleEl.innerHTML = `<span style="opacity: 0.65;">(ยังไม่มีบล็อกที่แสดงในแอปนี้ — แตะด้านล่างเพื่อเพิ่มหรือเปิดบล็อก)</span>`;
     } else {
       bubbleEl.innerHTML = enabledBlocks.map(b => {
-        const resolved = resolveTemplateText(b.content, vars);
+        const resolved = resolveTemplateText(b.content, vars, appObj);
+        if (!resolved) return "";
         const isHi = (focusedBlockId && focusedBlockId === b.id) || (quickEditBlockId && quickEditBlockId === b.id);
         return `<div class="studio-preview-seg ${isHi ? 'is-highlighted' : ''}" data-preview-block="${escapeHtml(b.id)}" title="แตะเพื่อแก้ไข: ${escapeHtml(b.title || 'บล็อกข้อความ')}">${escapeHtml(resolved)}</div>`;
-      }).join("\n");
+      }).filter(Boolean).join("\n");
     }
 
     if (previewQuickActionsEl) {
@@ -14988,7 +15016,7 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     const previewAppId = appObj ? appObj.id : null;
     const blocks = getActiveBlocks().filter(b => isStudioBlockVisibleForApp(b, previewAppId));
     const vars = getPreviewVariables();
-    return blocks.map(b => resolveTemplateText(b.content, vars)).join("\n\n").trim();
+    return blocks.map(b => resolveTemplateText(b.content, vars, appObj)).filter(Boolean).join("\n\n").trim();
   };
 
   const renderPackagesEditor = () => {
@@ -15207,7 +15235,7 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
 
   const formatBlockAppsSummary = (blk) => {
     if (!Array.isArray(blk.targetApps) || blk.targetApps.length === 0) {
-      return { isFiltered: false, text: "🌐 แสดงทุกแอป" };
+      return { isFiltered: false, isExcluded: false, text: "🌐 แสดงทุกแอป" };
     }
     const names = blk.targetApps
       .map(id => {
@@ -15215,9 +15243,12 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
         return a ? (a.display_name || a.name) : null;
       })
       .filter(Boolean);
-    if (names.length === 0) return { isFiltered: false, text: "🌐 แสดงทุกแอป" };
+    if (names.length === 0) return { isFiltered: false, isExcluded: false, text: "🌐 แสดงทุกแอป" };
     const previewNames = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
-    return { isFiltered: true, text: `🎯 เฉพาะ ${names.length} แอป: ${previewNames}` };
+    if (blk.targetAppsMode === "exclude") {
+      return { isFiltered: false, isExcluded: true, text: `🚫 ยกเว้น ${names.length} แอป: ${previewNames}` };
+    }
+    return { isFiltered: true, isExcluded: false, text: `🎯 เฉพาะ ${names.length} แอป: ${previewNames}` };
   };
 
   const renderBlocksEditor = () => {
@@ -15231,6 +15262,7 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       const isHiddenInPreview = blk.enabled !== false && !isStudioBlockVisibleForApp(blk, previewAppId);
       const selectedSet = new Set((Array.isArray(blk.targetApps) ? blk.targetApps : []).map(String));
       const isAllSelected = selectedSet.size === 0;
+      const isExcludeMode = blk.targetAppsMode === "exclude";
 
       return `
       <div class="studio-block-card ${blk.enabled === false ? 'is-disabled' : ''} ${focusedBlockId === blk.id ? 'is-focused' : ''}" data-block-id="${escapeHtml(blk.id)}">
@@ -15247,16 +15279,16 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
           </div>
         </div>
         <div class="studio-block-apps-bar">
-          <button type="button" class="studio-block-apps-trigger ${appSummary.isFiltered ? 'is-filtered' : ''}" title="คลิกเพื่อเลือกว่าบล็อกนี้จะแสดงในแอปอะไรบ้าง">
+          <button type="button" class="studio-block-apps-trigger ${appSummary.isExcluded ? 'is-excluded' : (appSummary.isFiltered ? 'is-filtered' : '')}" title="คลิกเพื่อเลือกว่าบล็อกนี้จะแสดงหรือซ่อนในแอปอะไรบ้าง">
             <span>${escapeHtml(appSummary.text)}</span>
             <span style="opacity: 0.75;">${isDrawerOpen ? '▴' : '▾'}</span>
           </button>
-          ${isHiddenInPreview ? `<span class="studio-block-hidden-pill" title="บล็อกนี้ไม่ได้เลือกแอปที่กำลังพรีวิวอยู่">🙈 ซ่อนใน ${escapeHtml(previewAppObj ? (previewAppObj.display_name || previewAppObj.name) : 'แอปนี้')}</span>` : ''}
+          ${isHiddenInPreview ? `<span class="studio-block-hidden-pill" title="บล็อกนี้ถูกซ่อนในแอปที่กำลังพรีวิวอยู่">🙈 ซ่อนใน ${escapeHtml(previewAppObj ? (previewAppObj.display_name || previewAppObj.name) : 'แอปนี้')}</span>` : ''}
         </div>
         <div class="studio-block-apps-drawer ${isDrawerOpen ? 'is-open' : ''}">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10.5px; color: #cbd5e1; font-weight: 700;">
-            <span>🎯 เลือกแอปที่ต้องการให้แสดงบล็อกนี้:</span>
-            <button type="button" class="studio-mini-fmt-btn studio-apps-select-all-btn">🌐 ใช้กับทุกแอป</button>
+          <div class="studio-apps-mode-row">
+            <button type="button" class="studio-apps-mode-btn mode-include ${!isExcludeMode ? 'active' : ''}" data-apps-mode="include">🎯 แสดงเฉพาะที่เลือก</button>
+            <button type="button" class="studio-apps-mode-btn mode-exclude ${isExcludeMode ? 'active' : ''}" data-apps-mode="exclude">🚫 ซ่อนในแอปที่เลือก (ยกเว้น)</button>
           </div>
           <div class="studio-block-apps-chips">
             <button type="button" class="studio-app-target-chip all-chip ${isAllSelected ? 'selected' : ''}" data-target-app="ALL">
@@ -15266,8 +15298,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
               const isSel = selectedSet.has(String(a.id));
               const theme = getAppTheme(a.display_name || a.name);
               return `
-                <button type="button" class="studio-app-target-chip ${isSel ? 'selected' : ''}" data-target-app="${escapeHtml(a.id)}">
-                  <span>${isSel ? '✓' : theme.icon}</span>
+                <button type="button" class="studio-app-target-chip ${isSel ? 'selected' : ''} ${isSel && isExcludeMode ? 'is-exclude-mode' : ''}" data-target-app="${escapeHtml(a.id)}">
+                  <span>${isSel ? (isExcludeMode ? '✕' : '✓') : theme.icon}</span>
                   <span>${escapeHtml(a.display_name || a.name)}</span>
                 </button>
               `;
@@ -15393,15 +15425,14 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
         });
       }
 
-      const selectAllAppsBtn = card.querySelector(".studio-apps-select-all-btn");
-      if (selectAllAppsBtn) {
-        selectAllAppsBtn.addEventListener("click", () => {
+      card.querySelectorAll(".studio-apps-mode-btn").forEach(mBtn => {
+        mBtn.addEventListener("click", () => {
           haptic();
-          blk.targetApps = null;
+          blk.targetAppsMode = mBtn.dataset.appsMode === "exclude" ? "exclude" : "include";
           renderBlocksEditor();
           renderPreview();
         });
-      }
+      });
 
       card.querySelectorAll(".studio-app-target-chip").forEach(chip => {
         chip.addEventListener("click", () => {
@@ -15561,6 +15592,7 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     const appSummary = formatBlockAppsSummary(blk);
     const selectedSet = new Set((Array.isArray(blk.targetApps) ? blk.targetApps : []).map(String));
     const isAllSelected = selectedSet.size === 0;
+    const isExcludeMode = blk.targetAppsMode === "exclude";
 
     quickEditSheetEl.innerHTML = `
       <div class="studio-sheet-handle"></div>
@@ -15579,12 +15611,16 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       </div>
 
       <div class="studio-block-apps-bar" style="margin-bottom: 2px;">
-        <button type="button" class="studio-block-apps-trigger ${appSummary.isFiltered ? 'is-filtered' : ''}" id="studio-sheet-apps-trigger">
+        <button type="button" class="studio-block-apps-trigger ${appSummary.isExcluded ? 'is-excluded' : (appSummary.isFiltered ? 'is-filtered' : '')}" id="studio-sheet-apps-trigger">
           <span>${escapeHtml(appSummary.text)}</span>
           <span style="opacity:0.75;">${quickEditAppsOpen ? '▴' : '▾'}</span>
         </button>
       </div>
       <div class="studio-block-apps-drawer ${quickEditAppsOpen ? 'is-open' : ''}" id="studio-sheet-apps-drawer" style="margin-bottom: 2px;">
+        <div class="studio-apps-mode-row">
+          <button type="button" class="studio-apps-mode-btn mode-include ${!isExcludeMode ? 'active' : ''}" data-sheet-apps-mode="include">🎯 แสดงเฉพาะที่เลือก</button>
+          <button type="button" class="studio-apps-mode-btn mode-exclude ${isExcludeMode ? 'active' : ''}" data-sheet-apps-mode="exclude">🚫 ซ่อนในแอปที่เลือก (ยกเว้น)</button>
+        </div>
         <div class="studio-block-apps-chips">
           <button type="button" class="studio-app-target-chip all-chip ${isAllSelected ? 'selected' : ''}" data-sheet-app="ALL">
             <span>${isAllSelected ? '✓' : ''}</span><span>🌐 ทุกแอป</span>
@@ -15593,8 +15629,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
             const isSel = selectedSet.has(String(a.id));
             const theme = getAppTheme(a.display_name || a.name);
             return `
-              <button type="button" class="studio-app-target-chip ${isSel ? 'selected' : ''}" data-sheet-app="${escapeHtml(a.id)}">
-                <span>${isSel ? '✓' : theme.icon}</span>
+              <button type="button" class="studio-app-target-chip ${isSel ? 'selected' : ''} ${isSel && isExcludeMode ? 'is-exclude-mode' : ''}" data-sheet-app="${escapeHtml(a.id)}">
+                <span>${isSel ? (isExcludeMode ? '✕' : '✓') : theme.icon}</span>
                 <span>${escapeHtml(a.display_name || a.name)}</span>
               </button>
             `;
@@ -15703,6 +15739,15 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       haptic();
       quickEditAppsOpen = !quickEditAppsOpen;
       openQuickEditSheet(blk.id);
+    });
+
+    quickEditSheetEl.querySelectorAll("[data-sheet-apps-mode]").forEach(mBtn => {
+      mBtn.addEventListener("click", () => {
+        haptic();
+        blk.targetAppsMode = mBtn.dataset.sheetAppsMode === "exclude" ? "exclude" : "include";
+        renderBlocksEditor();
+        openQuickEditSheet(blk.id);
+      });
     });
 
     quickEditSheetEl.querySelectorAll("[data-sheet-app]").forEach(chip => {
