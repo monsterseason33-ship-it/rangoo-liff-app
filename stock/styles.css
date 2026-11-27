@@ -8240,6 +8240,29 @@ select#wizard-bind-device-select.disney-wizard-device-custom-select option {
   overflow-x: auto;
   scrollbar-width: none;
   padding-bottom: 2px;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.studio-tabs,
+.studio-decor-tabs {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.studio-sheet-vars-scroll.is-dragging,
+.studio-tabs.is-dragging,
+.studio-decor-tabs.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto !important;
+}
+
+.studio-sheet-vars-scroll.is-dragging *,
+.studio-tabs.is-dragging *,
+.studio-decor-tabs.is-dragging * {
+  cursor: grabbing !important;
 }
 
 .studio-sheet-vars-scroll::-webkit-scrollbar {

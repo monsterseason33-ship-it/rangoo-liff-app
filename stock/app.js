@@ -15453,6 +15453,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     let activeDecorCat = "dividers";
     const renderDrawer = () => {
       drawerEl.innerHTML = buildStudioDecorDrawerHtml(activeDecorCat);
+      const decorTabsEl = drawerEl.querySelector(".studio-decor-tabs");
+      if (decorTabsEl) enableHorizontalDragScroll(decorTabsEl);
       drawerEl.querySelectorAll(".studio-decor-tab-btn").forEach(tabBtn => {
         tabBtn.addEventListener("click", () => {
           haptic();
@@ -15721,12 +15723,16 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       });
     });
 
-    quickEditSheetEl.querySelector("#studio-sheet-vars").addEventListener("click", (e) => {
-      const chip = e.target.closest(".studio-var-chip");
-      if (!chip || !chip.dataset.token) return;
-      haptic();
-      insertContentIntoRichEditor(sheetEditor, chip.dataset.token);
-    });
+    const sheetVarsEl = quickEditSheetEl.querySelector("#studio-sheet-vars");
+    if (sheetVarsEl) {
+      enableHorizontalDragScroll(sheetVarsEl);
+      sheetVarsEl.addEventListener("click", (e) => {
+        const chip = e.target.closest(".studio-var-chip");
+        if (!chip || !chip.dataset.token) return;
+        haptic();
+        insertContentIntoRichEditor(sheetEditor, chip.dataset.token);
+      });
+    }
 
     quickEditSheetEl.querySelectorAll(".studio-mini-fmt-btn[data-insert]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -15787,7 +15793,9 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     renderPreview();
   };
 
-  // Tab Switch
+  // Tab Switch + Desktop Drag Scroll
+  const studioTabsEl = overlay.querySelector("#studio-tabs");
+  if (studioTabsEl) enableHorizontalDragScroll(studioTabsEl);
   overlay.querySelectorAll(".studio-tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       haptic();
