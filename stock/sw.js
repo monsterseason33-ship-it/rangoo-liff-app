@@ -1,4 +1,4 @@
-const CACHE_NAME = 'boss-stock-mobile-v23';
+const CACHE_NAME = 'boss-stock-mobile-v24';
 const ASSETS = [
   './',
   './index.html',

@@ -14518,6 +14518,81 @@ const SCRIPT_STUDIO_VAR_MAP = new Map(
   SCRIPT_STUDIO_VARIABLES.filter(v => !v.isRawText).map(v => [v.token, v])
 );
 
+const SCRIPT_STUDIO_DECOR_CATEGORIES = [
+  {
+    key: "dividers",
+    label: "📏 เส้นคั่น",
+    wide: true,
+    items: [
+      "━━━━━━━━━━━━━━━━━━━━━",
+      "─────────────────────",
+      "═════════════════════",
+      "✦ ━━━━━━━ ✦ ━━━━━━━ ✦",
+      "• • • • • • • • • • • • •",
+      "★ ★ ★ ★ ★ ★ ★ ★ ★ ★",
+      "❖ ═════════════════ ❖",
+      "〰〰〰〰〰〰〰〰〰〰",
+      "━━━━━━━━ ✨ ━━━━━━━━"
+    ]
+  },
+  {
+    key: "frames",
+    label: "✨ กรอบ/หัวข้อ",
+    wide: true,
+    items: [
+      "【 หัวข้อ 】",
+      "『 ข้อความ 』",
+      "❝ ไฮไลต์ ❞",
+      "▸ ",
+      "▹ ",
+      "🔹 ",
+      "🔸 ",
+      "▪️ ",
+      "➤ ",
+      "✦ ",
+      "✧ ",
+      "❖ ",
+      "★ ",
+      "☆ ",
+      "• "
+    ]
+  },
+  {
+    key: "promo",
+    label: "🔥 ขายดี/โปร",
+    wide: false,
+    items: ["🔥", "⚡", "💥", "💎", "👑", "🎁", "🎉", "🎊", "✨", "🌟", "💯", "🏆", "💰", "💸", "🏷️", "📢", "📣", "🛒", "💳", "🚀"]
+  },
+  {
+    key: "account",
+    label: "🔐 บัญชี/แอป",
+    wide: false,
+    items: ["🎬", "🍿", "📺", "📱", "💻", "🖥️", "🎧", "📧", "🔑", "🔒", "🔓", "🆔", "🔢", "👤", "👥", "🌐", "📅", "⏰", "⏳", "🔄"]
+  },
+  {
+    key: "care",
+    label: "✅ สถานะ/ดูแล",
+    wide: false,
+    items: ["✅", "🟢", "🟡", "🔴", "⚠️", "❗", "📌", "📍", "💡", "📝", "📋", "🙏", "💖", "❤️", "💙", "💚", "💜", "🫶", "😊", "🙌", "👍", "📩", "💬"]
+  }
+];
+
+function buildStudioDecorDrawerHtml(activeCatKey = "dividers") {
+  const activeCat = SCRIPT_STUDIO_DECOR_CATEGORIES.find(c => c.key === activeCatKey) || SCRIPT_STUDIO_DECOR_CATEGORIES[0];
+  return `
+    <div class="studio-decor-tabs">
+      ${SCRIPT_STUDIO_DECOR_CATEGORIES.map(c => `
+        <button type="button" class="studio-decor-tab-btn ${c.key === activeCat.key ? 'active' : ''}" data-decor-cat="${c.key}">${c.label}</button>
+      `).join("")}
+    </div>
+    <div class="studio-decor-grid">
+      ${activeCat.items.map(sym => `
+        <button type="button" class="studio-decor-item-btn ${activeCat.wide ? 'is-wide' : ''}" data-decor-insert="${escapeHtml(sym)}" title="แตะเพื่อแทรก">${escapeHtml(sym)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function createStudioTokenPillHtml(token) {
   const meta = SCRIPT_STUDIO_VAR_MAP.get(token);
   const icon = meta ? meta.icon : "⚡";
@@ -15208,11 +15283,14 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
               <button type="button" class="studio-mini-fmt-btn" data-insert="✨">✨</button>
               <button type="button" class="studio-mini-fmt-btn" data-insert="🔥">🔥</button>
               <button type="button" class="studio-mini-fmt-btn" data-insert="✅">✅</button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="📌">📌</button>
               <button type="button" class="studio-mini-fmt-btn" data-insert="🙏">🙏</button>
               <button type="button" class="studio-mini-fmt-btn" data-insert="💖">💖</button>
+              <button type="button" class="studio-mini-fmt-btn studio-decor-toggle-btn" style="border-color: rgba(192,132,252,0.45); color: #e9d5ff;" title="เปิดคลังอีโมจิ & สัญลักษณ์ตกแต่งสคริปต์">🎨 ตกแต่ง+</button>
             </div>
             <span class="studio-block-stats">${computeBlockStatsText(blk.content)}</span>
           </div>
+          <div class="studio-decor-drawer"></div>
         </div>
       </div>
     `;
@@ -15290,14 +15368,20 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
         });
       });
 
-      // Mini formatting toolbar buttons
-      card.querySelectorAll(".studio-mini-fmt-btn").forEach(fmtBtn => {
+      // Mini formatting toolbar buttons + Decoration & Emoji Picker Drawer
+      card.querySelectorAll(".studio-mini-fmt-btn[data-insert]").forEach(fmtBtn => {
         fmtBtn.addEventListener("click", () => {
           haptic();
           lastFocusedEditor = editorEl;
           insertContentIntoRichEditor(editorEl, fmtBtn.dataset.insert || "");
         });
       });
+
+      const cardDecorDrawer = card.querySelector(".studio-decor-drawer");
+      const cardDecorToggle = card.querySelector(".studio-decor-toggle-btn");
+      if (cardDecorDrawer && cardDecorToggle) {
+        bindStudioDecorDrawer(cardDecorToggle, cardDecorDrawer, editorEl);
+      }
 
       // Per-block App Targeting Drawer & Chips
       const appsTrigger = card.querySelector(".studio-block-apps-trigger");
@@ -15343,17 +15427,13 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       card.querySelector(".studio-move-up").addEventListener("click", () => {
         if (idx <= 0) return;
         haptic();
-        [blocks[idx - 1], blocks[idx]] = [blocks[idx], blocks[idx - 1]];
-        renderBlocksEditor();
-        renderPreview();
+        moveBlockWithFlipAnimation(blocks, idx, idx - 1, blk.id, false);
       });
 
       card.querySelector(".studio-move-down").addEventListener("click", () => {
         if (idx >= blocks.length - 1) return;
         haptic();
-        [blocks[idx + 1], blocks[idx]] = [blocks[idx], blocks[idx + 1]];
-        renderBlocksEditor();
-        renderPreview();
+        moveBlockWithFlipAnimation(blocks, idx, idx + 1, blk.id, false);
       });
 
       card.querySelector(".studio-del-block").addEventListener("click", () => {
@@ -15367,6 +15447,91 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
         renderPreview();
       });
     });
+  };
+
+  const bindStudioDecorDrawer = (toggleBtn, drawerEl, targetEditorEl) => {
+    let activeDecorCat = "dividers";
+    const renderDrawer = () => {
+      drawerEl.innerHTML = buildStudioDecorDrawerHtml(activeDecorCat);
+      drawerEl.querySelectorAll(".studio-decor-tab-btn").forEach(tabBtn => {
+        tabBtn.addEventListener("click", () => {
+          haptic();
+          activeDecorCat = tabBtn.dataset.decorCat;
+          renderDrawer();
+        });
+      });
+      drawerEl.querySelectorAll(".studio-decor-item-btn").forEach(itemBtn => {
+        itemBtn.addEventListener("click", () => {
+          haptic();
+          lastFocusedEditor = targetEditorEl;
+          insertContentIntoRichEditor(targetEditorEl, itemBtn.dataset.decorInsert || "");
+        });
+      });
+    };
+
+    toggleBtn.addEventListener("click", () => {
+      haptic();
+      const willOpen = !drawerEl.classList.contains("is-open");
+      drawerEl.classList.toggle("is-open", willOpen);
+      if (willOpen) renderDrawer();
+    });
+  };
+
+  // ✨ Smooth FLIP Animation for moving blocks UP/DOWN in both LINE Preview & Editor
+  const moveBlockWithFlipAnimation = (blocks, fromIdx, toIdx, movedBlockId, reopenSheet = false) => {
+    // 1. FIRST: Record current Y positions of all preview segments and editor cards
+    const prevPreviewTops = new Map();
+    bubbleEl.querySelectorAll(".studio-preview-seg[data-preview-block]").forEach(el => {
+      prevPreviewTops.set(el.dataset.previewBlock, el.getBoundingClientRect().top);
+    });
+    const prevCardTops = new Map();
+    blocksListEl.querySelectorAll(".studio-block-card[data-block-id]").forEach(el => {
+      prevCardTops.set(el.dataset.blockId, el.getBoundingClientRect().top);
+    });
+
+    // 2. SWAP & RE-RENDER
+    [blocks[fromIdx], blocks[toIdx]] = [blocks[toIdx], blocks[fromIdx]];
+    renderBlocksEditor();
+    if (reopenSheet) {
+      openQuickEditSheet(movedBlockId);
+    } else {
+      renderPreview();
+    }
+
+    // 3. LAST + INVERT + PLAY (Smooth spring glide + highlight flash on moved block!)
+    const applyFlip = (selector, attrName, prevMap) => {
+      const container = selector.includes("preview") ? bubbleEl : blocksListEl;
+      container.querySelectorAll(selector).forEach(el => {
+        const id = el.getAttribute(attrName);
+        const oldTop = prevMap.get(id);
+        if (oldTop === undefined) return;
+        const newTop = el.getBoundingClientRect().top;
+        const dy = oldTop - newTop;
+        if (Math.abs(dy) < 1) return;
+
+        el.style.transition = "none";
+        el.style.transform = `translateY(${dy}px)`;
+        void el.offsetHeight; // force reflow
+
+        requestAnimationFrame(() => {
+          el.style.transition = "transform 0.42s cubic-bezier(0.22, 1, 0.36, 1)";
+          el.style.transform = "translateY(0)";
+          if (id === movedBlockId) {
+            el.classList.remove("is-just-moved");
+            void el.offsetWidth;
+            el.classList.add("is-just-moved");
+            setTimeout(() => el.classList.remove("is-just-moved"), 620);
+          }
+          setTimeout(() => {
+            el.style.transition = "";
+            el.style.transform = "";
+          }, 450);
+        });
+      });
+    };
+
+    applyFlip(".studio-preview-seg[data-preview-block]", "data-preview-block", prevPreviewTops);
+    applyFlip(".studio-block-card[data-block-id]", "data-block-id", prevCardTops);
   };
 
   const closeQuickEditSheet = () => {
@@ -15445,16 +15610,19 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
         <div class="studio-rich-editor" id="studio-sheet-editor" contenteditable="true" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="min-height: 82px;" data-placeholder="พิมพ์ข้อความสคริปต์ในส่วนนี้...">${renderTemplateToRichHtml(blk.content || "")}</div>
         <div class="studio-block-mini-bar">
           <div class="studio-mini-format-btns">
-            <button type="button" class="studio-mini-fmt-btn" data-insert="*ข้อความตัวหนา*"><b>B</b></button>
-            <button type="button" class="studio-mini-fmt-btn" data-insert="━━━━━━━━━━━━━━━━━━━━━">━━</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="*ข้อความตัวหนา*" title="ตัวหนา"><b>B</b></button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="━━━━━━━━━━━━━━━━━━━━━" title="เส้นคั่น">━━</button>
             <button type="button" class="studio-mini-fmt-btn" data-insert="✨">✨</button>
             <button type="button" class="studio-mini-fmt-btn" data-insert="🔥">🔥</button>
             <button type="button" class="studio-mini-fmt-btn" data-insert="✅">✅</button>
+            <button type="button" class="studio-mini-fmt-btn" data-insert="📌">📌</button>
             <button type="button" class="studio-mini-fmt-btn" data-insert="🙏">🙏</button>
             <button type="button" class="studio-mini-fmt-btn" data-insert="💖">💖</button>
+            <button type="button" class="studio-mini-fmt-btn" id="studio-sheet-decor-toggle" style="border-color: rgba(192,132,252,0.45); color: #e9d5ff;" title="คลังอีโมจิ & สัญลักษณ์ตกแต่งสคริปต์">🎨 ตกแต่ง+</button>
           </div>
           <span class="studio-block-stats" id="studio-sheet-stats">${computeBlockStatsText(blk.content)}</span>
         </div>
+        <div class="studio-decor-drawer" id="studio-sheet-decor-drawer"></div>
       </div>
     `;
 
@@ -15509,17 +15677,13 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     quickEditSheetEl.querySelector("#studio-sheet-up").addEventListener("click", () => {
       if (idx <= 0) return;
       haptic();
-      [blocks[idx - 1], blocks[idx]] = [blocks[idx], blocks[idx - 1]];
-      renderBlocksEditor();
-      openQuickEditSheet(blk.id);
+      moveBlockWithFlipAnimation(blocks, idx, idx - 1, blk.id, true);
     });
 
     quickEditSheetEl.querySelector("#studio-sheet-down").addEventListener("click", () => {
       if (idx >= blocks.length - 1) return;
       haptic();
-      [blocks[idx + 1], blocks[idx]] = [blocks[idx], blocks[idx + 1]];
-      renderBlocksEditor();
-      openQuickEditSheet(blk.id);
+      moveBlockWithFlipAnimation(blocks, idx, idx + 1, blk.id, true);
     });
 
     quickEditSheetEl.querySelector("#studio-sheet-del").addEventListener("click", () => {
@@ -15564,12 +15728,18 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       insertContentIntoRichEditor(sheetEditor, chip.dataset.token);
     });
 
-    quickEditSheetEl.querySelectorAll(".studio-mini-fmt-btn").forEach(btn => {
+    quickEditSheetEl.querySelectorAll(".studio-mini-fmt-btn[data-insert]").forEach(btn => {
       btn.addEventListener("click", () => {
         haptic();
         insertContentIntoRichEditor(sheetEditor, btn.dataset.insert || "");
       });
     });
+
+    const sheetDecorToggle = quickEditSheetEl.querySelector("#studio-sheet-decor-toggle");
+    const sheetDecorDrawer = quickEditSheetEl.querySelector("#studio-sheet-decor-drawer");
+    if (sheetDecorToggle && sheetDecorDrawer) {
+      bindStudioDecorDrawer(sheetDecorToggle, sheetDecorDrawer, sheetEditor);
+    }
 
     sheetEditor.addEventListener("keyup", saveSheetSel);
     sheetEditor.addEventListener("mouseup", saveSheetSel);
