@@ -3393,7 +3393,7 @@ function renderScreensInputs(count) {
     const isChecked = prev ? prev.enabled : true;
     const profNameVal = (prev && prev.name !== null) ? prev.name : `จอ ${i}`;
     const autoSeqPin = generateScreenNumberPin(i, profNameVal);
-    const pinVal = (prev && prev.pin !== null) ? prev.pin : (isFlexible ? autoSeqPin : "");
+    const pinVal = (prev && prev.pin !== null) ? prev.pin : ((!isNetflix && isFlexible) ? autoSeqPin : "");
 
     const div = document.createElement("div");
     div.className = "prem-screen-card";
@@ -4005,7 +4005,7 @@ function handleQuickPaste() {
     batchMasterConfig.profiles = [];
     for (let i = 1; i <= defaultScreensCount; i++) {
       const defaultDevice = isDisneyMulti ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-      const defaultPin = isFlexibleMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      const defaultPin = isDisneyMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
       batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
 
@@ -4013,7 +4013,7 @@ function handleQuickPaste() {
       const profiles = [];
       for (let i = 1; i <= defaultScreensCount; i++) {
         const defaultDevice = isDisneyMulti ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-        const defaultPin = isFlexibleMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+        const defaultPin = isDisneyMulti ? generateScreenNumberPin(i, `จอ ${i}`) : "";
         profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
       }
       return {
@@ -4170,7 +4170,7 @@ function renderMasterBatchPanelUI(activeAppPackages, isNetflix, isFlexible = fal
         const oldProf = batchMasterConfig.profiles[i - 1];
         newProfiles.push({
           name: oldProf?.name || `จอ ${i}`,
-          pin: oldProf?.pin || (isFlexible ? generateScreenNumberPin(i, `จอ ${i}`) : ""),
+          pin: oldProf?.pin || ((!isNetflix && isFlexible) ? generateScreenNumberPin(i, `จอ ${i}`) : ""),
           device_type: oldProf?.device_type || defaultDevice
         });
       }
@@ -4448,7 +4448,7 @@ function renderMultiAccountEditor() {
     batchMasterConfig.profiles = [];
     for (let i = 1; i <= screensCount; i++) {
       const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-      const defaultPin = isFlexible ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      const defaultPin = isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : "";
       batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
   }
@@ -4905,7 +4905,7 @@ function addNewMultiAccountRow() {
   } else {
     for (let i = 1; i <= defaultScreensCount; i++) {
       const defaultDevice = isDisney ? 'mobile' : (isNetflix ? (i <= 4 ? 'mobile' : 'tv') : (i <= 3 ? 'mobile' : 'tv'));
-      const defaultPin = isFlexible ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+      const defaultPin = isDisney ? generateScreenNumberPin(i, `จอ ${i}`) : "";
       profiles.push({ name: `จอ ${i}`, pin: defaultPin, device_type: defaultDevice });
     }
   }
@@ -5694,7 +5694,7 @@ function initStockFormEventListeners() {
         batchMasterConfig.profiles = [];
         for (let i = 1; i <= nextCount; i++) {
           const defDev = isDisneyNew ? "mobile" : (isNetflixNew ? (i <= 4 ? "mobile" : "tv") : (i <= 3 ? "mobile" : "tv"));
-          const defPin = isFlexibleNew ? generateScreenNumberPin(i, `จอ ${i}`) : "";
+          const defPin = isDisneyNew ? generateScreenNumberPin(i, `จอ ${i}`) : "";
           batchMasterConfig.profiles.push({ name: `จอ ${i}`, pin: defPin, device_type: defDev });
         }
         parsedBatchAccounts.forEach(acc => {

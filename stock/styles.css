@@ -1670,6 +1670,11 @@ body {
 .modal-sheet {
   width: 100%;
   max-width: 520px;
+  max-height: 92vh;
+  max-height: 92dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: linear-gradient(175deg, #101935 0%, #090e1f 100%);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
