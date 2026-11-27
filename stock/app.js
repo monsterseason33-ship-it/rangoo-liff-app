@@ -14492,20 +14492,77 @@ const SCRIPT_STUDIO_TABS = [
 ];
 
 const SCRIPT_STUDIO_VARIABLES = [
-  { token: "{{app_name}}", label: "🎬 ชื่อแอป" },
-  { token: "{{package_name}}", label: "📦 แพ็กเกจ" },
-  { token: "{{display_id}}", label: "🆔 ID จอ" },
-  { token: "{{customer_name}}", label: "🙋 ชื่อลูกค้า" },
-  { token: "{{email}}", label: "✉️ อีเมล" },
-  { token: "{{password}}", label: "🔑 รหัสผ่าน" },
-  { token: "{{profile}}", label: "👤 โปรไฟล์" },
-  { token: "{{pin}}", label: "🔢 PIN" },
-  { token: "{{device}}", label: "📱 อุปกรณ์" },
-  { token: "{{expiry_date}}", label: "📅 วันหมดอายุ" },
-  { token: "{{otp_link}}", label: "🌐 ลิงก์ OTP" },
-  { token: "{{packages_list}}", label: "💰 รายการแพ็กเกจ" },
-  { token: "━━━━━━━━━━━━━━━━━━━━━", label: "━━ เส้นคั่น" }
+  { token: "{{app_name}}", icon: "🎬", short: "ชื่อแอป", label: "🎬 ชื่อแอป", bg: "rgba(168,85,247,0.22)", border: "rgba(192,132,252,0.55)", color: "#f3e8ff" },
+  { token: "{{package_name}}", icon: "📦", short: "แพ็กเกจ", label: "📦 แพ็กเกจ", bg: "rgba(99,102,241,0.22)", border: "rgba(129,140,248,0.55)", color: "#e0e7ff" },
+  { token: "{{display_id}}", icon: "🆔", short: "ID จอ", label: "🆔 ID จอ", bg: "rgba(245,158,11,0.2)", border: "rgba(251,191,36,0.55)", color: "#fef3c7" },
+  { token: "{{customer_name}}", icon: "🙋", short: "ชื่อลูกค้า", label: "🙋 ชื่อลูกค้า", bg: "rgba(16,185,129,0.2)", border: "rgba(52,211,153,0.55)", color: "#d1fae5" },
+  { token: "{{email}}", icon: "✉️", short: "อีเมล", label: "✉️ อีเมล", bg: "rgba(14,165,233,0.2)", border: "rgba(56,189,248,0.55)", color: "#e0f2fe" },
+  { token: "{{password}}", icon: "🔑", short: "รหัสผ่าน", label: "🔑 รหัสผ่าน", bg: "rgba(6,182,212,0.2)", border: "rgba(34,211,238,0.55)", color: "#cffafe" },
+  { token: "{{profile}}", icon: "👤", short: "โปรไฟล์", label: "👤 โปรไฟล์", bg: "rgba(20,184,166,0.2)", border: "rgba(45,212,191,0.55)", color: "#ccfbf1" },
+  { token: "{{pin}}", icon: "🔢", short: "PIN", label: "🔢 PIN", bg: "rgba(249,115,22,0.2)", border: "rgba(251,146,60,0.55)", color: "#ffedd5" },
+  { token: "{{device}}", icon: "📱", short: "อุปกรณ์", label: "📱 อุปกรณ์", bg: "rgba(59,130,246,0.2)", border: "rgba(96,165,250,0.55)", color: "#dbeafe" },
+  { token: "{{expiry_date}}", icon: "📅", short: "วันหมดอายุ", label: "📅 วันหมดอายุ", bg: "rgba(244,63,94,0.2)", border: "rgba(251,113,133,0.55)", color: "#ffe4e6" },
+  { token: "{{otp_link}}", icon: "🌐", short: "ลิงก์ OTP", label: "🌐 ลิงก์ OTP", bg: "rgba(56,189,248,0.2)", border: "rgba(125,211,252,0.55)", color: "#e0f2fe" },
+  { token: "{{packages_list}}", icon: "💰", short: "รายการแพ็กเกจ", label: "💰 รายการแพ็กเกจ", bg: "rgba(16,185,129,0.24)", border: "rgba(52,211,153,0.65)", color: "#a7f3d0" },
+  { token: "━━━━━━━━━━━━━━━━━━━━━", icon: "━━", short: "เส้นคั่น", label: "━━ เส้นคั่น", isRawText: true }
 ];
+
+const SCRIPT_STUDIO_VAR_MAP = new Map(
+  SCRIPT_STUDIO_VARIABLES.filter(v => !v.isRawText).map(v => [v.token, v])
+);
+
+function createStudioTokenPillHtml(token) {
+  const meta = SCRIPT_STUDIO_VAR_MAP.get(token);
+  const icon = meta ? meta.icon : "⚡";
+  const text = meta ? meta.short : token.replace(/^\{\{|\}\}$/g, "");
+  const styleAttr = meta
+    ? `--pill-bg:${meta.bg}; --pill-border:${meta.border}; --pill-color:${meta.color};`
+    : "";
+  return `<span class="studio-token-pill" contenteditable="false" data-token="${escapeHtml(token)}" style="${styleAttr}"><span class="studio-token-pill-icon">${icon}</span><span class="studio-token-pill-text">${escapeHtml(text)}</span><button type="button" class="studio-token-pill-del" tabindex="-1" title="ลบตัวแปรนี้">×</button></span>`;
+}
+
+function renderTemplateToRichHtml(templateText) {
+  const raw = String(templateText || "");
+  if (!raw) return "";
+  const parts = raw.split(/(\{\{\w+\}\})/g);
+  return parts.map(part => {
+    if (/^\{\{\w+\}\}$/.test(part)) {
+      return createStudioTokenPillHtml(part);
+    }
+    return escapeHtml(part).replace(/\n/g, "<br>");
+  }).join("");
+}
+
+function serializeRichEditorToTemplate(editorEl) {
+  if (!editorEl) return "";
+  const walk = (node, isTopBlock = false) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return (node.textContent || "").replace(/\u00A0/g, " ");
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    if (node.classList && node.classList.contains("studio-token-pill")) {
+      return node.getAttribute("data-token") || "";
+    }
+    const tag = node.tagName;
+    if (tag === "BR") return "\n";
+    let inner = "";
+    node.childNodes.forEach(child => {
+      inner += walk(child, false);
+    });
+    if (tag === "DIV" || tag === "P") {
+      return (isTopBlock ? "\n" : "") + inner;
+    }
+    return inner;
+  };
+
+  let out = "";
+  const children = Array.from(editorEl.childNodes);
+  children.forEach((child, idx) => {
+    const isBlockAfterSomething = idx > 0 && child.nodeType === Node.ELEMENT_NODE && (child.tagName === "DIV" || child.tagName === "P");
+    out += walk(child, isBlockAfterSomething);
+  });
+  return out.replace(/\r/g, "").replace(/\n+$/, (m) => m.length > 1 ? "\n" : "");
+}
 
 function getDefaultStudioBlocks(tabKey) {
   if (tabKey === "delivery") {
@@ -14548,7 +14605,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
   let previewDataMode = "sample"; // "sample" | "real"
   let mobilePane = "editor"; // "editor" | "preview"
   let focusedBlockId = null;
-  let lastFocusedTextarea = null;
+  let lastFocusedEditor = null;
+  let lastSavedRange = null;
 
   const getTemplateKey = (tab, scopeId) => `${tab}::${scopeId || "global"}`;
 
@@ -14942,6 +15000,55 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     }
   };
 
+  const computeBlockStatsText = (content) => {
+    const str = String(content || "");
+    const varCount = (str.match(/\{\{\w+\}\}/g) || []).length;
+    return `${varCount} ตัวแปร • ${str.length} ตัวอักษร`;
+  };
+
+  const insertContentIntoRichEditor = (editorEl, tokenOrText) => {
+    if (!editorEl) return;
+    editorEl.focus();
+    const sel = window.getSelection();
+    let range = null;
+
+    if (lastSavedRange && editorEl.contains(lastSavedRange.commonAncestorContainer)) {
+      range = lastSavedRange.cloneRange();
+    } else if (sel && sel.rangeCount > 0 && editorEl.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      range = sel.getRangeAt(0);
+    } else {
+      range = document.createRange();
+      range.selectNodeContents(editorEl);
+      range.collapse(false);
+    }
+
+    range.deleteContents();
+    let insertedNode;
+    if (/^\{\{\w+\}\}$/.test(tokenOrText)) {
+      const tmp = document.createElement("span");
+      tmp.innerHTML = createStudioTokenPillHtml(tokenOrText);
+      insertedNode = tmp.firstElementChild;
+    } else {
+      insertedNode = document.createTextNode(tokenOrText);
+    }
+
+    range.insertNode(insertedNode);
+    const afterSpace = document.createTextNode(/^\{\{\w+\}\}$/.test(tokenOrText) ? " " : "");
+    if (afterSpace.textContent) {
+      insertedNode.after(afterSpace);
+      range.setStartAfter(afterSpace);
+    } else {
+      range.setStartAfter(insertedNode);
+    }
+    range.collapse(true);
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    lastSavedRange = range.cloneRange();
+    editorEl.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
   const renderBlocksEditor = () => {
     const blocks = getActiveBlocks();
     blocksListEl.innerHTML = blocks.map((blk, idx) => `
@@ -14958,7 +15065,21 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
             <button type="button" class="studio-icon-mini-btn danger studio-del-block" title="ลบบล็อกนี้">🗑️</button>
           </div>
         </div>
-        <textarea class="studio-block-textarea" placeholder="พิมพ์ข้อความสคริปต์ในส่วนนี้...">${escapeHtml(blk.content || "")}</textarea>
+        <div class="studio-rich-editor-wrap">
+          <div class="studio-rich-editor" contenteditable="true" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" data-placeholder="พิมพ์ข้อความสคริปต์ในส่วนนี้ หรือแตะป้ายตัวแปรด้านบน...">${renderTemplateToRichHtml(blk.content || "")}</div>
+          <div class="studio-block-mini-bar">
+            <div class="studio-mini-format-btns">
+              <button type="button" class="studio-mini-fmt-btn" data-insert="*ข้อความตัวหนา*" title="แทรกตัวหนา LINE"><b>B</b></button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="━━━━━━━━━━━━━━━━━━━━━" title="แทรกเส้นคั่น">━━</button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="✨">✨</button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="🔥">🔥</button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="✅">✅</button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="🙏">🙏</button>
+              <button type="button" class="studio-mini-fmt-btn" data-insert="💖">💖</button>
+            </div>
+            <span class="studio-block-stats">${computeBlockStatsText(blk.content)}</span>
+          </div>
+        </div>
       </div>
     `).join("");
 
@@ -14966,7 +15087,21 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       const blk = blocks[idx];
       const titleInput = card.querySelector(".studio-block-title-input");
       const toggleInput = card.querySelector(".studio-block-toggle");
-      const textarea = card.querySelector(".studio-block-textarea");
+      const editorEl = card.querySelector(".studio-rich-editor");
+      const statsEl = card.querySelector(".studio-block-stats");
+
+      const saveCurrentSelection = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editorEl.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+          lastSavedRange = sel.getRangeAt(0).cloneRange();
+        }
+      };
+
+      const syncFromEditor = () => {
+        blk.content = serializeRichEditorToTemplate(editorEl);
+        if (statsEl) statsEl.textContent = computeBlockStatsText(blk.content);
+        renderPreview();
+      };
 
       titleInput.addEventListener("input", () => {
         blk.title = titleInput.value;
@@ -14978,17 +15113,55 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
         renderPreview();
       });
 
-      textarea.addEventListener("focus", () => {
+      editorEl.addEventListener("focus", () => {
         focusedBlockId = blk.id;
-        lastFocusedTextarea = textarea;
+        lastFocusedEditor = editorEl;
         blocksListEl.querySelectorAll(".studio-block-card").forEach(c => c.classList.remove("is-focused"));
         card.classList.add("is-focused");
+        saveCurrentSelection();
         renderPreview();
       });
 
-      textarea.addEventListener("input", () => {
-        blk.content = textarea.value;
-        renderPreview();
+      editorEl.addEventListener("keyup", saveCurrentSelection);
+      editorEl.addEventListener("mouseup", saveCurrentSelection);
+      editorEl.addEventListener("input", () => {
+        saveCurrentSelection();
+        syncFromEditor();
+      });
+
+      // Handle clicking the tiny × button on any variable pill
+      editorEl.addEventListener("click", (e) => {
+        const delBtn = e.target.closest(".studio-token-pill-del");
+        if (delBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const pill = delBtn.closest(".studio-token-pill");
+          if (pill) {
+            haptic();
+            pill.remove();
+            syncFromEditor();
+          }
+        }
+      });
+
+      // Clean plain-text paste (auto-converts pasted {{var}} into rich pills!)
+      editorEl.addEventListener("paste", (e) => {
+        e.preventDefault();
+        const plain = (e.clipboardData || window.clipboardData).getData("text/plain") || "";
+        if (!plain) return;
+        const parts = plain.split(/(\{\{\w+\}\})/g);
+        parts.forEach(p => {
+          if (p) insertContentIntoRichEditor(editorEl, p);
+        });
+      });
+
+      // Mini formatting toolbar buttons
+      card.querySelectorAll(".studio-mini-fmt-btn").forEach(fmtBtn => {
+        fmtBtn.addEventListener("click", () => {
+          haptic();
+          lastFocusedEditor = editorEl;
+          insertContentIntoRichEditor(editorEl, fmtBtn.dataset.insert || "");
+        });
       });
 
       card.querySelector(".studio-move-up").addEventListener("click", () => {
@@ -15032,7 +15205,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       haptic();
       activeTab = btn.dataset.studioTab;
       focusedBlockId = null;
-      lastFocusedTextarea = null;
+      lastFocusedEditor = null;
+      lastSavedRange = null;
       overlay.querySelectorAll(".studio-tab-btn").forEach(b => b.classList.toggle("active", b === btn));
       renderAllStudio();
     });
@@ -15044,7 +15218,8 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
       haptic();
       activeScopeAppId = scopeSelect.value || "global";
       focusedBlockId = null;
-      lastFocusedTextarea = null;
+      lastFocusedEditor = null;
+      lastSavedRange = null;
       renderAllStudio();
     });
   }
@@ -15059,24 +15234,17 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     });
   });
 
-  // Smart Variable Chip Insert
+  // Smart Variable Chip Insert (inserts atomic colored pill directly at caret)
   overlay.querySelector("#studio-vars-chips").addEventListener("click", (e) => {
     const chip = e.target.closest(".studio-var-chip");
     if (!chip || !chip.dataset.token) return;
     haptic();
     const token = chip.dataset.token;
-    const targetTa = (lastFocusedTextarea && document.body.contains(lastFocusedTextarea))
-      ? lastFocusedTextarea
-      : blocksListEl.querySelector(".studio-block-textarea");
-    if (!targetTa) return;
-
-    const start = targetTa.selectionStart ?? targetTa.value.length;
-    const end = targetTa.selectionEnd ?? targetTa.value.length;
-    targetTa.value = targetTa.value.slice(0, start) + token + targetTa.value.slice(end);
-    targetTa.focus();
-    const nextPos = start + token.length;
-    targetTa.setSelectionRange(nextPos, nextPos);
-    targetTa.dispatchEvent(new Event("input", { bubbles: true }));
+    const targetEd = (lastFocusedEditor && document.body.contains(lastFocusedEditor))
+      ? lastFocusedEditor
+      : blocksListEl.querySelector(".studio-rich-editor");
+    if (!targetEd) return;
+    insertContentIntoRichEditor(targetEd, token);
   });
 
   // Add New Block
@@ -15088,10 +15256,10 @@ function openScriptStudioModal(initialTab = "delivery", initialAppId = null) {
     focusedBlockId = newId;
     renderBlocksEditor();
     renderPreview();
-    const newTa = blocksListEl.querySelector(`[data-block-id="${newId}"] .studio-block-textarea`);
-    if (newTa) {
-      newTa.focus();
-      newTa.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const newEd = blocksListEl.querySelector(`[data-block-id="${newId}"] .studio-rich-editor`);
+    if (newEd) {
+      newEd.focus();
+      newEd.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   });
 
